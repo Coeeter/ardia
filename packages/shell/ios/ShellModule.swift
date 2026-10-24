@@ -244,6 +244,7 @@ public class ShellModule: Module {
     OnCreate {
       _ = installTextFieldSelectAll
       _ = installInputSourceKeys
+      _ = installInputContextSubstringGuard
       _ = installScrollViewInsetFix
       _ = installOutsidePressMonitor
       _ = installWindowMoveFallback
@@ -1476,6 +1477,29 @@ let installInputSourceKeys: Void = {
   }
   let imp = imp_implementationWithBlock(block)
   if !class_addMethod(NSTextView.self, keyDown, imp, method_getTypeEncoding(method)) { method_setImplementation(method, imp) }
+}()
+
+// A Chinese or Japanese input method asks the text it was composing in for its text when the focus leaves it (focusing
+// the address bar, #158). On macOS 26 that question reaches a view that can't answer it, AppKit throws, and the
+// input method's event handler reports the exception, which quits the app. The question now gets no text instead.
+let installInputContextSubstringGuard: Void = {
+  let selector = NSSelectorFromString("attributedSubstringForProposedRange:completionHandler:")
+  guard let method = class_getInstanceMethod(NSTextInputContext.self, selector) else { return }
+  typealias Completion = @convention(block) (NSAttributedString?, NSRange) -> Void
+  typealias Substring = @convention(c) (NSTextInputContext, Selector, NSRange, Completion?) -> Void
+  let original = unsafeBitCast(method_getImplementation(method), to: Substring.self)
+  let block: @convention(block) (NSTextInputContext, NSRange, Completion?) -> Void = { context, range, completion in
+    var answered = false
+    let answer: Completion = { string, actualRange in
+      answered = true
+      completion?(string, actualRange)
+    }
+    if let failure = ACTryCatch({ original(context, selector, range, answer) }) {
+      NSLog("Ardia: input method text request failed: \(failure)")
+      if !answered { completion?(nil, NSRange(location: NSNotFound, length: 0)) }
+    }
+  }
+  method_setImplementation(method, imp_implementationWithBlock(block))
 }()
 
 let installWindowMoveFallback: Void = {

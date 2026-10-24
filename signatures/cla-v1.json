@@ -95,6 +95,14 @@
       "created_at": "2026-10-24T22:23:42Z",
       "repoId": 1274703665,
       "pullRequestNo": 180
+    },
+    {
+      "name": "notAkki",
+      "id": 79669032,
+      "comment_id": 6390912021,
+      "created_at": "2026-10-24T23:32:03Z",
+      "repoId": 1274703665,
+      "pullRequestNo": 193
     }
   ]
 }

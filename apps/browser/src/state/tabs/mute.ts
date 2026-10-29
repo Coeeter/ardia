@@ -1,6 +1,7 @@
+import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import type { Tab } from "../browser/types";
-import { isIncognitoProfile } from "../browser/model";
+import { isIncognitoProfile, without } from "../browser/model";
 import { hostOf } from "@ardia/core";
 import { isString, listOf } from "../../lib/decode";
 
@@ -73,3 +74,52 @@ export function sessionWithOwnTabMutes(doc: SavedDoc): SavedDoc {
     parkedPins: parked,
   };
 }
+
+
+export type MuteSlice = {
+  privateSiteMutes: Record<string, Record<string, boolean>>;
+
+  setMuted(ids: string[], muted: boolean): void;
+  setSiteMuted(tabId: string, muted: boolean): void;
+};
+
+export function forgetClosedWindowMutes(s: BrowserState, prev: BrowserState): Pick<BrowserState, "privateSiteMutes"> | null {
+  if (s.windows === prev.windows) return null;
+  const gone = Object.keys(s.privateSiteMutes).filter((id) => !s.windows[id]);
+  return gone.length ? { privateSiteMutes: without(s.privateSiteMutes, gone) } : null;
+}
+
+export const createMuteSlice: StateCreator<BrowserState, [], [], MuteSlice> = (set, get) => ({
+  privateSiteMutes: {},
+
+  setMuted(ids, muted) {
+    set((s) => {
+      const tabs = { ...s.tabs };
+      let changed = false;
+      for (const id of ids) {
+        const t = tabs[id];
+        if (t && t.muted !== muted) {
+          tabs[id] = { ...t, muted };
+          changed = true;
+        }
+      }
+      return changed ? { tabs } : {};
+    });
+  },
+
+  setSiteMuted(tabId, muted) {
+    const s = get();
+    const tab = s.tabs[tabId];
+    if (!tab) return;
+    const host = hostOf(tab.url);
+    if (!host) return;
+    if (isIncognitoProfile(tab.profileId)) {
+      const own = { ...s.privateSiteMutes[tab.windowId], [host]: muted };
+      return set({ privateSiteMutes: { ...get().privateSiteMutes, [tab.windowId]: own } });
+    }
+    const sites = new Set(s.settings.mutedSites);
+    if (muted) sites.add(host);
+    else sites.delete(host);
+    get().updateSettings({ mutedSites: [...sites] });
+  },
+});

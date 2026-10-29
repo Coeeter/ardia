@@ -6,6 +6,8 @@ import { createGroupsSlice, type GroupsSlice } from "../groups/groups";
 import { createHistorySlice, type HistorySlice } from "../history/history";
 import { engineProfile, IDLE_LIVE, isIncognitoProfile } from "./model";
 import { createOrganizeSlice, type OrganizeSlice } from "../pins/organize";
+import { createMuteSlice, type MuteSlice } from "../tabs/mute";
+import { createCleanUpSlice, type CleanUpSlice } from "../pins/tabCleanup";
 import { keptCleanedTabs, keptDeletedGroups } from "../pins/closedTabs";
 import { notePinChoices } from "../pins/pinChoices";
 import { createPeekSlice, type PeekSlice } from "../peek/peek";
@@ -29,6 +31,8 @@ export type BrowserState = ProfilesSlice &
   TabsSlice &
   GroupsSlice &
   OrganizeSlice &
+  MuteSlice &
+  CleanUpSlice &
   SplitsSlice &
   HistorySlice &
   BookmarksSlice &
@@ -102,6 +106,8 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
   ...createTabsSlice(...a),
   ...createGroupsSlice(...a),
   ...createOrganizeSlice(...a),
+  ...createMuteSlice(...a),
+  ...createCleanUpSlice(...a),
   ...createSplitsSlice(...a),
   ...createHistorySlice(...a),
   ...createBookmarksSlice(...a),

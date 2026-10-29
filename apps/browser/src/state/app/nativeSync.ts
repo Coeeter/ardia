@@ -22,7 +22,7 @@ import { flushPersistence, resumePersistence } from "../session/persist";
 import { startWindowCloseGuard } from "../windows/windowClose";
 import { startExtensionsBridge } from "../extensions/bridge";
 import { useExtensions } from "../extensions/actions";
-import { finishQuitSaves, isQuitting, setQuitting } from "./quit";
+import { answerQuitAfterSaves, isQuitting, setQuitting } from "./quit";
 import { menuState } from "../commands/menuState";
 
 const QUIT_SAVES_WAIT_MS = 3_000;
@@ -67,7 +67,7 @@ export function startNativeSync() {
       setQuitting(true);
       finishAnimatedCloses();
       flushPersistence({ final: true });
-      void finishQuitSaves(QUIT_SAVES_WAIT_MS).then(() => replyToTerminate(true));
+      void answerQuitAfterSaves(QUIT_SAVES_WAIT_MS, () => replyToTerminate(true));
     }
     if (e.type === "quitCancelled") {
       setQuitting(false);

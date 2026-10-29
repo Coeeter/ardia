@@ -18,7 +18,7 @@ import { watchExtensionIntents } from "./extensions";
 import { appAdapters, extensionsOf, forgetScopeAdapters, profileAdapters, typeSynced } from "./scopeAdapters";
 import { APP_SCOPE, defaultTypes, emptyDoc, type DataType, type SyncDoc, type SyncUi } from "./syncDoc";
 import { syncFiles } from "./syncFiles";
-import { settleThemeAdoption, themeChosenHere } from "./syncThemes";
+import { noteThemePick, settleThemeAdoption, themeChosenHere } from "./syncThemes";
 import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPair, remoteProfileRecord, sharedDataChain } from "./profileLinks";
 import { summarize } from "./syncSummary";
 import { profileScope } from "./records";
@@ -191,6 +191,7 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
 }
 
 export function adoptProfileTheme(profileId: string) {
+  noteThemePick(profileId);
   if (!themeChosenHere(doc.profiles[profileId])) return;
   save();
   if (doc.enabled) scheduleSync(AFTER_EDIT_MS);

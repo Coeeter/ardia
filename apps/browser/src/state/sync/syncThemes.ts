@@ -24,6 +24,11 @@ export function pairTheme(app: ScopeState | undefined, profileId: string, link: 
   else link.themeAdopting = true;
 }
 
+export const themePicks = new Map<string, number>();
+let picksMade = 0;
+
+export const noteThemePick = (profileId: string) => void themePicks.set(profileId, ++picksMade);
+
 export function themeChosenHere(link: ProfileLink | undefined): boolean {
   if (!link?.themeAdopting) return false;
   delete link.themeAdopting;

@@ -78,28 +78,44 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
 export function profileThemesAdapter(
   links: () => Record<string, { syncId: string; themeAdopting?: true }>,
   records: () => Record<string, { v: unknown }> | undefined,
+  picks: Map<string, number> = new Map(),
 ): Adapter {
   const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
+  const differs = (value: unknown, key: string, base: (key: string) => unknown) => canonical(value) !== canonical(base(key) ?? null);
   const unapplied = (key: string, base: (key: string) => unknown) => {
     const record = records()?.[key];
-    return !!record && record.v !== null && canonical(record.v) !== canonical(base(key) ?? null);
+    return !!record && record.v !== null && differs(record.v, key, base);
   };
+  const dropPick = (id: string, pick: number | undefined) => pick !== undefined && picks.get(id) === pick && picks.delete(id);
   return {
     prefix: PROFILE_THEME,
     adoptRemoteOnJoin: true,
     extract: (base, _queued, _now, known) => {
       const values = new Map<string, unknown>();
+      const pickOf = new Map<string, [string, number]>();
       for (const [id, { syncId, themeAdopting }] of linked()) {
         const theme = store().profiles[id]!.theme;
         const key = `${PROFILE_THEME}${syncId}`;
         const angleKey = themeAngleKey(syncId);
-        if (theme === undefined || themeAdopting || unapplied(key, base) || unapplied(angleKey, base)) continue;
-        values.set(key, (theme ? { t: withoutAngles(theme) } : { preset: true }) satisfies ProfileThemeRecord);
-        const angles = theme ? anglesOf(theme) : {};
-        if (Object.keys(angles).length || known(angleKey)) values.set(angleKey, angles satisfies ThemeAngleRecord);
+        if (theme === undefined || themeAdopting) continue;
+        const record: ProfileThemeRecord = theme ? { t: withoutAngles(theme) } : { preset: true };
+        const angles: ThemeAngleRecord = theme ? anglesOf(theme) : {};
+        const sendAngles = Object.keys(angles).length > 0 || known(angleKey);
+        const pick = picks.get(id);
+        if (!differs(record, key, base) && (!sendAngles || !differs(angles, angleKey, base))) dropPick(id, pick);
+        if (!picks.has(id) && (unapplied(key, base) || unapplied(angleKey, base))) continue;
+        values.set(key, record);
+        if (sendAngles) values.set(angleKey, angles);
+        if (pick !== undefined) for (const k of [key, angleKey]) pickOf.set(k, [id, pick]);
       }
       const mine = new Set(values.keys());
-      return { values, ignore: (key) => !mine.has(key) };
+      const published = (keys: Set<string>) => {
+        for (const key of keys) {
+          const made = pickOf.get(key);
+          if (made) dropPick(...made);
+        }
+      };
+      return { values, ignore: (key) => !mine.has(key), published };
     },
     apply: (visible, changed) => {
       for (const [id, { syncId }] of linked()) {

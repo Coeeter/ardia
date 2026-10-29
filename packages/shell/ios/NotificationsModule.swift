@@ -9,6 +9,7 @@ public class NotificationsModule: Module {
     Events(ShellEvents.Channel.notificationResponse.rawValue)
 
     OnCreate {
+      self.lifetime.begin(self) { ShellEvents.retire(self) }
       self.lifetime.onMain { NotificationHub.shared.install() }
     }
 

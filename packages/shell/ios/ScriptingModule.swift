@@ -7,6 +7,8 @@ public class ScriptingModule: Module {
     Name("ArdiaScripting")
     Events(ShellEvents.Channel.scriptCommand.rawValue)
 
+    OnCreate { self.lifetime.begin(self) { ShellEvents.retire(self) } }
+
     OnStartObserving(ShellEvents.Channel.scriptCommand.rawValue) { ShellEvents.attach(.scriptCommand, to: self, while: self.lifetime) }
 
     OnDestroy {

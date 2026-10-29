@@ -31,6 +31,7 @@ public class ShellModule: Module {
           Self.quitCancelledOwner = nil
           ArdiaHost.quitCancelledHandler = nil
         }
+        ShellEvents.retire(self)
       }
       self.lifetime.onMain { [weak self] in
         guard let self else { return }

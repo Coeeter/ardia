@@ -14,8 +14,9 @@ enum ShellEvents {
   private struct Sink {
     let owner: ObjectIdentifier
     weak var module: Module?
+    let lifetime: ModuleLifetime
 
-    var live: Module? { module?.appContext == nil ? nil : module }
+    var live: Module? { lifetime.isAlive && module?.appContext != nil ? module : nil }
   }
 
   private static var sinks: [Channel: Sink] = [:]
@@ -24,7 +25,7 @@ enum ShellEvents {
     DispatchQueue.main.async { [weak module] in
       guard let module else { return }
       lifetime.run {
-        sinks[channel] = Sink(owner: ObjectIdentifier(module), module: module)
+        sinks[channel] = Sink(owner: ObjectIdentifier(module), module: module, lifetime: lifetime)
         switch channel {
         case .openURLs: OpenURLInbox.flush()
         case .notificationResponse: NotificationHub.shared.flushPending()
@@ -41,6 +42,11 @@ enum ShellEvents {
       for channel in owned { sinks[channel] = nil }
       then(owned)
     }
+  }
+
+  static func retire(_ module: Module) {
+    let owner = ObjectIdentifier(module)
+    sinks = sinks.filter { $0.value.owner != owner }
   }
 
   static func isAttached(_ channel: Channel) -> Bool { sinks[channel]?.live != nil }

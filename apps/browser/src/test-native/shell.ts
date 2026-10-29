@@ -200,6 +200,8 @@ const dev: Modules["ArdiaDev"] = {
   devKeyEquivalent: () => Promise.resolve({ handledBy: "none" }),
   devClick: () => Promise.resolve({}),
   devShortcutRecording: () => Promise.resolve(false),
+  devReceiveURLsWhenDetached: () => {},
+  devURLDelivery: () => Promise.resolve({}),
 };
 
 const system: Modules["ArdiaSystem"] = {

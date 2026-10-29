@@ -5180,6 +5180,30 @@ try {
     if (out.loads !== 1 || JSON.stringify(out.visits) !== "[1]" || out.url !== `${base}${path}`) throw new Error(`after the reload: ${JSON.stringify(out)}`);
     return out;
   });
+  await check("open-url-across-reload", async () => {
+    await appUp("app-url-reload.out.log");
+    const path = `/a?across-reload-${Date.now()}`;
+    await evalApp(`globalThis.expo.modules.ArdiaDev.devReceiveURLsWhenDetached(["${base}${path}"], 20000);
+      setTimeout(() => { try { globalThis.nativeModuleProxy.DevSettings.reload(); } catch {} }, 50); return true`);
+    await sleep(1500);
+    const delivery = await until("the URL handed over", async () => {
+      try {
+        const d = await evalApp(`return globalThis.expo.modules.ArdiaDev.devURLDelivery()`, 3000);
+        return d?.state === "received" || d?.state === "neverDetached" ? d : null;
+      } catch (e) {
+        if (exited) throw e;
+        return null;
+      }
+    }, 60000);
+    if (delivery.state !== "received" || delivery.attachedAfter) throw new Error(`the open-URL sink outlived the reload: ${JSON.stringify(delivery)}`);
+    const opened = () => evalApp(`return Object.values(ac.store.getState().tabs).filter((t) => JSON.stringify(t).includes(${JSON.stringify(path)})).length`);
+    await until("its tab", async () => (await opened()) || null, 30000);
+    await sleep(2000);
+    const tabs = await opened();
+    if (tabs !== 1 || served.get(path) !== 1) throw new Error(`delivered ${tabs} times, loaded ${served.get(path)} times`);
+    return { waitedMs: Math.round(delivery.waitedMs), tabs, loads: served.get(path) };
+  });
+
 
   await check("quit-js-stall", async () => {
     const windowId = await appUp("app-quit-stall.out.log");

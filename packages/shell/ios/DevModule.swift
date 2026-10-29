@@ -104,6 +104,23 @@ public class DevModule: Module {
       return ServerWindowDrag.blockedRects(window)
     }.runOnQueue(.main)
 
+    Function("devReceiveURLsWhenDetached") { (urls: [String], timeoutMs: Double) in
+      DevModule.urlDelivery = ["state": "waiting"]
+      let start = Date()
+      func poll() {
+        let waited = Date().timeIntervalSince(start) * 1000
+        if ShellEvents.isAttached(.openURLs) {
+          guard waited < timeoutMs else { return DevModule.urlDelivery = ["state": "neverDetached", "waitedMs": waited] }
+          return DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(5), execute: poll)
+        }
+        OpenURLInbox.receive(urls.compactMap(URL.init(string:)))
+        DevModule.urlDelivery = ["state": "received", "waitedMs": waited, "attachedAfter": ShellEvents.isAttached(.openURLs)]
+      }
+      DispatchQueue.main.async(execute: poll)
+    }
+
+    AsyncFunction("devURLDelivery") { () -> [String: Any] in DevModule.urlDelivery }.runOnQueue(.main)
+
     AsyncFunction("devShortcutRecording") { () -> Bool in ShortcutRecorder.shared.isRecording }.runOnQueue(.main)
 
     AsyncFunction("devDragPreviewState") { () -> [String: Any] in
@@ -243,6 +260,8 @@ public class DevModule: Module {
       }
     }
   }
+
+  private static var urlDelivery: [String: Any] = [:]
 
   private static let scriptQueue = DispatchQueue(label: "ardia.dev-applescript")
 

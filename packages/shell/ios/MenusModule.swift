@@ -10,7 +10,10 @@ public class MenusModule: Module {
     Events(ShellEvents.Channel.command.rawValue)
 
     OnCreate {
-      self.lifetime.begin(self) { ShortcutRecorder.shared.abandon(by: self) }
+      self.lifetime.begin(self) {
+        ShortcutRecorder.shared.abandon(by: self)
+        ShellEvents.retire(self)
+      }
       ShellEvents.attach(.command, to: self, while: self.lifetime)
       self.lifetime.onMain { NSApp.mainMenu = MainMenu.build() }
     }

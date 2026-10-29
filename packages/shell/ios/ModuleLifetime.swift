@@ -4,7 +4,7 @@ final class ModuleLifetime {
   private static let registryLock = NSLock()
   private static var current: [ObjectIdentifier: ModuleLifetime] = [:]
 
-  private let lock = NSLock()
+  private let lock = NSRecursiveLock()
   private var alive = true
   private var teardown: (() -> Void)?
 
@@ -16,6 +16,12 @@ final class ModuleLifetime {
     let previous = Self.current.updateValue(self, forKey: ObjectIdentifier(type(of: module)))
     Self.registryLock.unlock()
     previous?.end()
+  }
+
+  var isAlive: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return alive
   }
 
   func run(_ body: () -> Void) {

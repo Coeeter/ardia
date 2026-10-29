@@ -41,4 +41,6 @@ export type DevNative = {
   devKeyEquivalent(windowId: string, press: KeyPress): Promise<KeyPressResult>;
   devClick(windowId: string, click: Click): Promise<ClickResult>;
   devShortcutRecording(): Promise<boolean>;
+  devReceiveURLsWhenDetached(urls: string[], timeoutMs: number): void;
+  devURLDelivery(): Promise<{ state?: "waiting" | "received" | "neverDetached"; waitedMs?: number; attachedAfter?: boolean }>;
 };

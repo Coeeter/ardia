@@ -70,7 +70,7 @@ const usesPageA = [
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
   "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
   "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer", "webkit-now-playing-frames",
-  "tab-close-before-create", "tab-create-interrupted-by-move", "tab-close-while-lent",
+  "tab-close-before-create", "tab-load-before-attach", "tab-create-interrupted-by-move", "tab-close-while-lent",
   "page-reports-follow-the-tab",
 ];
 const needs = {
@@ -4428,6 +4428,20 @@ try {
     await toFirst();
     if (leaked.length) throw new Error(`a tab closed while its page was being made kept a Chrome tab: ${JSON.stringify(leaked)}`);
     return { delays: [0, 20, 60, 120] };
+  });
+
+  await check("tab-load-before-attach", async () => {
+    const id = await reopenClosed("load-before", `ac.store.getState().navigate(id, ${JSON.stringify(`${base}/d?pending`)}, { userInitiated: true })`);
+    try {
+      const loaded = await until("the load asked for before the page existed", async () => (await state()).tabs.find((t) => t.id === id && t.title === "Page D" && !t.loading), 15000)
+        .catch(async (e) => { throw new Error(`${e.message}; tab ${JSON.stringify(await evalApp(`const s = ac.store.getState(); const t = s.tabs[${JSON.stringify(id)}]; return { url: t?.url, title: t?.title, page: t?.page, nav: t?.navigation, chrome: ${"$"}{0} }`.replace("${0}", "null")))}; pages ${JSON.stringify((await targets()).filter((t) => t.url.includes("/c?load-before") || t.url.includes("/d?pending")).map((t) => t.url))}`); });
+      const keys = (await chromeTabKeys()).filter((k) => k === id).length;
+      if (keys !== 1) throw new Error(`the tab has ${keys} Chrome tabs`);
+      return { url: loaded.url };
+    } finally {
+      await closeTab(id);
+      await toFirst();
+    }
   });
 
   await check("tab-create-interrupted-by-move", async () => {

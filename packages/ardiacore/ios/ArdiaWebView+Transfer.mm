@@ -182,7 +182,8 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     ArdiaWindowController *controller = view.controller;
     if (!profile || view->_tab || !controller) return;
     const BOOL standalone = view->_standalone;
-    NSString *url = view->_life.pendingURL ?: view->_initialURL;
+    NSString *pending = view->_life.pendingURL;
+    NSString *url = pending ?: view->_initialURL;
     view->_life.pendingURL = nil;
     view->_life.creatingURL = url;
     view->_life.creatingAt = CACurrentMediaTime();
@@ -194,6 +195,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     if (!standalone && [kind isEqualToString:@"clone"] && [view cloneTab:key profile:profile]) return;
     if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardia_host::IsPrivateProfile(view->_profile) && controller.coreWindow) {
       view->_life.phase = ArdiaTabPhase::Creating;
+      view->_life.pendingURL = pending;
       [ArdiaServices call:@"ac_tab_restore_take" profile:view->_profile args:@{@"key" : key}
                 completion:^(NSDictionary *result) {
                   ArdiaWebView *later = weakSelf;
@@ -205,7 +207,10 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
                   ArdiaCoreTab *tab = nil;
                   now.hostChanges++;
                   if (state.length) tab = [now.coreWindow restoreTab:state profile:profile foreground:NO];
-                  if (!tab) tab = [now.coreWindow openTab:url profile:profile foreground:NO];
+                  if (!tab) {
+                    if (later->_life.pendingURL == pending) later->_life.pendingURL = nil;
+                    tab = [now.coreWindow openTab:url profile:profile foreground:NO];
+                  }
                   now.hostChanges--;
                   if (tab) [later attach:tab];
                 }];

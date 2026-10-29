@@ -4434,7 +4434,7 @@ try {
     const id = await reopenClosed("load-before", `ac.store.getState().navigate(id, ${JSON.stringify(`${base}/d?pending`)}, { userInitiated: true })`);
     try {
       const loaded = await until("the load asked for before the page existed", async () => (await state()).tabs.find((t) => t.id === id && t.title === "Page D" && !t.loading), 15000)
-        .catch(async (e) => { throw new Error(`${e.message}; tab ${JSON.stringify(await evalApp(`const s = ac.store.getState(); const t = s.tabs[${JSON.stringify(id)}]; return { url: t?.url, title: t?.title, page: t?.page, nav: t?.navigation, chrome: ${"$"}{0} }`.replace("${0}", "null")))}; pages ${JSON.stringify((await targets()).filter((t) => t.url.includes("/c?load-before") || t.url.includes("/d?pending")).map((t) => t.url))}`); });
+        .catch(async (e) => { throw new Error(`${e.message}; tab ${JSON.stringify(await evalApp(`const s = ac.store.getState(); const t = s.tabs[${JSON.stringify(id)}]; return { url: t?.url, title: t?.title, page: t?.page }`))}; pages ${JSON.stringify((await targets()).filter((t) => t.url.includes("/c?load-before") || t.url.includes("/d?pending")).map((t) => t.url))}`); });
       const keys = (await chromeTabKeys()).filter((k) => k === id).length;
       if (keys !== 1) throw new Error(`the tab has ${keys} Chrome tabs`);
       return { url: loaded.url };

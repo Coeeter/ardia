@@ -18,7 +18,7 @@ type OrganizeDef<Id extends string = string> = {
 export const sideBySide = (split: SplitView | undefined) => split?.orientation === "horizontal";
 const hasRoom = (split: SplitView | undefined) => !split || splitTabIds(split).length < MAX_SPLIT_PANES;
 const stacked = ({ split, tab }: OrganizeContext) => !!split && isStacked(split, tab.id);
-const inProfiles = ({ s, windowId, tab }: OrganizeContext) => !s.windows[windowId]?.incognito && !isIncognitoProfile(tab.profileId);
+const inProfiles = ({ s, windowId, tab }: OrganizeContext) => s.windows[windowId]?.kind !== "private" && !isIncognitoProfile(tab.profileId);
 
 export function splitCandidates({ s, windowId, tab, split }: OrganizeContext): Tab[] {
   return viewTabIds(s, windowId)

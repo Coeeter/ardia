@@ -500,7 +500,7 @@ try {
 
   await check("incognito: a private window's tab can't move to a profile or window, and isn't a destination", async () => {
     await run(`return home();`);
-    const w = await run(`const w = ac.actions.openWindow({ incognito: true, url: "${url("inc")}" }); return settle(2500).then(() => w);`);
+    const w = await run(`const w = ac.actions.openWindow({ kind: "private", url: "${url("inc")}" }); return settle(2500).then(() => w);`);
     const inc = await run(`return idOf("inc");`);
     assert.ok(inc, "a private tab");
     const items = await choose(null, null, { open: tabMenuIn(JSON.stringify(w), JSON.stringify(inc)) });

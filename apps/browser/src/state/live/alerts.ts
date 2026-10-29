@@ -54,7 +54,7 @@ export function dismiss(event: CalendarEvent) {
 const frontWindow = () => {
   const s = useBrowser.getState();
   const id = focusedWindowOf(s);
-  return id && s.windows[id] && !s.windows[id]!.incognito ? id : s.windowOrder.find((w) => !s.windows[w]!.incognito);
+  return id && s.windows[id] && s.windows[id]!.kind !== "private" ? id : s.windowOrder.find((w) => s.windows[w]!.kind !== "private");
 };
 
 let started = false;

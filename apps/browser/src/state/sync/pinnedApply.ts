@@ -41,7 +41,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
   const PARK = `park:${profileId}`;
   const shown = home.tabIds.some((id) => s.tabs[id]?.profileId === profileId);
   if (s.parkedPins[profileId] || !shown) {
-    const stand: Window = { id: PARK, profileId, incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
+    const stand: Window = { id: PARK, profileId, kind: "main", tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
     s = { ...s, windows: { ...s.windows, [PARK]: stand } };
     if (s.parkedPins[profileId]) s = adoptParkedPins(s, PARK, profileId);
   }
@@ -271,7 +271,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
   const sequence = tree.filter((x) => !x.group).map((x) => copied.get(x.id) ?? x.id);
   const rank = new Map(sequence.map((id, i) => [id, i]));
   for (const w of Object.values(windows)) {
-    if (w.incognito) continue;
+    if (w.kind === "private") continue;
     const ids = w.tabIds.filter((id) => tabs[id]);
     const slots = ids.map((id, i) => (rank.has(id) ? i : -1)).filter((i) => i >= 0);
     const sorted = slots.map((i) => ids[i]!).sort((a, z) => rank.get(a)! - rank.get(z)!);

@@ -22,7 +22,7 @@ function atPin(t: Tab, history: HistoryEntry[]): Partial<Pick<Tab, "url" | "titl
 const homeOf = (t: { url: string; pinnedUrl?: string | null }) => t.pinnedUrl || t.url;
 
 export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWindow, s: PinSource): Record<string, ParkedPins> {
-  if (w.incognito) return parked;
+  if (w.kind === "private") return parked;
   const own = Object.values(s.groups).filter((g) => g.pinned && g.windowId === w.id);
   const ownIds = new Set(own.map((g) => g.id));
   const groupOf = new Map<string, TabGroup>();
@@ -88,7 +88,7 @@ export function parkWindowPins(parked: Record<string, ParkedPins>, w: BrowserWin
 export function adoptParkedPins(s: BrowserState, windowId: string, profileId: string): BrowserState {
   const park = s.parkedPins[profileId];
   const w = s.windows[windowId];
-  if (!park || !w || w.incognito || !s.profiles[profileId]) return s;
+  if (!park || !w || w.kind === "private" || !s.profiles[profileId]) return s;
   const tabs = { ...s.tabs };
   const live = { ...s.live };
   const homes = w.tabIds.map((id) => tabs[id]).filter((t): t is Tab => !!t?.pin && t.profileId === profileId).map(homeOf);

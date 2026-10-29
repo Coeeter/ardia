@@ -14,10 +14,10 @@ type PinGroupValue = { n: string; i: string | null; c: TabGroup["color"]; pos: s
 
 type Window = BrowserState["windows"][string];
 
-const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
+const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter((w): w is Window => !!w && w.kind !== "private" && w.kind !== "small");
 
 function homeWindow(s: BrowserState, profileId: string): Window | undefined {
-  const order = [...s.ui.focusOrder, ...s.windowOrder].map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
+  const order = [...s.ui.focusOrder, ...s.windowOrder].map((id) => s.windows[id]).filter((w): w is Window => !!w && w.kind !== "private" && w.kind !== "small");
   const shows = (w: Window) => w.tabIds.some((id) => s.tabs[id]?.profileId === profileId);
   return order.find((w) => w.profileId === profileId && shows(w)) ?? order.find(shows) ?? order.find((w) => w.profileId === profileId) ?? order[0];
 }
@@ -76,7 +76,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       if (!home) return false;
       const PARK = `park:${profileId}`;
       if (s.parkedPins[profileId]) {
-        const stand: Window = { id: PARK, profileId, incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
+        const stand: Window = { id: PARK, profileId, kind: "main", tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 };
         s = adoptParkedPins({ ...s, windows: { ...s.windows, [PARK]: stand } }, PARK, profileId);
       }
       const scope = new Set([home.id, PARK]);
@@ -156,7 +156,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       const sequence = [...tileOrder, ...groupOrder.flatMap((g) => memberOrder.get(g) ?? [])];
       const rank = new Map(sequence.map((id, i) => [id, i]));
       for (const w of Object.values(windows)) {
-        if (w.incognito) continue;
+        if (w.kind === "private") continue;
         const ids = w.tabIds.filter((id) => tabs[id]);
         const slots = ids.map((id, i) => (rank.has(id) ? i : -1)).filter((i) => i >= 0);
         const sorted = slots.map((i) => ids[i]!).sort((a, z) => rank.get(a)! - rank.get(z)!);

@@ -57,7 +57,7 @@ export function seedWindow(tabs: Tab[], frame: BrowserWindow["frame"] = null, no
   return {
     id: WINDOW_ID,
     profileId: PERSONAL.id,
-    incognito: false,
+    kind: "main",
     tabIds: tabs.map((t) => t.id),
     activeTabIds: ACTIVE_TABS,
     sidebarOpen: true,

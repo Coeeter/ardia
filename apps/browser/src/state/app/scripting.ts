@@ -14,7 +14,7 @@ function scriptState(s: BrowserState): ScriptState {
         id,
         title: windowTitle(s, id),
         profileId: w.profileId,
-        incognito: w.incognito,
+        incognito: w.kind === "private",
         activeTabId: activeTabId(s, id) ?? null,
         tabs: viewTabIds(s, id).map((tabId) => {
           const t = s.tabs[tabId]!;
@@ -78,7 +78,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
   switch (request.command) {
     case "newWindow": {
       if (refusesUrl(request.url)) return JAVASCRIPT_FROM_APPLE_EVENTS_REFUSED;
-      const windowId = openWindow({ url: request.url, incognito: request.incognito, profileId: request.profileId });
+      const windowId = openWindow({ url: request.url, kind: request.incognito ? "private" : "main", profileId: request.profileId });
       return { windowId };
     }
     case "newTab": {
@@ -133,7 +133,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
     case "focusProfile": {
       const windowId = resolveWindowId(s, null);
       if (!s.profiles[request.profileId]) throw new Error("That profile no longer exists.");
-      if (!windowId || s.windows[windowId]!.incognito) throw new Error("There's no window to show the profile in.");
+      if (!windowId || s.windows[windowId]!.kind === "private") throw new Error("There's no window to show the profile in.");
       return switchProfile(windowId, request.profileId);
     }
     case "execute": {

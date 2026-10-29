@@ -233,7 +233,7 @@ test("rows park with the last window and come back as rows, and survive a relaun
 test("older data: 0.2.7's pinnedRow stays a tile, a stray row flag on an unpinned tab is dropped", () => {
   const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pin: pinned ? { as: "tile" } : null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
   S().hydrate({
-    windows: { w: { id: "w", profileId: "default", incognito: false, tabIds: ["r", "t", "u"], activeTabIds: { default: "u" }, sidebarOpen: true, frame: null, createdAt: 0 } },
+    windows: { w: { id: "w", profileId: "default", kind: "main", tabIds: ["r", "t", "u"], activeTabIds: { default: "u" }, sidebarOpen: true, frame: null, createdAt: 0 } },
     windowOrder: ["w"],
     tabs: {
       r: tab("r", "https://r.com/", true, { pinnedRow: true }),

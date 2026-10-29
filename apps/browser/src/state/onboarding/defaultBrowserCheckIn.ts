@@ -26,7 +26,7 @@ export function dismissDefaultBrowserCheckIn() {
 
 export function useDefaultBrowserCheckIn(windowId: string) {
   const due = useCheckIn(checkInDue);
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useBrowser((s) => s.windows[windowId]?.kind === "private");
   return {
     visible: due && !incognito,
     leaveFeedback() {

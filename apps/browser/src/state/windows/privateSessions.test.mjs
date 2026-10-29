@@ -37,18 +37,18 @@ const download = (id, profile, offTheRecord) => ({
 
 test("⇧⌘N from a profile-2 window opens profile 2's private session; Personal's is another", () => {
   const { work, a, b } = twoProfiles();
-  const p2 = S().createWindow({ incognito: true });
-  assert.equal(S().windows[p2].originalProfileId, work);
+  const p2 = S().createWindow({ kind: "private" });
+  assert.equal(model.incognitoOriginal(S().windows[p2].profileId), work);
   assert.equal(S().tabs[S().windows[p2].tabIds[0]].profileId, S().windows[p2].profileId, "its tabs are its private profile's");
   assert.equal(engine(p2), `incognito:${p2}@${work}`, "the engine makes it from Work's off-the-record profile");
   assert.equal(session(p2), work);
 
   S().setFocusedWindow(p2);
-  const p2b = S().createWindow({ incognito: true });
+  const p2b = S().createWindow({ kind: "private" });
   assert.equal(session(p2b), work);
   assert.notEqual(engine(p2b), engine(p2), "each window has its own name; the engine shares the profile");
 
-  const p1 = S().createWindow({ incognito: true, profileId: "default" });
+  const p1 = S().createWindow({ kind: "private", profileId: "default" });
   assert.equal(engine(p1), `incognito:${p1}@`);
   assert.equal(session(p1), "");
   assert.notEqual(session(p1), session(p2));
@@ -59,14 +59,14 @@ test("⇧⌘N from a profile-2 window opens profile 2's private session; Persona
 test("a profile sharing another's data is in that profile's private session", () => {
   const { work } = twoProfiles();
   useBrowser.setState((s) => ({ profiles: { ...s.profiles, [work]: { ...s.profiles[work], dataId: "default" } } }));
-  const p = S().createWindow({ incognito: true, profileId: work });
+  const p = S().createWindow({ kind: "private", profileId: work });
   assert.equal(session(p), "");
   assert.equal(engine(p), `incognito:${p}@`);
 });
 
 test("private windows don't page to another profile", () => {
   const { work } = twoProfiles();
-  const p = S().createWindow({ incognito: true });
+  const p = S().createWindow({ kind: "private" });
   const before = S().windows[p].profileId;
   S().switchProfile(p, "default");
   assert.equal(S().windows[p].profileId, before);
@@ -75,12 +75,12 @@ test("private windows don't page to another profile", () => {
 
 test("Little Ardia from a profile-2 private window opens in profile 2, never privately (d9a8899e)", () => {
   const { work } = twoProfiles();
-  const p = S().createWindow({ incognito: true });
+  const p = S().createWindow({ kind: "private" });
   S().setFocusedWindow(p);
   assert.equal(lastActiveProfile(S()), work);
-  const small = S().createWindow({ small: true, url: "https://link.example/" });
+  const small = S().createWindow({ kind: "small", url: "https://link.example/" });
   assert.equal(S().windows[small].profileId, work);
-  assert.ok(!S().windows[small].incognito);
+  assert.equal(S().windows[small].kind, "small");
 });
 
 test("a private session's downloads show in its windows only, never on disk, and go with its last window", async () => {
@@ -88,9 +88,9 @@ test("a private session's downloads show in its windows only, never on disk, and
   stub.cancelledDownloads.length = 0;
   const stop = startApp();
   const { work, a, b } = twoProfiles();
-  const p2 = S().createWindow({ incognito: true });
-  const p2b = S().createWindow({ incognito: true, profileId: work });
-  const p1 = S().createWindow({ incognito: true, profileId: "default" });
+  const p2 = S().createWindow({ kind: "private" });
+  const p2b = S().createWindow({ kind: "private", profileId: work });
+  const p1 = S().createWindow({ kind: "private", profileId: "default" });
   S().upsertDownload(download("private2", work, true));
   S().upsertDownload(download("private1", "", true));
   S().upsertDownload(download("regular2", work, false));
@@ -120,7 +120,7 @@ test("a private session's downloads show in its windows only, never on disk, and
   assert.deepEqual(ids(p1), ["private1"]);
   S().upsertDownload({ ...download("private2", work, true), state: "cancelled" });
   S().upsertDownload(download("unseen", work, true));
-  const next = S().createWindow({ incognito: true, profileId: work });
+  const next = S().createWindow({ kind: "private", profileId: work });
   S().upsertDownload({ ...download("private2", work, true), state: "cancelled" });
   S().upsertDownload(download("unseen", work, true));
   assert.deepEqual(ids(next), []);
@@ -130,15 +130,15 @@ test("a private session's downloads show in its windows only, never on disk, and
 
 test("a private window lists its own profile's extensions (incognito-allowed ones), off the record", () => {
   const { work } = twoProfiles();
-  const p2 = S().createWindow({ incognito: true });
-  const p1 = S().createWindow({ incognito: true, profileId: "default" });
+  const p2 = S().createWindow({ kind: "private" });
+  const p1 = S().createWindow({ kind: "private", profileId: "default" });
   assert.equal(extensionProfile(S(), p2), work);
   assert.equal(extensionProfile(S(), p1), "");
 });
 
 test("a private window's bookmarks are its profile's", () => {
   const { work } = twoProfiles();
-  const p2 = S().createWindow({ incognito: true });
+  const p2 = S().createWindow({ kind: "private" });
   assert.equal(model.bookmarkProfileId(S(), S().windows[p2]), work);
 });
 
@@ -147,15 +147,15 @@ test("Open Link in Incognito Window: the private window is the tab's profile's, 
   assert.equal(privateWindowProfile(S(), S().windows[a], work), work);
   assert.equal(privateWindowProfile(S(), S().windows[b], ""), "default");
   assert.equal(privateWindowProfile(S(), S().windows[b]), work);
-  const p = S().createWindow({ incognito: true, profileId: privateWindowProfile(S(), S().windows[b]) });
+  const p = S().createWindow({ kind: "private", profileId: privateWindowProfile(S(), S().windows[b]) });
   assert.equal(privateWindowProfile(S(), S().windows[p]), work);
-  assert.equal(S().windows[p].originalProfileId, work);
+  assert.equal(model.incognitoOriginal(S().windows[p].profileId), work);
 });
 
 test("deleting a profile closes its private windows, not another profile's", () => {
   const { work } = twoProfiles();
-  const p2 = S().createWindow({ incognito: true });
-  const p1 = S().createWindow({ incognito: true, profileId: "default" });
+  const p2 = S().createWindow({ kind: "private" });
+  const p1 = S().createWindow({ kind: "private", profileId: "default" });
   S().deleteProfile(work);
   assert.ok(!S().windows[p2]);
   assert.ok(S().windows[p1]);
@@ -165,8 +165,8 @@ test("relaunch: no private window, tab or id is saved", () => {
   stub.docs.clear();
   const stop = startApp();
   const { work } = twoProfiles();
-  S().createWindow({ incognito: true, url: "https://secret.example/" });
-  S().createWindow({ incognito: true, profileId: "default", url: "https://secret.example/" });
+  S().createWindow({ kind: "private", url: "https://secret.example/" });
+  S().createWindow({ kind: "private", profileId: "default", url: "https://secret.example/" });
   flushPersistence();
   const saved = stub.docs.get("session.json") ?? "";
   assert.ok(saved.includes(work));

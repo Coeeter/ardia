@@ -123,7 +123,7 @@ export function errorText(kind: LiveError["kind"], source: LiveSourceId): string
 
 export function newLiveFolder(windowId: string, kind: LiveFolderKind): string | null {
   const w = useBrowser.getState().windows[windowId];
-  if (!w || w.incognito) return null;
+  if (!w || w.kind === "private") return null;
   return newProfileLiveFolder(w.profileId, kind);
 }
 

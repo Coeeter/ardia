@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import { engineBookmarkRoots, ensureRoots, removeBookmarkTree } from "../bookmarks/bookmarks";
-import { engineProfile, newId, viewTabIds, without } from "../browser/model";
+import { engineProfile, incognitoOriginal, newId, viewTabIds, without } from "../browser/model";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import type { Profile, ProfileColor } from "../browser/types";
@@ -79,7 +79,7 @@ export const createProfilesSlice: StateCreator<BrowserState, [], [], ProfilesSli
 
     deleteProfile(id) {
       if (!get().profiles[id] || get().profileOrder.length <= 1) return;
-      for (const w of Object.values(get().windows)) if (w.incognito && w.originalProfileId === id) get().closeWindow(w.id);
+      for (const w of Object.values(get().windows)) if (w.kind === "private" && incognitoOriginal(w.profileId) === id) get().closeWindow(w.id);
       let s = get();
       const profileOrder = s.profileOrder.filter((p) => p !== id);
       const fallback = s.settings.defaultProfileId === id ? profileOrder[0]! : s.settings.defaultProfileId;

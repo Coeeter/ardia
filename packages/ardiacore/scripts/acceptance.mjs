@@ -616,7 +616,7 @@ const eventsOf = async (tabId) => {
   return (await browserOf(tabId)) ? engine("tabs.devEvents", { tabId }) : [];
 };
 const state = () =>
-  evalApp(`const s = ac.store.getState(); const w = s.windows[${JSON.stringify(mainWindow)}] ?? Object.values(s.windows).filter((w) => !w.incognito && w.kind !== "small").sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0];
+  evalApp(`const s = ac.store.getState(); const w = s.windows[${JSON.stringify(mainWindow)}] ?? Object.values(s.windows).filter((w) => w.kind === "main").sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0];
     return { windowId: w?.id, profileId: w?.profileId, tabs: (w?.tabIds ?? []).map((id) => ({ id, url: s.tabs[id]?.url, title: s.tabs[id]?.title, favicon: s.tabs[id]?.favicon?.slice(0, 40), adoptId: s.tabs[id]?.page.adopt, profileId: s.tabs[id]?.profileId, loading: s.live[id]?.isLoading, back: s.live[id]?.canGoBack, fwd: s.live[id]?.canGoForward })), active: w ? w.activeTabIds[w.profileId] : null, windows: Object.keys(s.windows).length, profiles: s.profileOrder };`);
 
 // MARK: Helpers
@@ -786,11 +786,11 @@ try {
     const personalTab = await evalApp(`return ac.store.getState().newTab(${JSON.stringify(home)}, { url: "${base}/cookie?personal" })`);
     await shows(home, "Cookie");
     const steps = [];
-    const p1 = await open({ incognito: true, url: `${base}/cookie?private1` });
+    const p1 = await open({ kind: "private", url: `${base}/cookie?private1` });
     await shows(p1, "Cookie");
     if ((await cookie("/cookie?private1")).includes("personal")) throw new Error("a private window sees Personal's cookie");
     await close(p1);
-    const p2 = await open({ incognito: true, url: `${base}/b?private2` });
+    const p2 = await open({ kind: "private", url: `${base}/b?private2` });
     await shows(p2, "Page B");
     steps.push("private, reopened at once");
     if ((await cookie("/b?private2")).includes("personal")) throw new Error("the reopened private window sees Personal's cookie");
@@ -801,13 +801,13 @@ try {
     steps.push("private, a tab after its last tab closed");
     await close(p2);
     await sleep(2500);
-    const p4 = await open({ incognito: true, url: `${base}/d?private4` });
+    const p4 = await open({ kind: "private", url: `${base}/d?private4` });
     await shows(p4, "Page D");
     steps.push("private, reopened later");
     if ((await cookie("/d?private4")).includes("personal")) throw new Error("a later private window sees Personal's cookie");
     let last = p4;
     for (let round = 0; round < 4; round++) {
-      const next = await evalApp(`const s = ac.store.getState(); s.closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ incognito: true, url: "${base}/e?churn${round}" })`);
+      const next = await evalApp(`const s = ac.store.getState(); s.closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ kind: "private", url: "${base}/e?churn${round}" })`);
       await shows(next, "Page E");
       await sleep(round % 2 ? 200 : 1500);
       await evalApp(`ac.store.getState().newTab(${JSON.stringify(next)}, { url: "${base}/b?churn${round}" }); return true`);
@@ -1856,7 +1856,7 @@ try {
   });
 
   await check("private-release", async () => {
-    const a = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/cookie?private1" })`);
+    const a = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${base}/cookie?private1" })`);
     await until("the private cookie set", async () => {
       const tabs = await evalApp(`const s = ac.store.getState(); return (s.windows["${a}"]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
       return tabs.includes("Cookie") ? true : null;
@@ -1864,7 +1864,7 @@ try {
     await sleep(500);
     await evalApp(`ac.store.getState().closeWindow("${a}"); return true`);
     await sleep(2000);
-    const b = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/b?private2" })`);
+    const b = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${base}/b?private2" })`);
     try {
       await until("the second private window's page", async () => {
         const tabs = await evalApp(`const s = ac.store.getState(); return (s.windows["${b}"]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
@@ -1881,13 +1881,13 @@ try {
 
   await check("private-churn", async () => {
     const titles = (w) => evalApp(`const s = ac.store.getState(); return (s.windows[${JSON.stringify(w)}]?.tabIds ?? []).map((i) => s.tabs[i]?.title)`);
-    let last = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/e?churn-start" })`);
+    let last = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${base}/e?churn-start" })`);
     const waits = [];
     try {
       await until("the first private page", async () => ((await titles(last)).includes("Page E") ? true : null), 15000);
       for (let round = 0; round < 50; round++) {
         const started = Date.now();
-        const next = await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ incognito: true, url: "${base}/e?churn${round}" })`);
+        const next = await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ kind: "private", url: "${base}/e?churn${round}" })`);
         last = next;
         await until(`round ${round}: a live tab`, async () => ((await titles(next)).includes("Page E") ? true : null), 15000);
         waits.push(Date.now() - started);
@@ -1898,7 +1898,7 @@ try {
         }
       }
       for (let round = 0; round < 10; round++)
-        last = await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ incognito: true, url: "${base}/e?burst${round}" })`);
+        last = await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(last)}); return ac.actions.openWindow({ kind: "private", url: "${base}/e?burst${round}" })`);
       await until("the burst's last window: a live tab", async () => ((await titles(last)).includes("Page E") ? true : null), 15000);
       await sleep(1500);
       if (!(await titles(last)).includes("Page E")) throw new Error(`the burst's last tab went: ${JSON.stringify(await titles(last))}`);
@@ -2232,7 +2232,7 @@ try {
     const installed = await engineOrError("extensions.install", { profile: "", path: extPath });
     if (installed?.error) throw new Error(installed.error);
     await engineOrError("extensions.configure", { profile: "", id: installed.id, options: { incognito: true } });
-    const privateTabs = () => evalApp(`const s = ac.store.getState(); return Object.values(s.tabs).map((t) => ({ id: t.id, url: t.url, title: t.title, windowId: t.windowId, incognito: !!s.windows[t.windowId]?.incognito, adoptId: t.page.adopt }))`);
+    const privateTabs = () => evalApp(`const s = ac.store.getState(); return Object.values(s.tabs).map((t) => ({ id: t.id, url: t.url, title: t.title, windowId: t.windowId, incognito: s.windows[t.windowId]?.kind === "private", adoptId: t.page.adopt }))`);
     const opened = [];
     try {
       const worker = await until("the extension's worker", async () => {
@@ -2615,7 +2615,7 @@ try {
     const out = [];
     for (const step of ["first", "after-release"]) {
       const tag = `private-${step}-${Date.now()}`;
-      const w = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${origin}/adfirst?${tag}" })`);
+      const w = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${origin}/adfirst?${tag}" })`);
       try {
         await until(`the ${step} private page`, () => evalApp(`const s = ac.store.getState(); const id = s.windows[${JSON.stringify(w)}]?.tabIds[0];
           return id && s.tabs[id]?.title === "Ad first" && !s.live[id]?.isLoading ? true : null`), 20000);
@@ -4157,7 +4157,7 @@ try {
       const remote = `${ok(remoteFetch) ? "ok" : "null"}${reachable ? "" : " (not reachable from this script)"}`;
       const noWindow = await fetchIcon(`${favBase}/icon.png?no-private-window`, "incognito:nnfav@");
       if (noWindow.uri !== null) throw new Error("a fetch made a private profile");
-      privateWindow = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${favBase}/icon.png?private-page" })`);
+      privateWindow = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${favBase}/icon.png?private-page" })`);
       const privateProfile = await until("the private window's engine profile", async () =>
         (await engine("tabs.strips")).strips.find((st) => st.appWindow === privateWindow)?.profile ?? null, 10000);
       if (!privateProfile.startsWith("incognito:")) throw new Error(`the private window's engine profile: ${JSON.stringify(privateProfile)}`);
@@ -4288,7 +4288,7 @@ try {
     return { before, after };
   });
   await check("incognito-window", async () => {
-    const id = await evalApp(`return ac.actions.openWindow({ incognito: true, url: "${base}/b?private" })`);
+    const id = await evalApp(`return ac.actions.openWindow({ kind: "private", url: "${base}/b?private" })`);
     const t = await until("a private tab", async () => {
       const tabs = await evalApp(`const s = ac.store.getState(); return (s.windows["${id}"]?.tabIds ?? []).map((i) => ({ url: s.tabs[i]?.url, title: s.tabs[i]?.title, profile: s.tabs[i]?.profileId }))`);
       return tabs.find((x) => x.title === "Page B") ?? null;
@@ -4703,7 +4703,7 @@ try {
 
   await check("webkit-private-session-ends-mid-transfer", async () => {
     await useWebKit();
-    const windowId = await evalApp(`return ac.actions.openWindow({ incognito: true, url: ${q(`${webkitBase}/c?wk-private`)} })`);
+    const windowId = await evalApp(`return ac.actions.openWindow({ kind: "private", url: ${q(`${webkitBase}/c?wk-private`)} })`);
     try {
       const id = await until("the private WebKit tab", () => evalApp(`const s = ac.store.getState(); const id = s.windows[${q(windowId)}]?.tabIds[0];
         return id && s.tabs[id]?.title === "Page C" && !s.live[id]?.isLoading ? id : null`), 15000);
@@ -5438,7 +5438,7 @@ try {
     await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", ...at });
     const newTabs = () => evalApp(`const s = ac.store.getState(), before = new Set(${JSON.stringify(tabsBefore)});
       return Object.values(s.tabs).filter((t) => !before.has(t.id)).map((t) => ({ id: t.id, url: t.url, title: t.title, windowId: t.windowId,
-        incognito: !!s.windows[t.windowId]?.incognito, newWindow: !${JSON.stringify(windowsBefore)}.includes(t.windowId) }))`);
+        incognito: s.windows[t.windowId]?.kind === "private", newWindow: !${JSON.stringify(windowsBefore)}.includes(t.windowId) }))`);
     const landed = await until("the link's page in the app", async () => (await newTabs()).find((t) => t.url?.endsWith("/b") && t.title === "Page B") ?? null, 15000)
       .catch(async (e) => { throw new Error(`${e.message}; new tabs ${JSON.stringify(await newTabs())}`); });
     await sleep(500);

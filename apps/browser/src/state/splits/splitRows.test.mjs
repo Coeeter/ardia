@@ -200,7 +200,7 @@ test("merging two windows' pins never folds a pinned split's panes into another 
   reset();
   const profiles = S().profiles;
   const tab = (id, windowId, url, pinned) => ({ ...model.makeTab(windowId, "default", url, pinned ? { pin: { as: "row" }, pinnedUrl: url } : {}), id });
-  const win = (id, tabIds, active) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0 });
+  const win = (id, tabIds, active) => ({ id, profileId: "default", kind: "main", tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0 });
   const tabs = Object.fromEntries(
     [tab("a1", "wA", "https://x.com/", true), tab("a2", "wA", "https://y.com/"), tab("b1", "wB", "https://x.com/", true), tab("b2", "wB", "https://x.com/", true), tab("b3", "wB", "https://z.com/")].map((t) => [t.id, t]),
   );

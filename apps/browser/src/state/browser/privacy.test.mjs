@@ -24,7 +24,7 @@ const saved = () => stub.docs.get("session.json") ?? "";
 const settle = () => new Promise((resolve) => setTimeout(resolve, 1700));
 
 function privateWindowWith(...urls) {
-  const w = S().createWindow({ incognito: true, url: urls[0] });
+  const w = S().createWindow({ kind: "private", url: urls[0] });
   const ids = [model.viewTabIds(S(), w)[0]];
   for (const url of urls.slice(1)) ids.push(S().newTab(w, { url }));
   return { w, ids };
@@ -33,7 +33,7 @@ function privateWindowWith(...urls) {
 
 test("incognito window: own profile, closing records nothing, history ignored", () => {
   S().hydrate({});
-  const w = S().createWindow({ incognito: true, url: "secret.com" });
+  const w = S().createWindow({ kind: "private", url: "secret.com" });
   const tab = S().tabs[model.activeTabId(S(), w)];
   assert.equal(tab.profileId, `incognito:${w}@default`);
   stub.historyDbs.clear();
@@ -175,7 +175,7 @@ test("incognito downloads never reach downloads.json and leave with their window
   S().hydrate({});
   const stop = startApp();
   const normal = S().createWindow();
-  const incognito = S().createWindow({ incognito: true });
+  const incognito = S().createWindow({ kind: "private" });
   const privateProfile = S().windows[incognito].profileId;
   S().upsertDownload(download("1", ""));
   S().upsertDownload(download("2", privateProfile, "downloading"));
@@ -200,7 +200,7 @@ test("favicons: incognito icons stay in memory and in their own profile; nothing
   stub.docs.clear();
   const stop = startApp();
   const normal = S().createWindow({ url: "https://site.example/a" });
-  const incognito = S().createWindow({ incognito: true, url: "https://secret.example/x" });
+  const incognito = S().createWindow({ kind: "private", url: "https://secret.example/x" });
   const [normalTab] = S().windows[normal].tabIds;
   const [privateTab] = S().windows[incognito].tabIds;
   const privateProfile = S().windows[incognito].profileId;
@@ -232,7 +232,7 @@ test("incognito windows neither give nor take dragged tabs", () => {
   S().hydrate({});
   const b = S().createWindow({ url: "c.com" });
   S().setWindowFrame(b, [1000, 100, 800, 600]);
-  const i = S().createWindow({ incognito: true, url: "d.com" });
+  const i = S().createWindow({ kind: "private", url: "d.com" });
   S().newTab(i, { url: "e.com" });
   S().setWindowFrame(i, [0, 100, 800, 600]);
   const [tab] = model.viewTabIds(S(), i);

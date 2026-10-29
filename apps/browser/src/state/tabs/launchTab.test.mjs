@@ -14,7 +14,7 @@ const tab = (id, windowId, url, profileId = "default") => ({
   pinnedUrl: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0,
 });
 const win = (id, tabIds, active, extra = {}) => ({
-  id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0, ...extra,
+  id, profileId: "default", kind: "main", tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0, ...extra,
 });
 const PROFILES = {
   default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 },
@@ -44,7 +44,7 @@ test("nothing for a page the engine doesn't load at launch", () => {
   assert.equal(launchTab(S(), null), null, "no focused window");
   assert.equal(launchTab(S(), "gone"), null);
   assert.equal(launchTab({ ...S(), settings: { ...S().settings, restoreSession: false } }, "w1"), null, "a session the user doesn't restore");
-  assert.equal(launchTab({ ...S(), windows: { w1: { ...S().windows.w1, incognito: true } } }, "w1"), null, "private");
+  assert.equal(launchTab({ ...S(), windows: { w1: { ...S().windows.w1, kind: "private" } } }, "w1"), null, "private");
   assert.equal(launchTab({ ...S(), windows: { w1: { ...S().windows.w1, kind: "small" } } }, "w1"), null, "Little Ardia");
 });
 

@@ -38,8 +38,8 @@ test("hydrate repairs dangling references", () => {
   S().hydrate({
     profiles: { default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 } },
     windows: {
-      w1: { id: "w1", profileId: "gone", incognito: false, tabIds: ["t1", "missing"], activeTabIds: { gone: "missing" }, sidebarOpen: true, frame: null, createdAt: 0 },
-      w2: { id: "w2", profileId: "default", incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 },
+      w1: { id: "w1", profileId: "gone", kind: "main", tabIds: ["t1", "missing"], activeTabIds: { gone: "missing" }, sidebarOpen: true, frame: null, createdAt: 0 },
+      w2: { id: "w2", profileId: "default", kind: "main", tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 },
     },
     tabs: {
       t1: { id: "t1", windowId: "w1", profileId: "default", url: "https://a.com", title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },

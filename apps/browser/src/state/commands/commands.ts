@@ -82,7 +82,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "newWindow":
       return void openWindow({ profileId: arg ?? undefined });
     case "newIncognitoWindow":
-      return void openWindow({ incognito: true, profileId: originalProfile(s, s.windows[requested ?? ""]) });
+      return void openWindow({ kind: "private", profileId: originalProfile(s, s.windows[requested ?? ""]) });
     case "newLittleArdia":
       return void openLittleArdia(undefined, arg ?? undefined);
     case "toggleOpenLinksInLittleArdia":
@@ -257,7 +257,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
       return group ? void closeGroup(group.id) : undefined;
     }
     case "openProfileMenu":
-      return s.windows[windowId]?.incognito ? undefined : void openProfileMenu(windowId);
+      return s.windows[windowId]?.kind === "private" ? undefined : void openProfileMenu(windowId);
     case "duplicateTab":
       return tab ? void s.duplicateTab(tab.id) : undefined;
     case "moveTabToProfile":

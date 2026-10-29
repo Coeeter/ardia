@@ -61,7 +61,7 @@ export function extensionsProfileId(profileId?: string | null, windowId?: string
 export const settingsProfileFor = (pane: SettingsPane, current: SettingsPlace): string | null =>
   pane === "extensions" ? extensionsProfileId(current.pane === "extensions" ? current.profileId : null) : null;
 
-export const isPrivate = (s: BrowserState, windowId: string) => !!s.windows[windowId]?.incognito;
+export const isPrivate = (s: BrowserState, windowId: string) => s.windows[windowId]?.kind === "private";
 
 export const pageProfile = (s: BrowserState, windowId: string) =>
   isPrivate(s, windowId) ? engineProfile(s, s.windows[windowId]!.profileId) : extensionProfile(s, windowId);

@@ -24,7 +24,7 @@ function adoptStrayTab(request: Request<"adopt">) {
   const adoptId = asAdoptId(request.adoptId);
   if (!url) return;
   const s = useBrowser.getState();
-  const ofProfile = (id: string) => !!s.windows[id] && !s.windows[id]!.incognito && engineProfile(s, s.windows[id]!.profileId) === profile;
+  const ofProfile = (id: string) => !!s.windows[id] && s.windows[id]!.kind !== "private" && engineProfile(s, s.windows[id]!.profileId) === profile;
   const windowId = s.ui.focusOrder.find(ofProfile) ?? s.ui.focusOrder.find((id) => s.windows[id]);
   const profileId = windowId && ofProfile(windowId) ? s.windows[windowId]!.profileId : s.profileOrder.find((p) => engineProfile(s, p) === profile);
   if (profileId) {
@@ -40,7 +40,7 @@ function openChromeMadeTab(request: Request<"adoptInto">) {
   const { chromeWindow, url, profile, active, focused } = request;
   const adoptId = asAdoptId(request.adoptId);
   const s = useBrowser.getState();
-  const made = Object.values(s.windows).find((w) => w.chromeWindow === chromeWindow);
+  const made = Object.values(s.windows).find((w) => w.kind !== "small" && w.chromeWindow === chromeWindow);
   if (made) return void s.newTab(made.id, { url, adoptId, profileId: made.profileId, background: !active });
   const profileId = s.profileOrder.find((p) => engineProfile(s, p) === profile);
   if (!profileId) return void openWindow({ url, adoptId });
@@ -49,7 +49,7 @@ function openChromeMadeTab(request: Request<"adoptInto">) {
 
 function closeChromeMadeWindow({ chromeWindow }: Request<"closeWindow">) {
   const s = useBrowser.getState();
-  const made = Object.values(s.windows).find((w) => w.chromeWindow === chromeWindow);
+  const made = Object.values(s.windows).find((w) => w.kind !== "small" && w.chromeWindow === chromeWindow);
   if (made) s.closeWindow(made.id);
 }
 
@@ -57,7 +57,7 @@ function moveIntoChromeMadeWindow({ chromeWindow, tabId, focused }: Request<"mov
   const s = useBrowser.getState();
   const tab = s.tabs[tabId];
   if (!tab) return;
-  const made = Object.values(s.windows).find((w) => w.chromeWindow === chromeWindow);
+  const made = Object.values(s.windows).find((w) => w.kind !== "small" && w.chromeWindow === chromeWindow);
   if (made) return void s.moveTabsToWindow([tabId], made.id);
   s.createWindow({ profileId: tab.profileId, tabIds: [tabId], chromeWindow, background: !focused });
 }

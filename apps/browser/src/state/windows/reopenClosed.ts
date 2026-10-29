@@ -29,7 +29,7 @@ export function lastClosedTab(s: BrowserState, windowId: string | undefined): Cl
 
 export function lastClosedEntry(s: BrowserState, windowId: string | null | undefined): { id: string; closedAt: number } | undefined {
   const target = resolveWindowId(s, windowId);
-  const regular = (p: string | undefined) => !s.windows[target ?? ""]?.incognito && shownProfile(s, target, p);
+  const regular = (p: string | undefined) => s.windows[target ?? ""]?.kind !== "private" && shownProfile(s, target, p);
   const lastWindow = findLast(s.closedWindows, (c) => regular(c.window.profileId));
   const lastGroup = findLast(s.closedGroups, (c) => regular(c.tabs[0]?.profileId));
   return [lastWindow, lastGroup, lastClosedTab(s, target)].reduce<{ id: string; closedAt: number } | undefined>(
@@ -41,18 +41,18 @@ export function lastClosedEntry(s: BrowserState, windowId: string | null | undef
 function canRestoreTabInto(s: BrowserState, c: ClosedTab, windowId: string | undefined): boolean {
   const w = windowId ? s.windows[windowId] : undefined;
   if (isIncognitoProfile(c.tab.profileId)) return c.windowId === windowId;
-  return !w?.incognito;
+  return w?.kind !== "private";
 }
 
 export function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string | null): BrowserState {
   const owner = entry.tab.profileId;
   if (entry.pinnedTile && entry.tabId && !s.tabs[entry.tabId] && s.parkedPins[owner]?.tabs.some((p) => p.id === entry.tabId)) {
     const target = resolveWindowId(s, requested);
-    let windowId = target && !s.windows[target]!.incognito && s.windows[target]!.profileId === owner ? target : undefined;
+    let windowId = target && s.windows[target]!.kind !== "private" && s.windows[target]!.profileId === owner ? target : undefined;
     let next = s;
     if (!windowId) {
       windowId = newId("w");
-      next = withWindow(next, emptyWindow(windowId, owner, false));
+      next = withWindow(next, emptyWindow(windowId, owner, "main"));
     }
     next = adoptParkedPins(next, windowId, owner);
     if (next.tabs[entry.tabId]) return restoreTab(next, entry, windowId);
@@ -86,7 +86,7 @@ export function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string
   if (!windowId || !canRestoreTabInto(s, entry, windowId)) {
     if (isIncognitoProfile(entry.tab.profileId)) return next;
     windowId = newId("w");
-    next = withWindow(next, emptyWindow(windowId, s.profiles[entry.tab.profileId] ? entry.tab.profileId : s.settings.defaultProfileId, false));
+    next = withWindow(next, emptyWindow(windowId, s.profiles[entry.tab.profileId] ? entry.tab.profileId : s.settings.defaultProfileId, "main"));
   }
   const w = next.windows[windowId]!;
   const profileId = isIncognitoProfile(entry.tab.profileId) || s.profiles[entry.tab.profileId] ? entry.tab.profileId : w.profileId;
@@ -105,7 +105,7 @@ export function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string
 export function restoreWindow(s: BrowserState, entry: ClosedWindow): BrowserState {
   const id = newId("w");
   const profileOk = (p: string) => (s.profiles[p] ? p : s.settings.defaultProfileId);
-  const w = emptyWindow(id, profileOk(entry.window.profileId), false, entry.window.frame);
+  const w = emptyWindow(id, profileOk(entry.window.profileId), "main", entry.window.frame);
   w.sidebarOpen = entry.window.sidebarOpen;
   const tabs = { ...s.tabs };
   const live = { ...s.live };

@@ -9,7 +9,7 @@ export function startHandoff() {
       const w = s.windows[id]!;
       const tabId = activeTabId(s, id);
       const tab = tabId ? s.tabs[tabId] : undefined;
-      const url = !w.incognito && tab?.url && /^https?:/i.test(tab.url) ? tab.url : null;
+      const url = w.kind !== "private" && tab?.url && /^https?:/i.test(tab.url) ? tab.url : null;
       const title = tab ? tab.customTitle || tab.title : "";
       const key = `${url}\n${title}`;
       if (last.get(id) === key) continue;

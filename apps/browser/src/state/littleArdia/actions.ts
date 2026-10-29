@@ -17,7 +17,7 @@ import type { AdoptId } from "../browser/types";
 const store = () => useBrowser.getState();
 
 export function openLittleArdia(url?: string, profileId?: string, adoptId?: AdoptId, linkPointer?: [number, number]): string {
-  const id = store().createWindow({ small: true, url, profileId, adoptId, linkPointer });
+  const id = store().createWindow({ kind: "small", url, profileId, adoptId, linkPointer });
   if (!url) store().openPanel(id, "");
   return id;
 }
@@ -92,7 +92,7 @@ export function moveLittleArdiaToProfile(windowId: string, profileId: string) {
   if (!w || !isSmall(s, windowId) || isWindowClosing(windowId) || !s.profiles[profileId] || w.profileId === profileId) return;
   const tabId = activeTabId(s, windowId);
   const url = (tabId ? s.tabs[tabId]?.url : undefined) || undefined;
-  const id = store().createWindow({ small: true, url, profileId, frame: w.frame });
+  const id = store().createWindow({ kind: "small", url, profileId, frame: w.frame });
   if (!url) store().openPanel(id, "");
   closeWindowAnimated(windowId, id, () => {
     if (tabId) useBrowser.setState((now) => ({ closedTabs: now.closedTabs.filter((c) => c.tabId !== tabId) }));

@@ -29,6 +29,6 @@ export function leavesEmptyWindow(s: BrowserState, id: string): boolean {
   if (!w || w.kind === "small") return false;
   if (lastTabKeepsWindow) return closesWindow(s, id);
   if (!NEW_TAB_BAR_POLICY.closingLastTabLeavesEmptyWindow || !newTabOpensBar(s)) return false;
-  if (w.incognito || isEmptyCardTab(s, tab)) return false;
+  if (w.kind === "private" || isEmptyCardTab(s, tab)) return false;
   return closesWindow(s, id);
 }

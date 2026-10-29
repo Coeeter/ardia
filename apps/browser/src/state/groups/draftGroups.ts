@@ -31,7 +31,7 @@ export function bookmarkDraft(b: Bookmarks, folderId: string): GroupDraft | null
 export function withDraftGroups(s: BrowserState, windowId: string, profileId: string, drafts: GroupDraft[]): [BrowserState, DraftGroups] {
   const carried = new Set<string>();
   const w = s.windows[windowId];
-  if (!w || w.incognito) return [s, { made: [], carried, skipped: 0 }];
+  if (!w || w.kind === "private") return [s, { made: [], carried, skipped: 0 }];
   const seen = pinnedPages(s, profileId);
   const tabs = { ...s.tabs };
   const live = { ...s.live };

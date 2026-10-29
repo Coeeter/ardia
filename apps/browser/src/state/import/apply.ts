@@ -133,7 +133,7 @@ export async function importNative(
 
 function windowFor(profileId: string): string {
   const s = useBrowser.getState();
-  const regular = s.ui.focusOrder.find((id) => s.windows[id] && !s.windows[id]!.incognito) ?? s.windowOrder.find((id) => !s.windows[id]!.incognito);
+  const regular = s.ui.focusOrder.find((id) => s.windows[id] && s.windows[id]!.kind !== "private") ?? s.windowOrder.find((id) => s.windows[id]!.kind !== "private");
   return regular ?? s.createWindow({ profileId });
 }
 
@@ -272,7 +272,7 @@ export function profileColorFor(hex: string | undefined): ProfileColor | undefin
 export function defaultTarget(): string {
   const s = useBrowser.getState();
   const w = s.windows[focusedWindowOf(s) ?? ""];
-  return w && !w.incognito ? w.profileId : s.settings.defaultProfileId;
+  return w && w.kind !== "private" ? w.profileId : s.settings.defaultProfileId;
 }
 
 export function profileNamed(name: string): string | undefined {

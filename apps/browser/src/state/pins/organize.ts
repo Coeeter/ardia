@@ -266,7 +266,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     if (!ids.length) return 0;
     const entries = closedEntries(s, ids);
     const next = closeQuietly(s, ids);
-    if (s.windows[windowId]?.incognito) {
+    if (s.windows[windowId]?.kind === "private") {
       const own = [...keptCleanedTabs(next.privateCleanedTabs[windowId] ?? []), ...entries].slice(-MAX_CLEANED);
       set({ ...next, privateCleanedTabs: { ...next.privateCleanedTabs, [windowId]: own } });
     } else {
@@ -277,7 +277,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
 
   restoreCleaned(entryId, fromWindowId) {
     const s = get();
-    const privateId = fromWindowId && s.windows[fromWindowId]?.incognito
+    const privateId = fromWindowId && s.windows[fromWindowId]?.kind === "private"
       ? fromWindowId
       : Object.keys(s.privateCleanedTabs).find((id) => !!entryId && s.privateCleanedTabs[id]!.some((c) => c.id === entryId));
     const list = keptCleanedTabs(privateId ? (s.privateCleanedTabs[privateId] ?? []) : s.cleanedTabs);
@@ -288,7 +288,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       ? { ...s, privateCleanedTabs: { ...s.privateCleanedTabs, [privateId]: left } }
       : { ...s, cleanedTabs: left };
     for (const e of entries) {
-      const windowId = privateId ? (next.windows[privateId]?.incognito ? privateId : undefined) : restoreTarget(next, e.windowId);
+      const windowId = privateId ? (next.windows[privateId]?.kind === "private" ? privateId : undefined) : restoreTarget(next, e.windowId);
       if (!windowId || (isIncognitoProfile(e.tab.profileId) && e.windowId !== windowId)) continue;
       const [restored, [id]] = restoreSnapshots(next, windowId, [{ tab: e.tab, tabId: e.restoreFrom ?? e.tabId, index: windowId === e.windowId ? e.index : undefined }]);
       next = restored;

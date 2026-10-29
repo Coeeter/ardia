@@ -30,7 +30,7 @@ export const useProfileLooks = <T>(pages: readonly { id: string }[], look: (prof
   useBrowser(useShallow((s) => pages.map((p) => look(s.profiles[p.id], s.ui.appDark, s.settings))));
 
 export const useCreateProfileShareDefault = (windowId: string | null): string =>
-  useBrowser((s) => (windowId && !s.windows[windowId]?.incognito ? s.windows[windowId]!.profileId : s.settings.defaultProfileId));
+  useBrowser((s) => (windowId && s.windows[windowId]?.kind !== "private" ? s.windows[windowId]!.profileId : s.settings.defaultProfileId));
 
 export const useProfileDataStats = (profileId: string): string =>
   useBrowser((s) => {

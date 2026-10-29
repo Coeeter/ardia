@@ -1,5 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { Download } from "../../platform/downloads";
+import type { BrowserWindow } from "../browser/types";
 import type { BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile, privateSession } from "../browser/model";
 import { focusedWindowOf, patchWindowUi } from "../windows/ui";
@@ -20,15 +21,15 @@ export function downloadSession(s: Pick<BrowserState, "profiles">, d: Pick<Downl
   return d.profile && isIncognitoProfile(d.profile) ? privateSession(s, d.profile) : null;
 }
 
-export function downloadVisibleIn(s: Pick<BrowserState, "profiles">, d: Pick<Download, "profile" | "offTheRecord">, window: { incognito: boolean; profileId: string } | undefined): boolean {
+export function downloadVisibleIn(s: Pick<BrowserState, "profiles">, d: Pick<Download, "profile" | "offTheRecord">, window: Pick<BrowserWindow, "kind" | "profileId"> | undefined): boolean {
   if (!window) return false;
   const session = downloadSession(s, d);
-  if (window.incognito) return session !== null && session === privateSession(s, window.profileId);
+  if (window.kind === "private") return session !== null && session === privateSession(s, window.profileId);
   return session === null && (d.profile ?? "") === engineProfile(s, window.profileId);
 }
 
 const sessionOpen = (s: Pick<BrowserState, "windows" | "profiles">, session: string) =>
-  Object.values(s.windows).some((w) => w.incognito && privateSession(s, w.profileId) === session);
+  Object.values(s.windows).some((w) => w.kind === "private" && privateSession(s, w.profileId) === session);
 const endedPrivateDownloads = new Set<string>();
 
 export const downloadsIn = (s: Pick<BrowserState, "downloads" | "windows" | "profiles">, windowId: string) =>

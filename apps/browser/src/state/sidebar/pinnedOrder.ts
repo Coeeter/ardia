@@ -47,7 +47,7 @@ export function liveAnchors(sequence: string[], keyOf: (entry: string) => string
 
 export function pinnedSequence(s: BrowserState, folders: Record<string, LiveFolder>, order: string[], windowId: string, profileId: string): string[] {
   const { pinned } = sidebarEntries(s, windowId, profileId);
-  if (s.windows[windowId]?.incognito) return pinned;
+  if (s.windows[windowId]?.kind === "private") return pinned;
   return withLiveFolders(pinned, pinned.map((e) => anchorKey(s, e)), foldersOf(folders, order, profileId));
 }
 
@@ -97,7 +97,7 @@ useBrowser.subscribe(keepLiveAnchors);
 export function usePinnedSequence(windowId: string, profileId: string, off: boolean): string[] {
   const pinned = useBrowser((s) => (off ? NO_ENTRIES : sidebarEntries(s, windowId, profileId).pinned));
   const keys = useBrowser(useShallow((s) => pinned.map((e) => anchorKey(s, e))));
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useBrowser((s) => s.windows[windowId]?.kind === "private");
   const folders = useLive(useShallow((s) => (off || incognito ? NO_FOLDERS : foldersOf(s.folders, s.folderOrder, profileId))));
   return useMemo(() => withLiveFolders(pinned, keys, folders), [pinned, keys, folders]);
 }

@@ -35,11 +35,11 @@ export function openFromPage(request: OpenWindowRequest, page: { windowId: strin
   }
   if (disposition === "incognito") {
     const profileId = privateWindowProfile(s, w, profile);
-    if (isAdoptKind(adoptId, "tab")) return void openWindow({ incognito: true, url, adoptId, profileId });
-    return void openWindow({ incognito: true, url, profileId });
+    if (isAdoptKind(adoptId, "tab")) return void openWindow({ kind: "private", url, adoptId, profileId });
+    return void openWindow({ kind: "private", url, profileId });
   }
   if (disposition === "window") {
-    return void openWindow(w.incognito ? { incognito: true, url, profileId: originalProfile(s, w) } : { profileId: from.profileId, url, adoptId });
+    return void openWindow(w.kind === "private" ? { kind: "private", url, profileId: originalProfile(s, w) } : { profileId: from.profileId, url, adoptId });
   }
   const background = disposition === "background" || from.profileId !== w.profileId;
   s.newTab(w.id, { url, adoptId, openerId: from.tabId, profileId: from.profileId, background });

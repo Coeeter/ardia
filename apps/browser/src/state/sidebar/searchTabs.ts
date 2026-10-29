@@ -14,7 +14,7 @@ function candidates(s: BrowserState, windowId: string): { open: Row[]; closed: R
   const profileId = w.profileId;
   const shared = sharesTabs(s) ? sharedTabsIn(s.tabs, windowId) : null;
   const lastUsed = (t: Tab) => shared?.lastUsed(t) ?? t.lastActiveAt;
-  const windowNumber = (id: string) => s.windowOrder.filter((x) => !s.windows[x]?.incognito || x === windowId).indexOf(id) + 1;
+  const windowNumber = (id: string) => s.windowOrder.filter((x) => s.windows[x]?.kind !== "private" || x === windowId).indexOf(id) + 1;
   const open: Row[] = Object.values(s.tabs)
     .filter((t) => t.profileId === profileId && !isPeekTab(s, t.id) && !shared?.elsewhere(t))
     .sort((a, b) => lastUsed(b) - lastUsed(a))

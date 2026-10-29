@@ -10,7 +10,7 @@ export function useScopedLook<T>(resolve: (incognito: boolean, profile: Profile 
   const page = useContext(PageProfileContext);
   return useBrowser((s) => {
     const w = s.windows[windowId ?? focusedWindowOf(s) ?? ""];
-    if (w?.incognito) return resolve(true, undefined, s.ui.appDark, "own");
+    if (w?.kind === "private") return resolve(true, undefined, s.ui.appDark, "own");
     return resolve(false, s.profiles[page ?? w?.profileId ?? s.settings.defaultProfileId], s.ui.appDark, windowId ? spaceLookSource(s.settings) : "utility");
   });
 }

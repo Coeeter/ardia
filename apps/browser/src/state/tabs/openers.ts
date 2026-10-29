@@ -36,7 +36,7 @@ export function nextToActive(s: BrowserState, windowId: string, profileId: strin
   if (s.settings.newTabPosition !== "nextToCurrent") return undefined;
   const w = s.windows[windowId];
   if (!w) return undefined;
-  const profile = !w.incognito && profileId && s.profiles[profileId] ? profileId : w.profileId;
+  const profile = w.kind !== "private" && profileId && s.profiles[profileId] ? profileId : w.profileId;
   const activeId = w.activeTabIds[profile];
   const active = activeId ? s.tabs[activeId] : undefined;
   if (!active || active.windowId !== w.id) return undefined;

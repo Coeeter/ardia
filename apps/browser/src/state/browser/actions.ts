@@ -42,7 +42,7 @@ export async function closeTab(tabId: string) {
   const w = tab && s.windows[tab.windowId];
   if (!tab || !w) return;
   const last = closesWindow(s, tabId) && !leavesEmptyWindow(s, tabId);
-  if (last && s.settings.warnBeforeClosingLastTab && !w.incognito) {
+  if (last && s.settings.warnBeforeClosingLastTab && w.kind !== "private") {
     const { confirmed, suppressed } = await confirm({ ...closeWindowDialog(w.id), suppression: "Don’t ask me again", windowId: w.id });
     if (suppressed) store().updateSettings({ warnBeforeClosingLastTab: false });
     if (!confirmed) return;
@@ -63,7 +63,7 @@ export async function closeGroup(groupId: string) {
     const tabs = plural(group.tabIds.length, "tab");
     const { confirmed, suppressed } = await confirm({
       title: `Close “${groupLabel(s, group)}”?`,
-      message: w.incognito ? `Its ${tabs} close with it.` : `Its ${tabs} close with it. History › Recently Closed Groups brings it back.`,
+      message: w.kind === "private" ? `Its ${tabs} close with it.` : `Its ${tabs} close with it. History › Recently Closed Groups brings it back.`,
       confirmTitle: "Close Group",
       suppression: "Don’t ask me again",
       windowId: w.id,
@@ -193,7 +193,7 @@ function cycleFromStore(windowId: string, delta: 1 | -1) {
 function cycleTarget(windowId: string, delta: 1 | -1) {
   const s = store();
   const w = s.windows[windowId];
-  if (!w || w.incognito || s.profileOrder.length < 2) return null;
+  if (!w || w.kind === "private" || s.profileOrder.length < 2) return null;
   const i = s.profileOrder.indexOf(w.profileId);
   return s.profileOrder[(i + delta + s.profileOrder.length) % s.profileOrder.length]!;
 }
@@ -201,7 +201,7 @@ function cycleTarget(windowId: string, delta: 1 | -1) {
 export function openUrls(urls: string[], windowId?: string | null) {
   let target = resolveWindowId(store(), windowId);
   for (const url of urls) {
-    if (!target || store().windows[target]?.incognito) target = openWindow({ url });
+    if (!target || store().windows[target]?.kind === "private") target = openWindow({ url });
     else store().newTab(target, { url });
   }
 }

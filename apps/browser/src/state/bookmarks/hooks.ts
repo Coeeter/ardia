@@ -14,7 +14,7 @@ export const useBookmarkEngine = (windowId: string): string => useBrowser((s) =>
 export const useBookmarkRoots = (profileId: string) => useBrowser(useShallow((s) => bookmarkRoots(s, profileId)));
 
 export const useBookmarksBarMode = (windowId: string): Settings["bookmarksBar"] =>
-  useBrowser((s) => (s.windows[windowId]?.incognito ? "never" : s.settings.bookmarksBar));
+  useBrowser((s) => (s.windows[windowId]?.kind === "private" ? "never" : s.settings.bookmarksBar));
 
 export const useSidebarEdge = (windowId: string, width: number) =>
   useBrowser((s) => {

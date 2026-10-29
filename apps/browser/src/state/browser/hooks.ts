@@ -31,7 +31,7 @@ export function usePageProfileId(): string {
   return page ?? own;
 }
 
-export const useIsIncognito = () => useWindowField((w) => w.incognito, false);
+export const useIsIncognito = () => useWindowField((w) => w.kind === "private", false);
 export const useSidebarOpen = () => useWindowField((w) => w.sidebarOpen, true);
 export const useWindowProfileId = () => useWindowField((w) => w.profileId, "");
 

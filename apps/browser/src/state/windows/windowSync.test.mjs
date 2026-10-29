@@ -61,7 +61,7 @@ test("after launch: a new window opens animated, a closed one closes and its pri
   const sync = start(native);
   sync.sync(S());
   let prev = S();
-  const priv = S().createWindow({ incognito: true });
+  const priv = S().createWindow({ kind: "private" });
   sync.sync(S(), prev);
   const opened = native.of("open").at(-1);
   assert.equal(opened[1], priv);

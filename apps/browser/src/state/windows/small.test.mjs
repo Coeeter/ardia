@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+const model = await import("../browser/model.ts");
 const { useBrowser } = await import("../browser/store.ts");
 const { lastActiveProfile, mainWindowFor } = await import("./small.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../session/persist.ts");
@@ -18,7 +19,7 @@ function twoProfilesTwoWindows() {
   return { work, a, b };
 }
 
-const openExternalUrls = ([url]) => S().createWindow({ small: true, url });
+const openExternalUrls = ([url]) => S().createWindow({ kind: "small", url });
 const openInMainWindow = (id) => {
   const tab = S().windows[id].tabIds[0];
   S().moveTabsToWindow([tab], mainWindowFor(S(), S().tabs[tab].profileId) ?? null);
@@ -71,14 +72,14 @@ test("several links, or the setting off, go to the last active window and its pr
 
 test("a private window counts as the regular profile it was opened from; Little Ardia is never private", () => {
   const { work, a, b } = twoProfilesTwoWindows();
-  const priv = S().createWindow({ incognito: true });
-  assert.equal(S().windows[priv].originalProfileId, work);
+  const priv = S().createWindow({ kind: "private" });
+  assert.equal(model.incognitoOriginal(S().windows[priv].profileId), work);
   S().setFocusedWindow(b);
   S().setFocusedWindow(priv);
   assert.equal(lastActiveProfile(S()), work);
   openExternalUrls(["https://p.example/"]);
   const small = lastSmall();
-  assert.equal(small.incognito, false);
+  assert.equal(small.kind, "small");
   assert.equal(small.profileId, work);
   assert.equal(mainWindowFor(S(), work), a);
   S().closeWindow(small.id);
@@ -91,8 +92,8 @@ test("a private window counts as the regular profile it was opened from; Little 
 test("a private window opened from Personal counts as Personal", () => {
   const { b } = twoProfilesTwoWindows();
   S().setFocusedWindow(b);
-  const priv = S().createWindow({ incognito: true });
-  assert.equal(S().windows[priv].originalProfileId, "default");
+  const priv = S().createWindow({ kind: "private" });
+  assert.equal(model.incognitoOriginal(S().windows[priv].profileId), "default");
   assert.equal(lastActiveProfile(S()), "default");
 });
 
@@ -130,7 +131,7 @@ test("the last active profile survives a quit and relaunch", () => {
   stub.docs.clear();
   const stop = startPersistence();
   const { work, b } = twoProfilesTwoWindows();
-  const priv = S().createWindow({ incognito: true });
+  const priv = S().createWindow({ kind: "private" });
   S().setFocusedWindow(b);
   S().setFocusedWindow(priv);
   flushPersistence();

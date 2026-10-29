@@ -49,7 +49,7 @@ export function profileItems(s: BrowserState, isCurrent: (profileId: string) => 
 }
 
 export function windowItems(s: BrowserState, windowId: string): DestinationItem[] {
-  const others = s.windowOrder.filter((id) => id !== windowId && !s.windows[id]!.incognito && s.windows[id]!.kind !== "small");
+  const others = s.windowOrder.filter((id) => id !== windowId && s.windows[id]!.kind !== "private" && s.windows[id]!.kind !== "small");
   return [
     ...others.map((id) => ({ value: { kind: "window" as const, windowId: id }, title: windowTitle(s, id) })),
     ...(others.length ? [sep] : []),

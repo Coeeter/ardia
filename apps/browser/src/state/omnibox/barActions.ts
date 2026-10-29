@@ -105,7 +105,7 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
   for (const d of DEFS) {
     if (d.needs === "page" && !tab?.url) continue;
     if (d.needs === "tab" && !tab) continue;
-    if (d.needs === "profiles" && w?.incognito) continue;
+    if (d.needs === "profiles" && w?.kind === "private") continue;
     if (d.needs === "pins" && !canTidyPins(s, windowId)) continue;
     const id = actionId(d);
     const hint = shortcutHint(id, s);
@@ -117,7 +117,7 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
       ...(d.keywords ? { keywords: d.keywords } : {}),
     });
   }
-  if (w && !w.incognito) {
+  if (w && w.kind !== "private") {
     s.profileOrder.forEach((id) => {
       if (id === w.profileId) return;
       const name = s.profiles[id]?.name ?? "";

@@ -23,7 +23,7 @@ export function installDroppedCrx(windowId: string, urls: string[]): string[] {
   if (!paths.some(Boolean)) return urls;
   const s = useBrowser.getState();
   const w = s.windows[windowId];
-  if (!w || w.incognito) return urls;
+  if (!w || w.kind === "private") return urls;
   const profile = extensionProfile(s, windowId);
   for (const path of paths) if (path) void installExtensionCrx(path, profile).catch((error: Error) => toast(windowId, error.message));
   return urls.filter((_, i) => !paths[i]);

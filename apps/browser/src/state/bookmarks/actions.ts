@@ -20,9 +20,9 @@ export function openUrl(url: string, windowId: string | null | undefined, mode: 
   const s = useBrowser.getState();
   const id = resolveWindowId(s, windowId);
   const w = id ? s.windows[id] : undefined;
-  if (mode === "incognito") return void openWindow({ incognito: true, url, profileId: originalProfile(s, w) });
+  if (mode === "incognito") return void openWindow({ kind: "private", url, profileId: originalProfile(s, w) });
   if (!id || mode === "window") {
-    const created = openWindow(w?.incognito ? { incognito: true, url, profileId: originalProfile(s, w) } : { url, profileId: w?.profileId });
+    const created = openWindow(w?.kind === "private" ? { kind: "private", url, profileId: originalProfile(s, w) } : { url, profileId: w?.profileId });
     return focus(created);
   }
   const tabId = activeTabId(s, id);
@@ -58,8 +58,8 @@ export async function openLinks(links: { url: string }[], windowId: string | nul
   const id = resolveWindowId(s, windowId);
   const source = id ? s.windows[id] : undefined;
   if (mode !== "tabs" || !id) {
-    const incognito = mode === "incognito" || !!source?.incognito;
-    const created = openWindow({ url: links[0]!.url, incognito, profileId: incognito ? undefined : source?.profileId });
+    const incognito = mode === "incognito" || source?.kind === "private";
+    const created = openWindow({ url: links[0]!.url, kind: incognito ? "private" : "main", profileId: incognito ? undefined : source?.profileId });
     openInOrder(created, links.slice(1), activeTabId(useBrowser.getState(), created));
     return focus(created);
   }

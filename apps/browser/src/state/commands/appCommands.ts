@@ -36,7 +36,7 @@ export async function diagnostics(): Promise<string> {
   const app = systemInfo();
   const [engine, updates] = await Promise.all([engineInfo().catch(() => null), updaterState().catch(() => null)]);
   const s = useBrowser.getState();
-  const regular = s.windowOrder.filter((id) => !s.windows[id]?.incognito);
+  const regular = s.windowOrder.filter((id) => s.windows[id]?.kind !== "private");
   return [
     `${app.appName} ${app.appVersion} (${app.appBuild}) — ${app.configuration}`,
     engine ? `Engine: ArdiaCore, Chromium ${engine.chromiumVersion}` : "Engine: unavailable",

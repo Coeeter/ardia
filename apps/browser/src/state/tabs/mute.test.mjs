@@ -75,7 +75,7 @@ test("the tab menu: Mute Tab with Mute Site under ⌥, and one Unmute Site while
 
 test("a private window's site mutes stay in that window", () => {
   S().hydrate({});
-  const w = S().createWindow({ incognito: true, url: "https://video.example/a" });
+  const w = S().createWindow({ kind: "private", url: "https://video.example/a" });
   const a = S().windows[w].tabIds[0];
   toggleSiteMute(a);
   assert.equal(state(a), "site");

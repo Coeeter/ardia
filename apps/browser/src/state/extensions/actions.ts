@@ -80,7 +80,7 @@ export function addFromWebStore(windowId: string, urlOrId: string, profile = ext
   }
   const url = `https://chromewebstore.google.com/detail/${id}`;
   const s = useBrowser.getState();
-  const target = s.windows[windowId] ? windowId : s.ui.focusOrder.find((w) => s.windows[w] && extensionProfile(s, w) === profile && !s.windows[w]!.incognito);
+  const target = s.windows[windowId] ? windowId : s.ui.focusOrder.find((w) => s.windows[w] && extensionProfile(s, w) === profile && s.windows[w]!.kind !== "private");
   if (target) s.newTab(target, { url });
   else openWindow({ profileId: s.profileOrder.find((p) => engineProfile(s, p) === profile), url });
 }

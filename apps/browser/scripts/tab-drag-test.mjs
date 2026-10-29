@@ -781,7 +781,7 @@ try {
 
   await check("file drop: a private window takes a dropped file too", async () => {
     const out = await run(`const FD = ac.shell.devFileDrag;
-      const id = st().createWindow({ incognito: true, frame: [240, 140, 900, 600] });
+      const id = st().createWindow({ kind: "private", frame: [240, 140, 900, 600] });
       return settle(2500).then(() => { const before = st().windows[id].tabIds.length;
         return FD.drag(id, "move", 330, 20, { files: [${JSON.stringify(pdf)}] }).then(() => settle(400)).then(() => FD.drag(id, "drop", 330, 20))
           .then((r) => settle(900).then(() => { const w = st().windows[id]; const added = w.tabIds.slice(before);

@@ -37,7 +37,7 @@ export function ThemeColorPicker({
   onTheme?: (theme: ProfileTheme) => void;
 }) {
   const profileId = useWindow(windowId, (w) => w?.profileId);
-  const incognito = useWindow(windowId, (w) => !!w?.incognito);
+  const incognito = useWindow(windowId, (w) => w?.kind === "private");
   const look = useThemeDraft(profileId ?? "", (theme) => onTheme?.(theme));
   if (!profileId || incognito || !look.profile) return null;
   const { custom } = look;

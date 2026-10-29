@@ -1,12 +1,12 @@
 import { useBrowser, type BrowserState } from "../browser/store";
-import type { Tab } from "../browser/types";
+import type { MainWindow, Tab } from "../browser/types";
 import { fromSync } from "../pins/pinOrderChoices";
 import { PIN_TAB } from "./pinRecords";
 import { isRegularWindow } from "../windows/small";
 
 export const store = () => useBrowser.getState();
 
-export type Window = BrowserState["windows"][string];
+export type Window = MainWindow;
 
 
 

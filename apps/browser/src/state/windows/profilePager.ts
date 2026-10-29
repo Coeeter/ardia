@@ -40,10 +40,10 @@ class ProfilePager {
       const w = s.windows[windowId];
       if (!w) return this.dispose();
       const was = prev.windows[windowId];
-      if (w.profileId !== was?.profileId || w.incognito !== was?.incognito || s.profileOrder !== prev.profileOrder) {
+      if (w.profileId !== was?.profileId || (w.kind === "private") !== (was?.kind === "private") || s.profileOrder !== prev.profileOrder) {
         this.state.setState({ pages: this.warmPages() });
       }
-      if (!this.switching && !w.incognito && w.profileId !== was?.profileId) this.selectExternal(w.profileId, s.profileOrder);
+      if (!this.switching && w.kind !== "private" && w.profileId !== was?.profileId) this.selectExternal(w.profileId, s.profileOrder);
     });
   }
 
@@ -77,7 +77,7 @@ class ProfilePager {
     const w = s.windows[this.windowId];
     const id = snapshot.profileId !== undefined ? snapshot.profileId : s.profileOrder[snapshot.selected];
     unstable_batchedUpdates(() => {
-      if (w && !w.incognito && id && s.profiles[id] && id !== w.profileId) {
+      if (w && w.kind !== "private" && id && s.profiles[id] && id !== w.profileId) {
         this.switching = true;
         try {
           s.switchProfile(this.windowId, id);
@@ -144,7 +144,7 @@ class ProfilePager {
 
   private current() {
     const w = useBrowser.getState().windows[this.windowId];
-    return w && !w.incognito ? w.profileId : null;
+    return w && w.kind !== "private" ? w.profileId : null;
   }
 
   private dispose() {
@@ -178,7 +178,7 @@ export function usePagerSurface(windowId: string) {
 export function usePagerPages(windowId: string): { pages: PagerPage[]; paging: boolean; pager: ProfilePager } {
   const pager = pagerFor(windowId);
   const current = useBrowser((s) => s.windows[windowId]?.profileId ?? null);
-  const incognito = useBrowser((s) => !!s.windows[windowId]?.incognito);
+  const incognito = useBrowser((s) => s.windows[windowId]?.kind === "private");
   const order = useBrowser((s) => s.profileOrder);
   const all = !incognito && !!current && order.includes(current);
   const everyPage = useMemo(() => order.map((id, slot) => ({ id, slot })), [order]);
@@ -192,7 +192,7 @@ export function usePagerNativeConfig(windowId: string, width?: number): NativePa
   const [selected, count, order] = useBrowser(
     useShallow((s) => {
       const w = s.windows[windowId];
-      const i = w && !w.incognito ? s.profileOrder.indexOf(w.profileId) : -1;
+      const i = w && w.kind !== "private" ? s.profileOrder.indexOf(w.profileId) : -1;
       return [i, s.profileOrder.length, s.profileOrder] as const;
     }),
   );

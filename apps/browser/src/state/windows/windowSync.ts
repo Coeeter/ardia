@@ -31,7 +31,7 @@ export function createWindowSync({ port, getState, isQuitting, lightsCenter, isU
   const titles = new Map<string, string>();
 
   const releaseIfIncognito = (w: BrowserState["windows"][string] | undefined) => {
-    if (w?.incognito) port.releaseProfile(engineProfile(useBrowser.getState(), w.profileId));
+    if (w?.kind === "private") port.releaseProfile(engineProfile(useBrowser.getState(), w.profileId));
   };
 
   const listen = () =>
@@ -59,10 +59,10 @@ export function createWindowSync({ port, getState, isQuitting, lightsCenter, isU
       const small = w.kind === "small"
         ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
         : {};
-      const made = w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
+      const made = w.kind !== "small" && w.chromeWindow ? { chromeWindow: w.chromeWindow } : {};
       port.open(
         id,
-        { frame: w.frame, incognito: w.incognito, title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...(prev && w.kind !== "small" && !w.chromeWindow ? { animated: true } : {}), ...small, ...made },
+        { frame: w.frame, incognito: w.kind === "private", title: titles.get(id), focus, profile, ...(behind ? { behind } : {}), ...(prev && w.kind !== "small" && !w.chromeWindow ? { animated: true } : {}), ...small, ...made },
         lightsCenter(s, id),
       );
     }

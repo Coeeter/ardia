@@ -141,7 +141,7 @@ test("switching the window's profile closes the peek", () => {
 
 test("Little Ardia doesn't peek", () => {
   S().hydrate({ profiles: { default: PERSONAL }, profileOrder: ["default"] });
-  const small = S().createWindow({ small: true, url: "https://small.example/" });
+  const small = S().createWindow({ kind: "small", url: "https://small.example/" });
   const tab = S().windows[small].tabIds[0];
   assert.equal(S().openPeek(tab, "https://peek.example/"), "");
 });

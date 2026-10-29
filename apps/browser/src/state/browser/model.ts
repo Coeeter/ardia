@@ -129,7 +129,7 @@ export function profileFor(s: BrowserState, profileId: string): Profile {
 }
 
 export function bookmarkProfileId(s: BrowserState, window: BrowserWindow | undefined): string {
-  const id = window?.incognito ? window.originalProfileId : window?.profileId;
+  const id = window?.kind === "private" ? incognitoOriginal(window.profileId) : window?.profileId;
   return id && s.profiles[id] ? id : s.settings.defaultProfileId;
 }
 

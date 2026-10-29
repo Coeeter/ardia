@@ -54,7 +54,7 @@ function bigSession(count, bigGroup = 0) {
   S().hydrate({
     profiles: { default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 } },
     profileOrder: ["default"],
-    windows: { w: { id: "w", profileId: "default", incognito: false, tabIds: ids, activeTabIds: { default: ids[5] }, sidebarOpen: true, frame: null, createdAt: t0 } },
+    windows: { w: { id: "w", profileId: "default", kind: "main", tabIds: ids, activeTabIds: { default: ids[5] }, sidebarOpen: true, frame: null, createdAt: t0 } },
     windowOrder: ["w"],
     tabs,
     groups,

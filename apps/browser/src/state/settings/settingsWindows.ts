@@ -81,7 +81,7 @@ export function openImport(browserId?: string) {
 
 export function settingsBrowserWindow(): string | null {
   const s = useBrowser.getState();
-  return s.ui.focusOrder.find((id) => s.windows[id] && !s.windows[id]!.incognito) ?? s.windowOrder.find((id) => !s.windows[id]!.incognito) ?? null;
+  return s.ui.focusOrder.find((id) => s.windows[id] && s.windows[id]!.kind !== "private") ?? s.windowOrder.find((id) => s.windows[id]!.kind !== "private") ?? null;
 }
 
 export function openUrlFromSettings(url: string) {

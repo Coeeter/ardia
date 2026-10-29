@@ -218,7 +218,7 @@ test("a second window of the profile shows the tidied pins", () => {
 
 test("private windows have nothing to tidy and write nothing", () => {
   reset();
-  const p = S().createWindow({ incognito: true, url: "https://secret.com/" });
+  const p = S().createWindow({ kind: "private", url: "https://secret.com/" });
   S().newTab(p, { url: "https://secret.com/2", background: true });
   const s = S();
   assert.equal(tidyPlan(s, p), null);

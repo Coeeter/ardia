@@ -18,10 +18,9 @@ export type Profile = {
   pinnedCollapsed?: boolean;
 };
 
-export type BrowserWindow = {
+type WindowBase = {
   id: string;
   profileId: string;
-  incognito: boolean;
   tabIds: string[];
   activeTabIds: Record<string, string>;
   sidebarOpen: boolean;
@@ -29,11 +28,15 @@ export type BrowserWindow = {
   frame: Frame | null;
   fullScreen?: number;
   createdAt: number;
-  kind?: "small";
-  linkPointer?: [number, number];
-  originalProfileId?: string;
-  chromeWindow?: string;
 };
+
+export type BrowserWindow =
+  | (WindowBase & { kind: "main"; chromeWindow?: string })
+  | (WindowBase & { kind: "private"; chromeWindow?: string })
+  | (WindowBase & { kind: "small"; linkPointer?: [number, number] });
+
+export type WindowKind = BrowserWindow["kind"];
+export type MainWindow = Extract<BrowserWindow, { kind: "main" }>;
 
 export type Tab = {
   id: string;

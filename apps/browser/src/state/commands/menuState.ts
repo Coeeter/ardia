@@ -62,7 +62,7 @@ export function menuState(s: BrowserState): MenuState {
   const page = peek ? s.tabs[peek] : tab;
   const live = page ? s.live[page.id] : undefined;
   const bookmarkProfile = bookmarkProfileId(s, w);
-  const regularWindows = s.windowOrder.filter((id) => !s.windows[id]!.incognito && s.windows[id]!.kind !== "small");
+  const regularWindows = s.windowOrder.filter((id) => s.windows[id]!.kind !== "private" && s.windows[id]!.kind !== "small");
 
   const disabled: string[] = [];
   if (!tab || !splitOf(s, tab.id)) disabled.push("focusNextPane", "focusPreviousPane");
@@ -74,7 +74,7 @@ export function menuState(s: BrowserState): MenuState {
     if (!page || !canGoBack(page.id, live ?? IDLE_LIVE)) disabled.push("back");
     if (!page || !canGoForward(page.id, live ?? IDLE_LIVE)) disabled.push("forward");
     if (!live?.isLoading) disabled.push("stop");
-    if (w.incognito) disabled.push("moveTabToProfile", "moveTabToWindow", "switchProfile", "nextProfile", "previousProfile");
+    if (w.kind === "private") disabled.push("moveTabToProfile", "moveTabToWindow", "switchProfile", "nextProfile", "previousProfile");
     else if (tab) disabled.push(`moveTabToProfile:${tab.profileId}`);
     if (regularWindows.length < 2) disabled.push("mergeAllWindows");
   }
@@ -124,7 +124,7 @@ export function menuState(s: BrowserState): MenuState {
     disabled,
     titles,
     profiles: s.profileOrder.map((id) => ({ id, title: s.profiles[id]!.name, current: w?.profileId === id })),
-    windows: w?.incognito ? [] : regularWindows.filter((id) => id !== windowId).map((id) => ({ id, title: windowTitle(s, id) })),
+    windows: w?.kind === "private" ? [] : regularWindows.filter((id) => id !== windowId).map((id) => ({ id, title: windowTitle(s, id) })),
     ...bookmarkMenus(s.bookmarks, engineProfile(s, bookmarkProfile)),
     recentlyClosed: closed,
     recentlyClosedGroups: sidebar.recentlyClosedGroups,

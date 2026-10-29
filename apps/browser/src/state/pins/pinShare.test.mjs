@@ -165,7 +165,7 @@ test("a pin in a split keeps its own page; private windows have no pins; another
   assert.equal(loaded(copy), true, "B loads its own page, as before");
   assert.equal(S().tabs[copy].page.holderId, undefined);
 
-  const p = S().createWindow({ incognito: true, url: "https://secret.com" });
+  const p = S().createWindow({ kind: "private", url: "https://secret.com" });
   assert.equal(model.viewTabIds(S(), p).some((id) => !!S().tabs[id].pin), false);
 
   reset();

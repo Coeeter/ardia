@@ -112,7 +112,7 @@ test("relaunch: every restored window shows the pins; a 0.2.27 session whose win
   assert.deepEqual(pinned(b), PINS);
 
   const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pin: pinned ? { as: "tile" } : null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 });
-  const win = (id, tabIds) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: tabIds.at(-1) }, sidebarOpen: true, frame: null, createdAt: 0 });
+  const win = (id, tabIds) => ({ id, profileId: "default", kind: "main", tabIds, activeTabIds: { default: tabIds.at(-1) }, sidebarOpen: true, frame: null, createdAt: 0 });
   S().hydrate({
     windows: { w1: win("w1", ["x1", "m1", "r1"]), w2: win("w2", ["y2", "x2", "r2"]) },
     windowOrder: ["w1", "w2"],
@@ -175,9 +175,9 @@ test("a tile torn off into its own window keeps its place in the first window", 
 test("private windows and Little Ardia show no pinned tabs; paging a window to another profile shows that profile's", () => {
   reset();
   const { a } = twoWindows();
-  const p = S().createWindow({ incognito: true, url: "https://secret.com" });
+  const p = S().createWindow({ kind: "private", url: "https://secret.com" });
   assert.deepEqual(pinned(p), []);
-  const small = S().createWindow({ small: true, url: "https://s.com" });
+  const small = S().createWindow({ kind: "small", url: "https://s.com" });
   assert.deepEqual(pinned(small), []);
   assert.deepEqual(pinned(a), PINS);
 

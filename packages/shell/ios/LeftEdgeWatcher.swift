@@ -40,7 +40,7 @@ final class LeftEdgeWatcher {
   private func check(_ point: NSPoint, live: Bool) {
     lazy var onDock = live && NSApp.isActive && isOnDock(point)
     for (id, hold) in watched {
-      guard let window = WindowManager.shared.windows[id] else {
+      guard let window = WindowManager.shared.window(id) else {
         watched[id] = nil
         over.remove(id)
         unreported.remove(id)
@@ -132,7 +132,7 @@ final class LeftEdgeWatcher {
   private var needsGlobalMonitor: Bool {
     if NSApp.isActive || !over.isEmpty { return true }
     return watched.contains { id, hold in
-      guard let window = WindowManager.shared.windows[id] else { return false }
+      guard let window = WindowManager.shared.window(id) else { return false }
       if hold > 0 { return true }
       guard let screen = window.screen else { return false }
       return Self.besideScreenEdge(window, screen)
@@ -156,7 +156,7 @@ final class LeftEdgeWatcher {
   }
 
   private func isWatched(_ window: NSWindow) -> Bool {
-    watched.keys.contains { WindowManager.shared.windows[$0] === window }
+    watched.keys.contains { WindowManager.shared.window($0) === window }
   }
 
   private func start() {

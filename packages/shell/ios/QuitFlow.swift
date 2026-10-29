@@ -1,14 +1,25 @@
 import AppKit
 import ArdiaCore
 
-extension WindowManager {
-  func runtimeGone() {
-    pendingOpens = [:]
-    pendingOrder = []
-    replyToTerminate(false)
+final class QuitFlow {
+  static let shared = QuitFlow()
+
+  private enum Phase {
+    case idle
+    case saving(wait: Timer?, lateAlert: NSAlert?)
+    case waitingForUpdater
   }
 
-  func confirmQuit() {
+  private var phase = Phase.idle
+  private var attempt = 0
+  private static let saveWait: TimeInterval = 5
+
+  private var isSaving: Bool {
+    if case .saving = phase { return true }
+    return false
+  }
+
+  func confirm() {
     if MenuState.current.warnBeforeQuitting {
       let alert = NSAlert()
       alert.messageText = "Are you sure you want to quit \(ProcessInfo.processInfo.processName)?"
@@ -31,21 +42,21 @@ extension WindowManager {
       return .terminateLater
     }
     guard confirmActiveDownloads() else { return .terminateCancel }
-    quitAttempt += 1
-    quitStep = .saving
+    attempt += 1
+    phase = .saving(wait: nil, lateAlert: nil)
     ShellEvents.send(.app, ["type": "willQuit"])
     waitForSave()
     return .terminateLater
   }
 
   private func waitForSave() {
-    let timer = Timer(timeInterval: 5, repeats: false) { [weak self] _ in self?.saveIsLate() }
+    let timer = Timer(timeInterval: Self.saveWait, repeats: false) { [weak self] _ in self?.saveIsLate() }
     RunLoop.main.add(timer, forMode: .common)
-    saveWait = timer
+    if isSaving { phase = .saving(wait: timer, lateAlert: nil) }
   }
 
   private func saveIsLate() {
-    saveWait = nil
+    if isSaving { phase = .saving(wait: nil, lateAlert: nil) }
     let message = "\(ProcessInfo.processInfo.processName) can't save your session right now."
     if LaunchConfig.shared.background {
       NSLog("[shell] quit alert: \(message) (Wait / Quit Without Saving): Wait")
@@ -56,13 +67,13 @@ extension WindowManager {
     alert.informativeText = "If you quit now, your windows and tabs open as they were when it last saved."
     alert.addButton(withTitle: "Wait")
     alert.addButton(withTitle: "Quit Without Saving")
-    lateSaveAlert = alert
+    if isSaving { phase = .saving(wait: nil, lateAlert: alert) }
     let response = alert.runModal()
-    lateSaveAlert = nil
+    if case .saving(let wait, let shown) = phase, shown === alert { phase = .saving(wait: wait, lateAlert: nil) }
     switch response {
     case .alertFirstButtonReturn: waitForSave()
     case .alertSecondButtonReturn:
-      guard quitStep == .saving else { return }
+      guard isSaving else { return }
       DocumentStore.close()
       quitAfterUpdaterSettles()
     default: break
@@ -83,32 +94,30 @@ extension WindowManager {
   }
 
   func replyToTerminate(_ ok: Bool) {
-    guard quitStep != .waitingForUpdater else { return }
-    saveWait?.invalidate()
-    saveWait = nil
-    if lateSaveAlert != nil { NSApp.stopModal(withCode: .abort) }
+    if case .waitingForUpdater = phase { return }
+    if case .saving(let wait, let lateAlert) = phase {
+      wait?.invalidate()
+      phase = .saving(wait: nil, lateAlert: nil)
+      if lateAlert != nil { NSApp.stopModal(withCode: .abort) }
+    }
     guard ok else {
-      quitStep = .none
-      quitAttempt += 1
+      phase = .idle
+      attempt += 1
       return NSApp.reply(toApplicationShouldTerminate: false)
     }
-    guard quitStep == .saving else { return }
+    guard isSaving else { return }
     if DocumentStore.flush() { ArdiaChromeWindowHost.recordLaunchLayout() } else { ArdiaChromeWindowHost.forgetLaunchPictures() }
     quitAfterUpdaterSettles()
   }
 
   private func quitAfterUpdaterSettles() {
-    if quitStep == .none { quitAttempt += 1 }
-    quitStep = .waitingForUpdater
-    let attempt = quitAttempt
+    if case .idle = phase { attempt += 1 }
+    phase = .waitingForUpdater
+    let attempt = self.attempt
     AppUpdater.shared.dropOffChannelStagedUpdateBeforeQuit { [weak self] in
-      guard let self, self.quitAttempt == attempt, self.quitStep == .waitingForUpdater else { return }
-      self.quitStep = .none
+      guard let self, self.attempt == attempt, case .waitingForUpdater = self.phase else { return }
+      self.phase = .idle
       NSApp.reply(toApplicationShouldTerminate: true)
     }
-  }
-
-  func reopen() {
-    ShellEvents.send(.app, ["type": "reopen"])
   }
 }

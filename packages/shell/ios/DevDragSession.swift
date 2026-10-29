@@ -38,7 +38,7 @@ enum DevDragSession {
   private static var sequence = 0
 
   static func act(windowId: String, action: String, x: Double, y: Double, payload: [String: Any]) -> String {
-    guard let window = WindowManager.shared.windows[windowId], let content = window.contentView, let frameView = content.superview else { return "no window" }
+    guard let window = WindowManager.shared.window(windowId), let content = window.contentView, let frameView = content.superview else { return "no window" }
     if pasteboard == nil || !payload.isEmpty {
       let board = NSPasteboard.withUniqueName()
       board.clearContents()

@@ -88,7 +88,7 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("focusWindow") { (id: String) in WindowManager.shared.focus(id: id) }.runOnQueue(.main)
     AsyncFunction("restoreFullScreen") { (ids: [String], focus: String?) in
-      WindowManager.shared.restoreFullScreen(ids: ids, focus: focus)
+      WindowManager.shared.fullScreen.restore(ids: ids, focus: focus)
     }.runOnQueue(.main)
     AsyncFunction("dragPreviewBegin") { (windowId: String, chip: CGRect, grab: CGPoint) in
       DragPreview.shared.begin(windowId: windowId, chip: chip, grab: grab)
@@ -125,7 +125,7 @@ public class ShellModule: Module {
       DragPreview.shared.setPlaceholder(title: title, favicon: favicon)
     }.runOnQueue(.main)
     AsyncFunction("windowFrame") { (id: String) -> [Double]? in
-      guard let f = WindowManager.shared.windows[id]?.frame else { return nil }
+      guard let f = WindowManager.shared.window(id)?.frame else { return nil }
       return [f.minX, f.minY, f.width, f.height]
     }.runOnQueue(.main)
     AsyncFunction("devDragPreviewState") { () -> [String: Any] in
@@ -137,7 +137,7 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
     AsyncFunction("devWindowMoveProbe") { (id: String, probe: [String: Double], promise: Promise) in
       #if DEBUG
-      guard let window = WindowManager.shared.windows[id] else { return promise.resolve(["error": "no window \(id)"]) }
+      guard let window = WindowManager.shared.window(id) else { return promise.resolve(["error": "no window \(id)"]) }
       let count = Int(probe["steps"] ?? 60), dx = CGFloat(probe["dx"] ?? 3), dy = CGFloat(probe["dy"] ?? 0)
       let interval = (probe["intervalMs"] ?? 8) / 1000
       if let x = probe["x"], let top = probe["top"] {
@@ -155,7 +155,7 @@ public class ShellModule: Module {
     AsyncFunction("setWindowTitle") { (id: String, title: String) in
       WindowManager.shared.setTitle(id: id, title: title)
     }.runOnQueue(.main)
-    AsyncFunction("windowIds") { () -> [String] in Array(WindowManager.shared.windows.keys) }.runOnQueue(.main)
+    AsyncFunction("windowIds") { () -> [String] in WindowManager.shared.windowIds }.runOnQueue(.main)
 
     AsyncFunction("setAppearance") { (mode: String) in
       NSApp.appearance = mode == "light" ? NSAppearance(named: .aqua) : mode == "dark" ? NSAppearance(named: .darkAqua) : nil
@@ -172,7 +172,7 @@ public class ShellModule: Module {
       MainMenu.refresh()
     }.runOnQueue(.main)
 
-    AsyncFunction("replyToTerminate") { (ok: Bool) in WindowManager.shared.replyToTerminate(ok) }.runOnQueue(.main)
+    AsyncFunction("replyToTerminate") { (ok: Bool) in QuitFlow.shared.replyToTerminate(ok) }.runOnQueue(.main)
 
     AsyncFunction("confirm") { (options: ConfirmOptions, promise: Promise) in
       if let file = MenuChoice.testFile(flag: "appDialog", name: "dialog.json"),
@@ -272,7 +272,7 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("saveKeyResponder") { (windowId: String) -> Int in
-      SavedKeyResponders.shared.save(WindowManager.shared.windows[windowId])
+      SavedKeyResponders.shared.save(WindowManager.shared.window(windowId))
     }.runOnQueue(.main)
 
     AsyncFunction("restoreKeyResponder") { (token: Int) -> Bool in
@@ -383,7 +383,7 @@ public class ShellModule: Module {
   }
 
   static func present(_ alert: NSAlert, windowId: String?, completion: @escaping (NSApplication.ModalResponse) -> Void) {
-    if let window = windowId.flatMap({ WindowManager.shared.windows[$0] }), window.isVisible {
+    if let window = windowId.flatMap({ WindowManager.shared.window($0) }), window.isVisible {
       alert.beginSheetModal(for: window, completionHandler: completion)
     } else {
       completion(alert.runModal())

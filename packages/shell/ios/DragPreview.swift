@@ -40,7 +40,7 @@ final class DragPreview {
   func begin(windowId: String, chip: NSRect, grab: NSPoint) {
     cancel()
     shapes = []
-    guard let window = WindowManager.shared.windows[windowId] else { return }
+    guard let window = WindowManager.shared.window(windowId) else { return }
     source = window
     sourceClosing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) {
       [weak self] _ in self?.cancel()
@@ -148,7 +148,7 @@ final class DragPreview {
     var tries = 0
     func grow() {
       guard generation == gen else { return }
-      guard let window = WindowManager.shared.windows[windowId] else {
+      guard let window = WindowManager.shared.window(windowId) else {
         tries += 1
         if tries > 20 { return animate(panel, to: fallback, alpha: 1, duration: Self.grow, then: fade) }
         return DispatchQueue.main.asyncAfter(deadline: .now() + 0.016) { grow() }

@@ -19,7 +19,7 @@ public class DevModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("devPostKey") { (windowId: String, key: String, keyCode: Int, modifiers: [String]) -> Bool in
-      guard let window = WindowManager.shared.windows[windowId] else { return false }
+      guard let window = WindowManager.shared.window(windowId) else { return false }
       let mods = ModifierName.flags(named: modifiers)
       if key.hasPrefix("menu:"),
         let event = SyntheticInput.key(.keyDown, in: window, characters: String(key.dropFirst(5)), modifiers: mods, keyCode: keyCode) {
@@ -33,7 +33,7 @@ public class DevModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("devPostKeys") { (windowId: String, presses: [[String: Any]], promise: Promise) in
-      guard let window = WindowManager.shared.windows[windowId] else { return promise.resolve([]) }
+      guard let window = WindowManager.shared.window(windowId) else { return promise.resolve([]) }
       var postedAt: [Double] = []
       func post(_ index: Int) {
         guard index < presses.count else { return promise.resolve(postedAt) }
@@ -60,7 +60,7 @@ public class DevModule: Module {
     AsyncFunction("devMenuItems") { (title: String, perform: [String]?) -> [[String: Any]] in
       var tiling: NSMenu?
       var flags: [String: Any] = [:]
-      if title.hasPrefix("tiling:"), let window = WindowManager.shared.windows[String(title.dropFirst(7))] {
+      if title.hasPrefix("tiling:"), let window = WindowManager.shared.window(String(title.dropFirst(7))) {
         for name in ["_canEnterTileMode", "_implicitlyDisallowTiling", "_cgsWindowSaysSupportsTiling"] {
           let sel = NSSelectorFromString(name)
           guard window.responds(to: sel) else { continue }
@@ -100,7 +100,7 @@ public class DevModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("devDragBlockedRects") { (windowId: String) -> [[Double]] in
-      guard let window = WindowManager.shared.windows[windowId] else { return [] }
+      guard let window = WindowManager.shared.window(windowId) else { return [] }
       return ServerWindowDrag.blockedRects(window)
     }.runOnQueue(.main)
 
@@ -115,7 +115,7 @@ public class DevModule: Module {
         _ = (view as AnyObject).perform(select, with: nil)
         return true
       }
-      guard let window = WindowManager.shared.windows[windowId], let content = window.contentView else { return false }
+      guard let window = WindowManager.shared.window(windowId), let content = window.contentView else { return false }
       let local = SyntheticInput.contentPoint(x: x, top: y, in: content)
       let screen = window.convertPoint(toScreen: content.convert(local, to: nil))
       _ = (view as AnyObject).perform(select, with: NSValue(point: screen))
@@ -128,7 +128,7 @@ public class DevModule: Module {
         LeftEdgeWatcher.shared.checkPointer()
         return true
       }
-      guard let window = WindowManager.shared.windows[windowId] else { return false }
+      guard let window = WindowManager.shared.window(windowId) else { return false }
       LeftEdgeWatcher.shared.pointerOverride = NSPoint(x: window.frame.minX + x, y: window.frame.maxY - y)
       LeftEdgeWatcher.shared.checkPointer()
       return true
@@ -155,7 +155,7 @@ public class DevModule: Module {
 
     AsyncFunction("devTypeKeys") { (windowId: String, text: String, interval: Double, promise: Promise) in
       let toKeyWindow = windowId == "key"
-      guard let window = toKeyWindow ? NSApp.keyWindow : WindowManager.shared.windows[windowId], !text.isEmpty else { return promise.resolve([]) }
+      guard let window = toKeyWindow ? NSApp.keyWindow : WindowManager.shared.window(windowId), !text.isEmpty else { return promise.resolve([]) }
       let keys = text.map(String.init)
       let now = { Date().timeIntervalSince1970 * 1000 }
       let activity = ProcessInfo.processInfo.beginActivity(options: [.userInitiated, .latencyCritical], reason: "devTypeKeys")
@@ -231,7 +231,7 @@ public class DevModule: Module {
   private static let scriptQueue = DispatchQueue(label: "ardia.dev-applescript")
 
   private static func snapshot(windowId: String, path: String, transparent: Bool = false) -> Bool {
-    guard let view = WindowManager.shared.windows[windowId]?.contentView, let layer = view.layer else { return false }
+    guard let view = WindowManager.shared.window(windowId)?.contentView, let layer = view.layer else { return false }
     let scale = view.window?.backingScaleFactor ?? 2
     let size = view.bounds.size
     guard let rep = NSBitmapImageRep(

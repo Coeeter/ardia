@@ -9,7 +9,7 @@ final class ScriptWindow: NSObject {
   }
 
   private var info: ScriptWindowState? { ShellScripting.window(uniqueID) }
-  private var nsWindow: NSWindow? { WindowManager.shared.windows[uniqueID] }
+  private var nsWindow: NSWindow? { WindowManager.shared.window(uniqueID) }
 
   override var objectSpecifier: NSScriptObjectSpecifier? {
     NSUniqueIDSpecifier(containerClassDescription: ShellScripting.appDescription!, containerSpecifier: nil, key: "appleScriptWindows", uniqueID: uniqueID)

@@ -96,7 +96,7 @@ final class MenuTarget: NSObject, NSMenuItemValidation {
     return enabled
   }
 
-  @objc func quit(_ sender: Any?) { WindowManager.shared.confirmQuit() }
+  @objc func quit(_ sender: Any?) { QuitFlow.shared.confirm() }
   @objc func arrangeWindowsInFront(_ sender: Any?) { NSApp.arrangeInFront(sender) }
   @objc func toggleKeepOnTop(_ sender: Any?) { WindowManager.shared.toggleKeepOnTop() }
   @objc func closeWindow(_ sender: Any?) { WindowManager.shared.closableWindow?.performClose(sender) }

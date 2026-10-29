@@ -6,7 +6,7 @@ enum SharePicker {
   private static let delegate = ShareDelegate()
 
   static func show(url: String, title: String?, windowId: String?, anchor: [Double]?, done: @escaping () -> Void) {
-    let window = windowId.flatMap { WindowManager.shared.windows[$0] } ?? NSApp.keyWindow
+    let window = windowId.flatMap { WindowManager.shared.window($0) } ?? NSApp.keyWindow
     guard let link = URL(string: url), let window, let view = window.contentView else { return done() }
     var rect = NSRect(x: view.bounds.midX - 1, y: view.isFlipped ? 40 : view.bounds.maxY - 42, width: 2, height: 2)
     var edge = NSRectEdge.minY
@@ -36,7 +36,7 @@ enum SharePicker {
       return log("share via \(service) (not performed): \(describe(url, title))")
     }
     delegate.finish()
-    delegate.window = windowId.flatMap { WindowManager.shared.windows[$0] } ?? NSApp.keyWindow
+    delegate.window = windowId.flatMap { WindowManager.shared.window($0) } ?? NSApp.keyWindow
     match.delegate = delegate
     match.subject = title
     match.perform(withItems: [link])

@@ -18,7 +18,7 @@ enum KeyEquivalents {
   }
 
   static func press(windowId: String, _ press: [String: Any], _ done: @escaping ([String: Any]) -> Void) {
-    guard let window = WindowManager.shared.windows[windowId] else { return done(["error": "no window \(windowId)"]) }
+    guard let window = WindowManager.shared.window(windowId) else { return done(["error": "no window \(windowId)"]) }
     note("press \(press["key"] ?? "") \(press["modifiers"] ?? "") focus=\(press["focus"] ?? "-")")
     watch()
     let key = press["key"] as? String ?? ""
@@ -99,7 +99,7 @@ enum KeyEquivalents {
   }
 
   static func click(windowId: String, _ click: [String: Any], _ done: @escaping ([String: Any]) -> Void) {
-    guard let window = WindowManager.shared.windows[windowId], let content = window.contentView else {
+    guard let window = WindowManager.shared.window(windowId), let content = window.contentView else {
       return done(["error": "no window \(windowId)"])
     }
     var origin = NSPoint.zero

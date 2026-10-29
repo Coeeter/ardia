@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
+#import "components/remote_cocoa/app_shim/native_widget_mac_frameless_nswindow.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
 #include "components/sessions/core/serialized_user_agent_override.h"
 #include "content/public/browser/web_contents.h"
@@ -48,6 +49,14 @@
   return [content isKindOfClass:[BridgedContentView class]]
              ? [static_cast<BridgedContentView*>(content) ardiaEmbeddedSubview]
              : nil;
+}
+
++ (Class)contentViewClass {
+  return [BridgedContentView class];
+}
+
++ (BOOL)isChromeFramelessWindow:(NSWindow*)window {
+  return [window isKindOfClass:[NativeWidgetMacFramelessNSWindow class]];
 }
 
 @synthesize delegate = _delegate;

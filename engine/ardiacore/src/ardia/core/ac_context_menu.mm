@@ -32,6 +32,7 @@
 #include "ardia/core/ac_browser.h"
 #include "ardia/core/ac_extension_drop.h"
 #include "ardia/core/ac_launch_switches.h"
+#import "ardia/core/ac_page_view.h"
 #import "ardia/core/ardiacore_internal.h"
 #include "ui/events/event_constants.h"
 #include "ui/base/page_transition_types.h"
@@ -314,6 +315,12 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
  public:
   explicit ACViewDelegate(content::WebContents* contents)
       : ChromeWebContentsViewDelegateViewsMac(contents), contents_(contents) {}
+
+  NSObject<RenderWidgetHostViewMacDelegate>* GetDelegateForHost(
+      content::RenderWidgetHost* render_widget_host,
+      bool is_popup) override {
+    return is_popup ? nil : CreatePageViewDelegate(render_widget_host);
+  }
 
   std::unique_ptr<RenderViewContextMenuBase> BuildMenu(
       content::RenderFrameHost& render_frame_host,

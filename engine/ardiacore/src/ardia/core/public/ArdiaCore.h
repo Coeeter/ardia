@@ -168,6 +168,8 @@ ARDIACORE_EXPORT
 ARDIACORE_EXPORT
 @interface ArdiaCoreWindow : NSObject
 + (nullable NSView*)embeddedRootOfWindow:(NSWindow*)window;
++ (Class)contentViewClass;
++ (BOOL)isChromeFramelessWindow:(NSWindow*)window;
 - (instancetype)initWithContentRect:(NSRect)rect;
 @property(readonly) NSWindow* window;
 @property(readonly) NSView* hostView;
@@ -363,6 +365,27 @@ ARDIACORE_EXPORT
 - (NSString*)executeExtensionAction:(NSString*)extensionId;
 - (NSDictionary<NSString*, NSDictionary*>*)actionStatesForExtensions:(NSArray<NSString*>*)extensionIds;
 - (nullable NSString*)sidePanelURLForExtension:(NSString*)extensionId;
+@end
+
+typedef NS_ENUM(NSInteger, ArdiaCorePageScrollAck) {
+  ArdiaCorePageScrollAckBegin,
+  ArdiaCorePageScrollAckUpdate,
+};
+
+@protocol ArdiaCorePageScrollObserver <NSObject>
+- (void)pageView:(NSView*)view
+     ackedScroll:(ArdiaCorePageScrollAck)ack
+        consumed:(BOOL)consumed;
+- (void)pageView:(NSView*)view overscrolledAllowingHorizontal:(BOOL)allowed;
+@end
+
+ARDIACORE_EXPORT
+@interface ArdiaCorePageView : NSObject
++ (BOOL)isPageView:(NSView*)view;
++ (void)setScrollObserver:(nullable id<ArdiaCorePageScrollObserver>)observer;
++ (BOOL)takeSwipes:(NSView*)view;
++ (BOOL)takesSwipes:(NSView*)view;
++ (BOOL)isEditingText:(NSView*)view;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -330,7 +330,13 @@ over, `-[ArdiaCoreTab setTemporarySource:]`) is the tab a closed window's entry 
 ## `ArdiaSwipe` (`packages/ardiacore/src/swipe.tsx`)
 
 **done**: the same sources as CEF's (`ArdiaSwipe.mm`, `SwipeModule.swift`, linked into `packages/ardiacore/ios`). Profile
-paging on ArdiaCore is a change of the window's active profile, never a window swap.
+paging on ArdiaCore is a change of the window's active profile, never a window swap. The page's scroll and
+overscroll acks come from ArdiaCore's own `ChromeRenderWidgetHostViewMacDelegate` subclass (`ac_page_view.mm`, made by
+`ACViewDelegate::GetDelegateForHost` for every page view but child popup widgets, which get none, as in Chrome), through
+`ArdiaCorePageView`: `isPageView:`, `setScrollObserver:` (`ackedScroll:consumed:` for the first gesture-scroll begin and
+update, `overscrolledAllowingHorizontal:`), `takeSwipes:` (from then on Chrome's history swiper never sees that view's
+scroll-wheel events; a view without ArdiaCore's delegate can't be taken), `takesSwipes:` and `isEditingText:`. The window
+layer adds `+[ArdiaCoreWindow contentViewClass]` and `isChromeFramelessWindow:`.
 
 ## Window hosting (`ArdiaChromeWindowHost`, called by `packages/shell/ios/ChromeWindows.swift`)
 

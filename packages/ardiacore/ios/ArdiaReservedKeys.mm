@@ -123,9 +123,7 @@ bool IsSecondSidebarKeyPress(NSEvent *event) {
 bool KeepsUnhandledSidebarKeyInPage(NSWindow *window, NSEvent *event) {
   if (!IsSidebarKey(event)) return false;
   NSResponder *focused = window.firstResponder;
-  const SEL textInputType = NSSelectorFromString(@"textInputType");
-  const bool typing = [NSStringFromClass(focused.class) isEqualToString:@"RenderWidgetHostViewCocoa"] && [focused respondsToSelector:textInputType] &&
-                      ((int (*)(id, SEL))objc_msgSend)(focused, textInputType) != 0;
+  const bool typing = [focused isKindOfClass:NSView.class] && [ArdiaCorePageView isEditingText:(NSView *)focused];
   if (!typing) gSidebarKeyPressForPage = SidebarKeyPress{};
   return typing;
 }

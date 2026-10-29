@@ -50,13 +50,20 @@ export function menuShortcut(id: string, s: ShortcutState = useBrowser.getState(
   return { key: shortcut.key, modifiers: shortcut.modifiers.filter((m): m is MenuModifier => m !== "function") };
 }
 
-export function menuCommandAlternate(id: string, s: ShortcutState = useBrowser.getState()): MenuKey | null {
-  const primary = menuShortcut(id, s);
-  const modifiers = primary.modifiers ?? [];
+function commandAlternateOf(id: string, s: ShortcutState): Shortcut | null {
+  const primary = shortcutOf(id, s);
+  const modifiers = primary?.modifiers ?? [];
   if (modifiers.includes("command")) return null;
-  const alternate = { ...primary, modifiers: [...modifiers, "command" as const] };
-  if (alternate.key && resolvedShortcuts(s).holdersOf({ key: alternate.key, modifiers: alternate.modifiers }).length) return null;
+  const alternate: Shortcut = { key: primary?.key ?? "", modifiers: [...modifiers, "command"] };
+  if (alternate.key && resolvedShortcuts(s).holdersOf(alternate).length) return null;
   return alternate;
+}
+
+export function menuCommandAlternate(id: string, s: ShortcutState = useBrowser.getState()): MenuKey | null {
+  const alternate = commandAlternateOf(id, s);
+  if (!alternate) return null;
+  if (!alternate.key || alternate.modifiers.includes("function")) return { modifiers: ["command"] };
+  return { key: alternate.key, modifiers: alternate.modifiers.filter((m): m is MenuModifier => m !== "function") };
 }
 
 const menuBarBindingsOf = new WeakMap<ResolvedShortcuts, Record<string, string[][]>>();
@@ -70,8 +77,8 @@ export function menuBarBindings(s: ShortcutState): Record<string, string[][]> {
   const bindings: Record<string, string[][]> = {};
   for (const [id, keys] of resolved.bindings) if (!fixed.has(id)) bindings[id] = keys.map(stored);
   for (const id of s.profileOrder) {
-    const alternate = menuCommandAlternate(`switchProfile:${id}`, s);
-    bindings[`newWindow:${id}`] = alternate ? [[alternate.key ?? "", ...(alternate.modifiers ?? [])]] : [];
+    const alternate = commandAlternateOf(`switchProfile:${id}`, s);
+    bindings[`newWindow:${id}`] = alternate ? [stored(alternate)] : [];
   }
   menuBarBindingsOf.set(resolved, bindings);
   return bindings;

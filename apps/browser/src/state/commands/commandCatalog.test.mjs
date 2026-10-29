@@ -12,6 +12,20 @@ test("the generated BrowserCommand union and Swift command table match the catal
   assert.equal(readFileSync(TABLE_FILES.swift, "utf8"), renderSwift());
 });
 
+test("the menu bar lays out every command and variant that has a default key", () => {
+  const layout = readFileSync(new URL("../../../../../packages/shell/ios/MainMenu.swift", import.meta.url), "utf8");
+  const laid = new Set(
+    [...layout.matchAll(/(?:cmd|hidden|CommandItem)\(\.(\w+)(?:,\s*arg:\s*"([^"]*)")?/g)].map((m) => (m[2] === undefined ? m[1] : `${m[1]}:${m[2]}`)),
+  );
+  const missing = Object.entries(COMMANDS).flatMap(([command, spec]) => [
+    ...(spec.keys?.length && !laid.has(command) ? [command] : []),
+    ...Object.entries(spec.variants ?? {})
+      .filter(([arg, variant]) => variant.keys?.length && !laid.has(`${command}:${arg}`) && !laid.has(`${command}:\\($0)`))
+      .map(([arg]) => `${command}:${arg}`),
+  ]);
+  assert.deepEqual(missing, []);
+});
+
 test("no two shortcut ids share a default key", () => {
   const holders = new Map();
   for (const source of staticShortcutSources()) {

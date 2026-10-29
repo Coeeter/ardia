@@ -78,6 +78,14 @@ test("the menu bar gets every binding resolved, so it shows what Settings and th
   assert.deepEqual(menuBarBindings(state({ "switchProfile:home": ["k", "command"] }))["newWindow:home"], []);
 });
 
+test("a profile bound with fn keeps its ↗ shortcut in the menu bar, and a ⌘fn binding has no ↗ shortcut", () => {
+  setMenuBarShortcuts([item("switchProfile:work", "", []), item("switchProfile:home", "", [])]);
+  assert.deepEqual(menuBarBindings(state({ "switchProfile:home": ["k", "control", "function"] }))["newWindow:home"], [["k", "control", "function", "command"]]);
+  assert.deepEqual(menuBarBindings(state({ "switchProfile:home": ["k", "command", "function"] }))["newWindow:home"], []);
+  assert.equal(menuCommandAlternate("switchProfile:home", state({ "switchProfile:home": ["k", "command", "function"] })), null);
+  assert.deepEqual(menuCommandAlternate("switchProfile:home", state({ "switchProfile:home": ["k", "control", "function"] })), { modifiers: ["command"] });
+});
+
 test("a remappable item's default comes from the catalog, a fixed one's from the menu bar", () => {
   setMenuBarShortcuts([item("toggleSidebar", "s", ["command"]), item("switchProfile:work", "", []), item("system:Edit > Emoji & Symbols", "e", ["control", "command"], false)]);
   const resolved = resolvedShortcuts(state({}));

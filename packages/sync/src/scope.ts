@@ -3,7 +3,7 @@ import { hlcWall, type Clock, type HLC } from "./hlc.ts";
 import { holdsBack, noteFileHealth } from "./fileHealth.ts";
 import type { Adapter, LogFile, Origin, ScopeOptions, ScopeState, SnapshotFile, SyncFile, SyncRecord, Transport } from "./scopeState.ts";
 
-const DEFAULTS: Required<Omit<ScopeOptions, "persist">> = {
+const DEFAULTS: Required<Omit<ScopeOptions, "persist" | "holdApply">> = {
   expired: () => false,
   tombstoneTTL: 45 * 86_400_000,
   compactAfterFiles: 40,
@@ -325,14 +325,17 @@ export async function syncScope(args: {
   const held = holdsBack(state, now(), options?.damagedGiveUp ?? DEFAULTS.damagedGiveUp);
   const keys = new Set([...state.unapplied, ...changed]);
   const unapplied: string[] = [];
+  let heldApply = false;
   for (const adapter of adapters) {
     const late = adapter.publishAfterPull && held ? new Set<string>() : await publishAdapter(state, adapter, clock, device, now(), stamps.get(adapter));
     published += late.size;
     for (const key of late) keys.delete(key);
-    if (!(await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL)))) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
+    heldApply ||= !!options?.holdApply?.();
+    const applied = !heldApply && (await applyAdapter(state, adapter, keys, now(), 2 * (options?.tombstoneTTL ?? DEFAULTS.tombstoneTTL)));
+    if (!applied) unapplied.push(...[...keys].filter((k) => k.startsWith(adapter.prefix)));
   }
   state.unapplied = [...unapplied, ...[...keys].filter((k) => !adapters.some((a) => k.startsWith(a.prefix)))];
-  if (!state.awaitRemote || Object.keys(state.seen).some((d) => d !== device)) {
+  if (!heldApply && (!state.awaitRemote || Object.keys(state.seen).some((d) => d !== device))) {
     state.joined = true;
     delete state.awaitRemote;
   }

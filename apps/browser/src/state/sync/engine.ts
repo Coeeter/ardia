@@ -23,7 +23,7 @@ import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPai
 import { summarize } from "./syncSummary";
 import { profileScope } from "./records";
 import { errorText } from "../../lib/errors";
-import { saveBeforeQuit } from "../app/quit";
+import { isQuitting, saveBeforeQuit } from "../app/quit";
 
 const CYCLE_MS = 15_000;
 const AFTER_EDIT_MS = 3_000;
@@ -127,12 +127,12 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
         adapters: appAdapters(doc, retiring),
         clock,
         device,
-        options: { persist: persistJournal(APP_SCOPE) },
+        options: { persist: persistJournal(APP_SCOPE), holdApply: isQuitting },
       });
     } finally {
       await appSettled();
     }
-    if (app.joined && readyToPair(doc, app)) linkProfiles(doc, app);
+    if (app.joined && readyToPair(doc, app) && !isQuitting()) linkProfiles(doc, app);
     settleThemeAdoption(doc.profiles, app, true);
     let pending = app.pending;
     const s = useBrowser.getState();
@@ -151,13 +151,13 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
           adapters: profileAdapters(doc, profileId, retire, forcePasswords),
           clock,
           device,
-          options: { expired: historyExpired, persist: persistJournal(scope) },
+          options: { expired: historyExpired, persist: persistJournal(scope), holdApply: isQuitting },
         });
       } finally {
         await settled();
       }
       pending += state.pending;
-      if (!retire && typeSynced(doc, "extensions", profileId)) await extensionsOf(profileId).reconcile(visible(state, EXTENSION_PREFIX), Date.now());
+      if (!retire && !isQuitting() && typeSynced(doc, "extensions", profileId)) await extensionsOf(profileId).reconcile(visible(state, EXTENSION_PREFIX), Date.now());
       if (retire) {
         delete link.retire;
         if (!exists) {

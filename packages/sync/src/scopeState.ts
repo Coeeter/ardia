@@ -105,4 +105,5 @@ export type ScopeOptions = {
   pruneGrace?: number;
   damagedGiveUp?: number;
   persist?: (batches: LogFile[]) => Promise<void>;
+  holdApply?: () => boolean;
 };

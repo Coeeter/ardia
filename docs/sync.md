@@ -142,7 +142,10 @@ Writing:
   has its batches. Every journal and state write goes through one queue (`syncFiles.ts`), so a
   state save takes its snapshot, the last part it covers and the clock when its turn comes, and
   removes the parts only after it has landed. Quitting waits for that queue, with the state saved
-  last, for up to 3 s before the app answers the quit (`saveBeforeQuit`).
+  last, for up to 3 s before the app answers the quit (`saveBeforeQuit`). From the moment the app starts quitting,
+  sync applies nothing (`holdApply`; no pairing or extension installs either): what a pull brings during the wait
+  stays unapplied and the scope doesn't switch to joined, so the saved state never holds a base ahead of the session
+  saved when quitting began (tested).
 
 Reading (`SyncVault.read`) handles files that aren't there in full yet:
 - iCloud placeholders (`.<id>.nns.icloud` stubs, or dataless files whose

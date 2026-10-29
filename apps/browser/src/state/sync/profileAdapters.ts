@@ -78,7 +78,6 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
 export function profileThemesAdapter(
   links: () => Record<string, { syncId: string; themeAdopting?: true }>,
   records: () => Record<string, { v: unknown }> | undefined,
-  adopted: (profileId: string) => void = () => {},
 ): Adapter {
   const linked = () => Object.entries(links()).filter(([id]) => store().profiles[id]);
   const unapplied = (key: string, base: (key: string) => unknown) => {
@@ -109,7 +108,6 @@ export function profileThemesAdapter(
         const patch = themeFromRecord(visible.get(`${PROFILE_THEME}${syncId}`), visible.get(angleKey));
         if (!patch) continue;
         store().setProfileLook(id, patch);
-        adopted(id);
       }
     },
   };

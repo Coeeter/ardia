@@ -18,7 +18,7 @@ import { watchExtensionIntents } from "./extensions";
 import { appAdapters, extensionsOf, forgetScopeAdapters, profileAdapters, typeSynced } from "./scopeAdapters";
 import { APP_SCOPE, defaultTypes, emptyDoc, type DataType, type SyncDoc, type SyncUi } from "./syncDoc";
 import { syncFiles } from "./syncFiles";
-import { confirmThemes, settleAppliedThemes } from "./syncThemes";
+import { settleThemeAdoption, themeChosenHere } from "./syncThemes";
 import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPair, remoteProfileRecord, sharedDataChain } from "./profileLinks";
 import { summarize } from "./syncSummary";
 import { profileScope } from "./records";
@@ -119,13 +119,12 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
     const clock = new Clock(device, doc.clock);
     const app = appScopeOf(doc);
     const appSettled = watchScope(APP_SCOPE, app, clock);
-    settleAppliedThemes(doc.profiles, app);
     try {
       await syncScope({
         scope: APP_SCOPE,
         state: app,
         transport,
-        adapters: appAdapters(doc, retiring, themeAdopted),
+        adapters: appAdapters(doc, retiring),
         clock,
         device,
         options: { persist: persistJournal(APP_SCOPE) },
@@ -134,7 +133,7 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
       await appSettled();
     }
     if (app.joined && readyToPair(doc, app)) linkProfiles(doc, app);
-    confirmThemes(doc.profiles, app);
+    settleThemeAdoption(doc.profiles, app, true);
     let pending = app.pending;
     const s = useBrowser.getState();
     for (const [profileId, link] of Object.entries(doc.profiles)) {
@@ -191,15 +190,8 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
   }
 }
 
-function themeAdopted(profileId: string) {
-  const link = doc.profiles[profileId];
-  if (link?.themeAdopting) delete link.themeAdopting;
-}
-
 export function adoptProfileTheme(profileId: string) {
-  const link = doc.profiles[profileId];
-  if (!link?.themeAdopting) return;
-  delete link.themeAdopting;
+  if (!themeChosenHere(doc.profiles[profileId])) return;
   save();
   if (doc.enabled) scheduleSync(AFTER_EDIT_MS);
 }
@@ -208,6 +200,7 @@ async function loadSavedState() {
   await loadState();
   const app = doc.scopes[APP_SCOPE];
   if (app) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
+  settleThemeAdoption(doc.profiles, app, false);
 }
 
 async function resetFromElsewhere() {
@@ -307,9 +300,8 @@ export function setTypeSynced(type: DataType, enabled: boolean) {
 export function setProfileSynced(profileId: string, enabled: boolean) {
   const link = doc.profiles[profileId];
   if (!link) return;
-  doc.profiles[profileId] = enabled
-    ? { syncId: link.syncId, enabled, ...(link.themeAdopting ? { themeAdopting: true as const } : {}) }
-    : { ...link, enabled, retire: true };
+  const { retire: _retire, ...kept } = link;
+  doc.profiles[profileId] = enabled ? { ...kept, enabled } : { ...link, enabled, retire: true };
   save();
   publishUi();
   scheduleSync(0);
@@ -338,7 +330,6 @@ export function startSync() {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });
       await loadSavedState();
-      settleAppliedThemes(doc.profiles, doc.scopes[APP_SCOPE]);
       publishUi();
       scheduleSync(500);
     });

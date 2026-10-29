@@ -26,7 +26,7 @@ export function extensionsOf(profileId: string): ExtensionsAdapter {
   return adapter;
 }
 
-export function appAdapters(doc: SyncDoc, retiring: boolean, themeAdopted: (profileId: string) => void): Adapter[] {
+export function appAdapters(doc: SyncDoc, retiring: boolean): Adapter[] {
   const id = doc.deviceId!;
   if (retiring) return [deviceAdapter(id, deviceName, true)];
   const enabledLinks = () => Object.fromEntries(Object.entries(doc.profiles).filter(([, l]) => l.enabled));
@@ -34,7 +34,7 @@ export function appAdapters(doc: SyncDoc, retiring: boolean, themeAdopted: (prof
     ...(doc.types.settings ? [inTodaysNames(settingsAdapter)] : []),
     sharedDataAdapter(() => doc.profiles),
     profilesAdapter(enabledLinks),
-    profileThemesAdapter(enabledLinks, () => doc.scopes[APP_SCOPE]?.records, themeAdopted),
+    profileThemesAdapter(enabledLinks, () => doc.scopes[APP_SCOPE]?.records),
     deviceAdapter(id, deviceName),
   ];
 }

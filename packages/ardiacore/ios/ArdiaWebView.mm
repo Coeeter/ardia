@@ -281,6 +281,29 @@ void ArdiaWebViewsSetFieldTiming(BOOL on) {
   return view.window.windowNumber;
 }
 
++ (ArdiaWebView *)devViewOf:(NSString *)transferKey {
+  for (ArdiaWebView *view in LiveViews().allObjects)
+    if ([view->_transferKey isEqualToString:transferKey]) return view;
+  return nil;
+}
+
++ (NSString *)devPagePhaseOf:(NSString *)transferKey {
+  ArdiaWebView *view = [self devViewOf:transferKey];
+  if (!view) return nil;
+  switch (view->_life.phase) {
+    case ArdiaTabPhase::Waiting: return @"waiting";
+    case ArdiaTabPhase::Creating: return @"creating";
+    case ArdiaTabPhase::Attached: return @"attached";
+    case ArdiaTabPhase::Closing: return @"closing";
+  }
+}
+
++ (BOOL)devClosePageOf:(NSString *)transferKey {
+  ArdiaWebView *view = [self devViewOf:transferKey];
+  [view closeBrowser];
+  return view != nil;
+}
+
 + (BOOL)devFocusPageOfBrowser:(int)browserId {
 #if DEBUG
   ArdiaCoreTab *tab = ardia_host::TabWithBrowserId(browserId);

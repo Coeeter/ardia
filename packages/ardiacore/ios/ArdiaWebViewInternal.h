@@ -1,30 +1,11 @@
 #import "ArdiaInternal.h"
 #import "ArdiaWebView.h"
 #import "ArdiaNowPlaying.h"
+#import "ArdiaTabLifecycle.h"
 
 enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 
 @class ArdiaWebView;
-
-enum class ArdiaTabPhase { Waiting, Creating, Attached, Closing };
-
-struct ArdiaTabLifecycle {
-  ArdiaTabPhase phase{ArdiaTabPhase::Waiting};
-  NSUInteger createEpoch{};
-  NSString *pendingURL;
-  BOOL pendingUserInitiated{};
-  NSString *creatingURL;
-  CFTimeInterval creatingAt{};
-  NSString *transferredURL;
-  BOOL handingOff{};
-  BOOL moving{};
-  BOOL offerClosed{};
-  BOOL launchCloseSent{};
-
-  void leaveCreating() {
-    if (phase == ArdiaTabPhase::Creating) phase = ArdiaTabPhase::Waiting;
-  }
-};
 
 struct ArdiaRequests {
   BOOL loadedOnce{};

@@ -70,7 +70,7 @@ const usesPageA = [
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
   "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
   "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer", "webkit-now-playing-frames",
-  "tab-close-before-create", "tab-load-before-attach", "tab-create-interrupted-by-move", "tab-close-while-lent",
+  "tab-close-then-load", "tab-close-before-create", "tab-load-before-attach", "tab-create-interrupted-by-move", "tab-close-while-lent",
   "page-reports-follow-the-tab",
 ];
 const needs = {
@@ -4417,6 +4417,24 @@ try {
       s.restoreClosed(${JSON.stringify(entry)}, ${JSON.stringify(mainWindow)});
       const id = Object.keys(ac.store.getState().tabs).find((t) => !before.has(t)); ac.store.getState().activate(id); ${then}; return id`);
   };
+
+  const pagePhase = (id) => engine("tabs.devPagePhase", { tabId: id });
+
+  await check("tab-close-then-load", async () => {
+    const id = await freshTab(`${base}/c?close-then-load`);
+    try {
+      if (!(await engine("tabs.devClosePage", { tabId: id }))) throw new Error("no page view to close");
+      await evalApp(`return ac.webviews.get(${JSON.stringify(id)})?.loadUrl(${JSON.stringify(`${base}/d?after-close`)}, true)`);
+      await sleep(2000);
+      const phase = await pagePhase(id);
+      const keys = (await chromeTabKeys()).filter((k) => k === id).length;
+      if (phase !== "closing" || keys) throw new Error(`a load after close brought the page back: ${JSON.stringify({ phase, keys })}`);
+      return { phase };
+    } finally {
+      await closeTab(id).catch(() => null);
+      await toFirst();
+    }
+  });
 
   await check("tab-close-before-create", async () => {
     const leaked = [];

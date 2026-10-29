@@ -39,12 +39,14 @@ const char kPageReportsKey = 0;
 }
 
 - (void)attach:(ArdiaCoreTab *)tab {
+  NSAssert(_life.canAttach(_tab != nil), @"a closed view, or one that has a tab, was given another tab");
+  if (!_life.canAttach(_tab != nil)) return;
   if (TraceVisibility()) NSLog(@"[ardiacore-vis] %@ attach tab=%d visible=%d", _transferKey, (int)tab.tabId, _visible);
   const BOOL shownEarly = [ArdiaEarlyWindow holdsPage:tab];
   [LiveViews() addObject:self];
   InstallControlPressMonitor();
   _tab = tab;
-  _life.phase = ArdiaTabPhase::Attached;
+  _life.attached();
   tab.delegate = self;
   [ArdiaTabRegistry setView:self forTab:tab];
   [self markTemporary];
@@ -104,7 +106,7 @@ const char kPageReportsKey = 0;
   [self stopHolding];
   _standIn.lentTo = nil;
   _tab = nil;
-  if (_life.phase == ArdiaTabPhase::Attached) _life.phase = ArdiaTabPhase::Waiting;
+  _life.detached();
   _focus.onActivate = NO;
   _focus.page = ArdiaPageFocus::Unknown;
   _focus.devTools = nil;
@@ -167,7 +169,7 @@ const char kPageReportsKey = 0;
 }
 
 - (void)tabRemovedFromWindow:(ArdiaCoreWindow *)window {
-  if (_life.moving || _life.phase == ArdiaTabPhase::Closing || !_tab) return;
+  if (_life.moving || _life.closed() || !_tab) return;
   {
     ArdiaCoreTab *removed = _tab;
     __weak ArdiaWebView *weakSelf = self;
@@ -209,7 +211,7 @@ const char kPageReportsKey = 0;
 
 - (void)tabWillClose:(ArdiaCoreTab *)tab {
   [ArdiaEarlyWindow dropPage:tab];
-  if (_life.phase == ArdiaTabPhase::Closing || tab != _tab) return;
+  if (_life.closed() || tab != _tab) return;
   [self detach];
   [self emit:@"windowClose" payload:@{}];
 }

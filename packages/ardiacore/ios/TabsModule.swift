@@ -47,5 +47,10 @@ public class TabsModule: Module {
       let steps = try args.dicts("steps")
       reply.ok(ArdiaWebView.devScrollZoom(steps, browserId: ArdiaWebView.browserId(ofTab: try args.optionalText("tabId"))))
     },
-  ])
+  ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })
+
+  private static let testInstanceCalls: [String: CallHandler] = [
+    "devPagePhase": { args, reply in reply.ok(ArdiaWebView.devPagePhase(of: try args.text("tabId"))) },
+    "devClosePage": { args, reply in reply.ok(ArdiaWebView.devClosePage(of: try args.text("tabId"))) },
+  ]
 }

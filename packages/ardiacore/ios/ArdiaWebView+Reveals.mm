@@ -84,7 +84,7 @@ static ArdiaWebView *ViewForKey(NSString *key) {
 
 - (BOOL)onlyShownInWindow {
   NSWindow *window = self.window;
-  if (!_visible || _warm || _reveal.active || _standalone || _life.phase == ArdiaTabPhase::Closing || !window || self.alphaValue < 1 || self.isHiddenOrHasHiddenAncestor) return NO;
+  if (!_visible || _warm || _reveal.active || _standalone || _life.closed() || !window || self.alphaValue < 1 || self.isHiddenOrHasHiddenAncestor) return NO;
   for (ArdiaWebView *other in LiveViews().allObjects)
     if (other != self && other.window == window && (other->_visible || other->_warm || other->_reveal.active)) return NO;
   return YES;
@@ -116,7 +116,7 @@ static ArdiaWebView *ViewForKey(NSString *key) {
 - (void)revealAhead {
   NSWindow *window = self.window;
   NSView *page = _tab.view;
-  if (_visible || _reveal.active || _warm || _standalone || _life.phase == ArdiaTabPhase::Closing || !window || !page || page.superview != self) return;
+  if (_visible || _reveal.active || _warm || _standalone || _life.closed() || !window || !page || page.superview != self) return;
   ArdiaWebView *shown = nil;
   for (ArdiaWebView *other in LiveViews().allObjects) {
     if (other == self || other.window != window) continue;

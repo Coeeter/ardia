@@ -50,6 +50,8 @@ export type EngineCalls = {
   "tabs.devEvents": [{ tabId: string }, { name: string; payload: unknown }[]];
   "tabs.devWindowNumber": [{ tabId: string }, number];
   "tabs.devFocusPage": [{ tabId: string }, boolean];
+  "tabs.devPagePhase": [{ tabId: string }, "waiting" | "creating" | "attached" | "closing" | null];
+  "tabs.devClosePage": [{ tabId: string }, boolean];
   "tabs.devPictureInPicture": [{}, unknown[]];
   "tabs.devPictureInPictureAction": [{ action: string }, string];
   "tabs.devPostPeekMouseUp": [{ keys: string; tabId: string }, boolean];

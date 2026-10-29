@@ -23,7 +23,6 @@ id<NSApplicationDelegate> (^gMakeDelegate)(void);
 
 id<NSApplicationDelegate> gAppDelegate;
 
-BOOL gStarted;
 
 NSString *gDataDirectory;
 
@@ -34,7 +33,7 @@ namespace {
 BOOL gMenuShortcutsReady;
 
 void SendReservedShortcuts() {
-  if (!gStarted || !gMenuShortcutsReady) return;
+  if (!ArdiaLaunchSequence.shared.engineRunning || !gMenuShortcutsReady) return;
   [ArdiaCoreEngine reservedShortcutsChanged];
 }
 
@@ -67,17 +66,11 @@ ArdiaBootstrapDelegate *gBootstrap;
 
 bool gScratchDataDir = false;
 
-bool gAppKitWillFinish = false;
 
-bool gAppKitDidFinish = false;
 
-NSArray<NSURL *> *gPendingLaunchURLs;
 
-NSArray<NSURL *> *gLaunchLinks;
 
-bool gLinksHandled = false;
 
-bool gJSStarted = false;
 
 NSMutableDictionary<NSString *, NSDictionary *> *gInstallPrompts = [NSMutableDictionary dictionary];
 
@@ -299,7 +292,7 @@ static void (^gQuitCancelledHandler)(void);
 }
 
 + (BOOL)isStarted {
-  return gStarted;
+  return ArdiaLaunchSequence.shared.engineRunning;
 }
 
 + (NSString *)dataDirectory {

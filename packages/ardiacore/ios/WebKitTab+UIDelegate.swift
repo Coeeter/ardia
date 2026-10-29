@@ -11,7 +11,7 @@ extension WebKitTab {
     default: kinds = ["camera", "microphone"]
     }
     let originString = Origins.of(origin)
-    WebKitHub.shared.requestPermission(browserId: browserId, tabId: transferKey, profile: profile, origin: originString, kinds: kinds) { [weak webView] allowed in
+    WebKitHub.shared.permissions.request(browserId: browserId, tabId: transferKey, profile: profile, origin: originString, kinds: kinds) { [weak webView] allowed in
       if allowed, let view = webView as? WebKitWebView {
         for kind in kinds { view.captureOrigins[kind, default: []].insert(originString) }
       }

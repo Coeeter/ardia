@@ -93,7 +93,7 @@ public class WebKitModule: Module {
       WebKitHub.shared.endPrivateSession(try args.text("session"))
       reply.ok()
     },
-    "cookieStoreKey": { args, reply in reply.ok(WebKitHub.shared.storeKey(args.profile)) },
+    "cookieStoreKey": { args, reply in reply.ok(WebKitHub.shared.stores.id(of: args.profile).wireKey) },
     "importCookies": { args, reply in
       let cookies = try args.dicts("cookies")
       WebKitHub.shared.importCookies(cookies, profile: args.profile, storeKey: try args.text("storeKey")) { reply.ok($0) }
@@ -105,10 +105,11 @@ public class WebKitModule: Module {
   private static let testInstanceCalls: [String: CallHandler] = [
     "devStoreExists": { args, reply in WebKitHub.shared.storeExists(args.profile) { reply.ok($0) } },
     "devHoldStore": { args, reply in
-      WebKitHub.shared.holdStoreForTest(args.profile)
+      WebKitHub.shared.stores.holdForTest(args.profile)
       reply.ok()
     },
     "devTouchStore": { args, reply in WebKitHub.shared.touchStore(args.profile) { reply.ok($0) } },
+    "devParkedTransfers": { _, reply in reply.ok(WebKitHub.shared.transfers.parkedKeys) },
   ]
 }
 

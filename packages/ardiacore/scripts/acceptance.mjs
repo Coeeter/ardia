@@ -69,6 +69,7 @@ const usesPageA = [
   "move-tab-closed-while-parked", "move-tab-to-window", "title-bar-close", "last-used-profile",
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
   "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
+  "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer",
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
@@ -4615,6 +4616,51 @@ try {
     } finally {
       await closeTab(id);
       await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-clearing-keeps-zoom", async () => {
+    const a = await webkitTab("/a?wk-clear", "Page A");
+    const origin = webkitBase;
+    try {
+      await evalApp(`return ac.webviews.get(${q(a)}).zoomStep(1)`);
+      const zoom = await until("A zoomed", () => evalApp(`const z = ac.store.getState().tabs[${q(a)}]?.zoom; return z > 1 ? z : null`), 5000);
+      await engine("sites.setSetting", { engine: "webkit", profile: "", origin, type: "camera", value: "allow" });
+      await engine("sites.clearData", { engine: "webkit", profile: "", origin: `${origin}/` });
+      if ((await engine("sites.settings", { engine: "webkit", profile: "", origin })).camera?.value !== "allow") throw new Error("one site's data clear dropped its permission");
+      await engine("profiles.clearBrowsingData", { profile: "", types: ["siteData"], since: Date.now() - 30000 });
+      if ((await engine("sites.settings", { engine: "webkit", profile: "", origin })).camera?.value !== "ask") throw new Error("clearing site data kept the permission");
+      const b = await webkitTab("/b?wk-clear", "Page B");
+      try {
+        const kept = await until("zoom kept through the clear", () => evalApp(`const z = ac.store.getState().tabs[${q(b)}]?.zoom; return z === ${zoom} ? z : null`), 5000);
+        await evalApp(`return ac.webviews.get(${q(b)}).zoomStep(0)`);
+        return { zoom, kept };
+      } finally {
+        await closeTab(b);
+      }
+    } finally {
+      await closeTab(a);
+      await backToMain();
+    }
+  });
+
+  await check("webkit-private-session-ends-mid-transfer", async () => {
+    await useWebKit();
+    const windowId = await evalApp(`return ac.actions.openWindow({ incognito: true, url: ${q(`${webkitBase}/c?wk-private`)} })`);
+    try {
+      const id = await until("the private WebKit tab", () => evalApp(`const s = ac.store.getState(); const id = s.windows[${q(windowId)}]?.tabIds[0];
+        return id && s.tabs[id]?.title === "Page C" && !s.live[id]?.isLoading ? id : null`), 15000);
+      if (await chromiumBrowser(id)) throw new Error("the private tab opened in Chromium");
+      await evalApp(`globalThis.expo.modules.ArdiaTabs.prepareTransfer(${q(id)}); return true`);
+      await engine("webKit.endPrivateSession", { session: "" });
+      await sleep(500);
+      const parked = await engine("webKit.devParkedTransfers");
+      await evalApp(`globalThis.expo.modules.ArdiaTabs.releaseTransfer(${q(id)}); return true`);
+      if (parked.includes(id)) throw new Error("the ended session's page stayed parked for the transfer");
+      return { tab: id, parked };
+    } finally {
+      await dropWindow(windowId);
+      await backToMain();
     }
   });
 

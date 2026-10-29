@@ -62,9 +62,9 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   private func begin() {
     guard !closed else { return }
     if let key = transferKey {
-      let handedOver = WebKitHub.shared.isPrepared(key) ? WebKitHub.shared.liveTab(key).flatMap { $0 === self ? nil : $0.relinquish() } : nil
-      let parked = WebKitHub.shared.claimParked(key) as? WebKitWebView
-      WebKitHub.shared.noteLive(self, key: key)
+      let handedOver = WebKitHub.shared.transfers.isPrepared(key) ? WebKitHub.shared.transfers.liveTab(key).flatMap { $0 === self ? nil : $0.relinquish() } : nil
+      let parked = WebKitHub.shared.transfers.claimParked(key) as? WebKitWebView
+      WebKitHub.shared.transfers.noteLive(self, key: key)
       if let view = handedOver ?? parked {
         if let parked, parked !== view { WebKitHub.close(parked) }
         attach(view)
@@ -72,7 +72,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
         return
       }
     }
-    if let id = adoptId, id.hasPrefix("webkit:"), let offered = WebKitHub.shared.claimOffered(id) as? WebKitWebView {
+    if let id = adoptId, id.hasPrefix("webkit:"), let offered = WebKitHub.shared.transfers.claimOffered(id) as? WebKitWebView {
       attach(offered)
       emitEverything()
       return
@@ -87,11 +87,11 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard !closed, let view = webView else { return nil }
     closed = true
     observations = []
-    WebKitHub.shared.dropPermissions(browserId: browserId)
-    if let key = transferKey { WebKitHub.shared.forgetLive(self, key: key) }
+    WebKitHub.shared.permissions.drop(browserId: browserId)
+    if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
     webView = nil
     view.onFocus = nil
-    WebKitHub.shared.unregister(view)
+    WebKitHub.shared.transfers.unregister(view)
     view.navigationDelegate = nil
     view.uiDelegate = nil
     view.removeFromSuperview()
@@ -108,12 +108,12 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   private func attach(_ view: WebKitWebView) {
     webView = view
-    WebKitHub.shared.register(view, tab: self)
+    WebKitHub.shared.transfers.register(view, tab: self)
     view.navigationDelegate = self
     view.uiDelegate = self
     view.allowsBackForwardNavigationGestures = true
     view.allowsMagnification = true
-    view.isInspectable = WebKitHub.inspectable && !WebKitHub.isPrivate(profile)
+    view.isInspectable = WebKitHub.inspectable && !WebKitStores.isPrivate(profile)
     if let color = pageBackgroundColor { view.underPageBackgroundColor = color }
     view.onFocus = { [weak self] in self?.emit("focus") }
     view.frame = bounds
@@ -121,7 +121,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     addSubview(view)
     updateHidden()
     observe(view)
-    WebKitHub.shared.reconcileCapture(view, profile: profile)
+    WebKitHub.shared.permissions.reconcileCapture(view, profile: profile)
   }
 
   private func observe(_ view: WKWebView) {
@@ -150,17 +150,17 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     guard !closed else { return }
     closed = true
     observations = []
-    WebKitHub.shared.dropPermissions(browserId: browserId)
-    if let key = transferKey { WebKitHub.shared.forgetLive(self, key: key) }
+    WebKitHub.shared.permissions.drop(browserId: browserId)
+    if let key = transferKey { WebKitHub.shared.transfers.forgetLive(self, key: key) }
     guard let view = webView else { return }
     webView = nil
     view.onFocus = nil
-    if let key = transferKey, WebKitHub.shared.isPrepared(key) {
-      WebKitHub.shared.unregister(view)
+    if let key = transferKey, WebKitHub.shared.transfers.isPrepared(key) {
+      WebKitHub.shared.transfers.unregister(view)
       view.navigationDelegate = nil
       view.uiDelegate = nil
       view.removeFromSuperview()
-      WebKitHub.shared.park(view, key: key)
+      WebKitHub.shared.transfers.park(view, key: key)
       return
     }
     WebKitHub.close(view)
@@ -268,7 +268,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if direction > 0 { next = Self.zoomLevels.first { $0 > current + 0.001 } ?? current }
     if direction < 0 { next = Self.zoomLevels.last { $0 < current - 0.001 } ?? current }
     view.pageZoom = next
-    if !host.isEmpty { WebKitHub.shared.setZoom(next, profile: profile, host: host) }
+    if !host.isEmpty { WebKitHub.shared.stores.setZoom(next, profile: profile, host: host) }
     emitZoom(byUser: abs(next - current) > 0.001)
   }
 
@@ -455,7 +455,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       guard action.navigationType == .linkActivated || fromMainFrame else { return }
       let source = action.sourceFrame.securityOrigin
       let origin = source.host.isEmpty ? nil : Origins.of(source)
-      if let request = WebKitHub.shared.externalAppRequest(url: url, origin: origin, profile: profile) { emit("externalApp", request) }
+      if let request = WebKitHub.shared.externalApps.request(url: url, origin: origin, profile: profile) { emit("externalApp", request) }
       return
     }
     if action.navigationType == .linkActivated, action.targetFrame != nil {
@@ -497,7 +497,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     nowPlayingFrame = nil
     self.webView?.captureOrigins.removeAll()
     if !host.isEmpty {
-      let zoom = WebKitHub.shared.zoom(profile: profile, host: host)
+      let zoom = WebKitHub.shared.stores.zoom(profile: profile, host: host)
       if abs(webView.pageZoom - zoom) > 0.001 { webView.pageZoom = zoom }
     }
     if muted { setMuted(true) }
@@ -557,7 +557,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction,
                windowFeatures: WKWindowFeatures) -> WKWebView? {
     let child = WebKitWebView(frame: .zero, configuration: configuration)
-    let id = WebKitHub.shared.offer(child)
+    let id = WebKitHub.shared.transfers.offer(child)
     let flags = action.modifierFlags
     let popup = windowFeatures.width != nil || windowFeatures.height != nil
     let disposition = flags.contains(.command) || action.buttonNumber == 2 ? (flags.contains(.shift) ? "foreground" : "background") : popup ? "popup" : "foreground"

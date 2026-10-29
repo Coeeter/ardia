@@ -47,3 +47,27 @@ export const dropOnto = (target: DropTarget, ids: string[]) =>
   dropAt(ids, target.kind === "tab" ? { zone: "onto", targetId: target.id } : { zone: "group", groupId: target.id, beforeId: null });
 
 export type GroupOut = { top: DragGeometry; slot: number; chip: number; expanded: boolean; left: number };
+
+export type Release = { kind: "handedOff" } | { kind: "across"; landing: Landing } | { kind: "dropped" } | { kind: "settle" };
+
+export type ReleaseSteps = {
+  local: boolean;
+  lifted: boolean;
+  from: number;
+  drops: boolean;
+  crossed: boolean;
+  endWindowDrag(): boolean;
+  landAcross(): Landing | null | undefined;
+  clearAim(): void;
+  dropOnto(): boolean;
+  move(): boolean;
+};
+
+export function releaseDrop(s: ReleaseSteps): Release {
+  if ((!s.local && (s.endWindowDrag() || s.lifted)) || (s.from < 0 && !s.drops)) return { kind: "handedOff" };
+  const landing = s.crossed ? s.landAcross() : null;
+  if (landing) return { kind: "across", landing };
+  s.clearAim();
+  if (!s.local && (s.dropOnto() || s.move())) return { kind: "dropped" };
+  return s.from < 0 ? { kind: "handedOff" } : { kind: "settle" };
+}

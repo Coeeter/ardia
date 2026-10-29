@@ -218,11 +218,8 @@ enum ServerWindowDrag {
     regions.allObjects.contains { $0 === view || $0.isDescendant(of: view) }
   }
 
-  private static let embeddedSelector = NSSelectorFromString("ardiaEmbeddedSubview")
-
   static func embeddedRoot(_ window: NSWindow?) -> NSView? {
-    guard let content = window?.contentView, content.responds(to: embeddedSelector) else { return nil }
-    return content.perform(embeddedSelector)?.takeUnretainedValue() as? NSView
+    window.flatMap { ArdiaChromeWindowHost.embeddedRoot(of: $0) }
   }
 
   static func hostsRoot(_ view: NSView) -> Bool {
@@ -288,8 +285,8 @@ enum ServerWindowDrag {
 
   private static let capable: Bool = {
     let noArguments = { (types: String) in types.hasSuffix("@0:8") }
-    guard let host = NSClassFromString("BridgedContentView"), NSClassFromString("RCTView") != nil,
-          host.instancesRespond(to: embeddedSelector),
+    let host: AnyClass = ArdiaChromeWindowHost.contentViewClass
+    guard NSClassFromString("RCTView") != nil,
           matches(NSView.self, opaqueRectSelector, { $0.hasPrefix("{CGRect=") && noArguments($0) }),
           matches(host, opaqueRectSelector, { $0.hasPrefix("{CGRect=") && noArguments($0) }),
           matches(NSView.self, refreshSelector, { $0.hasPrefix("v") && noArguments($0) }),

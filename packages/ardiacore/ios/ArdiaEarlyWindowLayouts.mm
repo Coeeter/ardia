@@ -1,4 +1,5 @@
 #import "ArdiaEarlyWindowInternal.h"
+#import "ArdiaSavedDocument.h"
 #import "ArdiaChromeWindowHost.h"
 #import "ArdiaEngineBridge.h"
 #import "ArdiaTabParking.h"
@@ -160,8 +161,8 @@ void LoadLayouts() {
   if (gLayouts || !gLayoutPath) return;
   gLayouts = [NSMutableDictionary dictionary];
   NSData *data = [NSData dataWithContentsOfFile:gLayoutPath];
-  NSDictionary *file = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-  if (![file isKindOfClass:NSDictionary.class] || ![file[@"version"] isEqual:@(kLayoutVersion)]) return;
+  NSDictionary *file = [ArdiaSavedDocument parse:data oldest:kLayoutVersion newest:kLayoutVersion];
+  if (!file) return;
   if ([file[@"windows"] isKindOfClass:NSDictionary.class])
     for (NSString *key in file[@"windows"])
       if ([key isKindOfClass:NSString.class] && [file[@"windows"][key] isKindOfClass:NSDictionary.class]) gLayouts[key] = file[@"windows"][key];

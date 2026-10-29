@@ -181,6 +181,9 @@ writeDocument(DOC, versionedJson(data, VERSION));
   `telemetry-queue.json`, `telemetry-daily.json`, `release-notes.json`, `onboarding.json`,
   `default-browser-offer.json`, `sync.json`, `sync-extensions.json`, `live.json`, `ardia-cli.json`,
   `bangs-state.json` and `Scripts/status.json` (all 1).
+- Native code reads through `ArdiaSavedDocument` (packages/ardiacore/ios), with the same rules: `session.json` and
+  `onboarding.json` (any version up to the one JS writes; a test pins each) and `launch-layout.json` (3, written and
+  read by native code only, so any other version reads as nothing).
 - The sealed sync files carry their own `version` inside the sealed JSON, because they're written apart from
   `sync.json` and its `v` doesn't cover them: the `sync-state.nns` checkpoint (`{ covers, clock, scopes }`, 1; version 0
   includes the older bare scope map) and each `sync-journal-<n>.nns` part (1). The single `sync-journal.nns` from before

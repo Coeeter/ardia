@@ -1,4 +1,5 @@
 #import "ArdiaSavedSession.h"
+#import "ArdiaSavedDocument.h"
 
 namespace {
 
@@ -23,12 +24,8 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 }
 
 + (instancetype)readFrom:(NSString *)directory {
-  NSData *data = directory ? [NSData dataWithContentsOfFile:[directory stringByAppendingPathComponent:@"session.json"]] : nil;
-  NSDictionary *document = Typed<NSDictionary>(data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil);
-  if (!document) return nil;
-  id version = document[@"version"];
-  if (version && !([Typed<NSNumber>(version) integerValue] >= 0 && [Typed<NSNumber>(version) integerValue] <= self.version)) return nil;
-  return [[self alloc] initWithDocument:document];
+  NSDictionary *document = [ArdiaSavedDocument read:@"session.json" in:directory oldest:0 newest:self.version];
+  return document ? [[self alloc] initWithDocument:document] : nil;
 }
 
 + (instancetype)atLaunch:(NSString *)directory {

@@ -1,6 +1,7 @@
 #import "ArdiaHostInternal.h"
 #import "ArdiaLaunchConfig.h"
 #import "ArdiaSavedSession.h"
+#import "ArdiaSavedDocument.h"
 #import "ArdiaEarlyWindow.h"
 #import "ArdiaServices.h"
 #import "ArdiaNavigationDownloads.h"
@@ -145,10 +146,11 @@ bool gEarlyWindowPending;
 
 static bool gLaunchedForDocuments;
 
+static constexpr NSInteger kOnboardingVersion = 1;
+
 static bool OnboardingPending(NSString *dir) {
-  NSData *data = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"onboarding.json"]];
-  NSDictionary *saved = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-  if (![saved isKindOfClass:NSDictionary.class]) return false;
+  NSDictionary *saved = [ArdiaSavedDocument read:@"onboarding.json" in:dir oldest:0 newest:kOnboardingVersion];
+  if (!saved) return false;
   const bool completed = [saved[@"completedAt"] isKindOfClass:NSNumber.class] && [saved[@"completedAt"] doubleValue] > 0;
   return !completed && [saved[@"startedAt"] isKindOfClass:NSNumber.class];
 }

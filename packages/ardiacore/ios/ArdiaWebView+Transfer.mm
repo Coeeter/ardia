@@ -89,7 +89,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   NSString *key = [transferKey copy];
   dispatch_async(dispatch_get_main_queue(), ^{
     for (ArdiaWebView *view in LiveViews().allObjects)
-      if (view->_tab && [view->_transferKey isEqualToString:key]) view->_handingOff = YES;
+      if (view->_tab && [view->_transferKey isEqualToString:key]) view->_life.handingOff = YES;
   });
 }
 
@@ -98,7 +98,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   NSString *key = [transferKey copy];
   dispatch_async(dispatch_get_main_queue(), ^{
     for (ArdiaWebView *view in LiveViews().allObjects)
-      if ([view->_transferKey isEqualToString:key]) view->_handingOff = NO;
+      if ([view->_transferKey isEqualToString:key]) view->_life.handingOff = NO;
     [ArdiaTabParking releaseTransfer:key];
   });
 }
@@ -133,13 +133,13 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 - (void)ensureTab {
-  if (_tab || _creating || _offerClosed || !self.window || !ArdiaHost.isStarted || !self.controller) return;
+  if (_tab || _life.phase == ArdiaTabPhase::Creating || _life.offerClosed || !self.window || !ArdiaHost.isStarted || !self.controller) return;
   if ([self takeTransferredTab]) return;
   if ([_adoptId hasPrefix:@"link:"]) {
     NSString *link = _adoptId;
     _adoptId = nil;
     if ([ArdiaTabParking takeDismissedLinkMark:link]) {
-      _offerClosed = YES;
+      _life.offerClosed = YES;
       __weak ArdiaWebView *weakSelf = self;
       dispatch_async(dispatch_get_main_queue(), ^{
         [weakSelf emit:@"windowClose" payload:@{}];
@@ -152,7 +152,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     ArdiaCoreTab *offered = [ArdiaTabRegistry takeOffered:_adoptId];
     _adoptId = nil;
     if (offered.closed) {
-      _offerClosed = YES;
+      _life.offerClosed = YES;
       __weak ArdiaWebView *weakSelf = self;
       dispatch_async(dispatch_get_main_queue(), ^{
         [weakSelf emit:@"windowClose" payload:@{}];
@@ -172,20 +172,20 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     key = [_adoptId substringFromIndex:NSMaxRange(colon)];
   }
   _adoptId = nil;
-  _creating = YES;
-  const NSUInteger generation = ++_createGeneration;
+  _life.phase = ArdiaTabPhase::Creating;
+  const NSUInteger generation = ++_life.createEpoch;
   __weak ArdiaWebView *weakSelf = self;
   ardia_host::WithProfile(_profile, ^(ArdiaCoreProfile *profile) {
     ArdiaWebView *view = weakSelf;
-    if (!view || view->_createGeneration != generation) return;
-    view->_creating = NO;
+    if (!view || view->_life.createEpoch != generation) return;
+    view->_life.leaveCreating();
     ArdiaWindowController *controller = view.controller;
     if (!profile || view->_tab || !controller) return;
     const BOOL standalone = view->_standalone;
-    NSString *url = view->_pendingURL ?: view->_initialURL;
-    view->_pendingURL = nil;
-    view->_creatingURL = url;
-    view->_creatingAt = CACurrentMediaTime();
+    NSString *url = view->_life.pendingURL ?: view->_initialURL;
+    view->_life.pendingURL = nil;
+    view->_life.creatingURL = url;
+    view->_life.creatingAt = CACurrentMediaTime();
     if (view->_extensionHost.length && url.length && controller.coreWindow) {
       if (ArdiaCoreTab *tab = [controller.coreWindow openExtensionView:url profile:profile kind:view->_extensionHost])
         return [view attach:tab];
@@ -193,12 +193,12 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     if (standalone) controller = [ArdiaWindowController standaloneWindowForProfile:profile] ?: controller;
     if (!standalone && [kind isEqualToString:@"clone"] && [view cloneTab:key profile:profile]) return;
     if (!standalone && [kind isEqualToString:@"restore"] && url.length && !ardia_host::IsPrivateProfile(view->_profile) && controller.coreWindow) {
-      view->_creating = YES;
+      view->_life.phase = ArdiaTabPhase::Creating;
       [ArdiaServices call:@"ac_tab_restore_take" profile:view->_profile args:@{@"key" : key}
                 completion:^(NSDictionary *result) {
                   ArdiaWebView *later = weakSelf;
-                  if (!later || later->_createGeneration != generation) return;
-                  later->_creating = NO;
+                  if (!later || later->_life.createEpoch != generation) return;
+                  later->_life.leaveCreating();
                   ArdiaWindowController *now = later.controller;
                   if (later->_tab || !now) return;
                   NSString *state = [result[@"state"] isKindOfClass:NSString.class] ? result[@"state"] : nil;
@@ -211,7 +211,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
                 }];
       return;
     }
-    const BOOL userInitiated = view->_pendingUserInitiated;
+    const BOOL userInitiated = view->_life.pendingUserInitiated;
     if (url.length && [view skipsNavigationDownload:url userInitiated:userInitiated]) url = nil;
     if (url.length) ArdiaFieldMarkNow(view->_transferKey, @"request");
     ArdiaCoreTab *tab = !standalone && !userInitiated && !ardia_host::IsPrivateProfile(view->_profile)
@@ -234,7 +234,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
     if (other != self && [other.transferKey isEqualToString:sourceKey] && other->_tab && !other->_tab.closed) source = other->_tab;
   if (!source || source.profile != profile) return NO;
   ArdiaWindowController *holder = [ArdiaWindowController holding:source];
-  _pendingURL = nil;
+  _life.pendingURL = nil;
   controller.hostChanges++;
   holder.hostChanges++;
   ArdiaCoreTab *tab = [controller.coreWindow duplicateTab:source profile:profile foreground:NO];
@@ -249,7 +249,7 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   ArdiaWindowController *closing = [ArdiaWindowController forNSWindow:window];
   if (!closing.coreWindow) return;
   for (ArdiaWebView *view in LiveViews().allObjects)
-    if (view->_handingOff && view->_tab && !view->_tab.closed && [ArdiaWindowController holding:view->_tab] == closing)
+    if (view->_life.handingOff && view->_tab && !view->_tab.closed && [ArdiaWindowController holding:view->_tab] == closing)
       [view closeBrowser];
   [ArdiaTabParking rehomeFromWindow:closing];
 }
@@ -264,8 +264,8 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 - (BOOL)takeTransferredTab {
   if (!_transferKey.length) return NO;
   if ([ArdiaTabParking launchWasClosed:_transferKey]) {
-    if (!_launchCloseSent) {
-      _launchCloseSent = YES;
+    if (!_life.launchCloseSent) {
+      _life.launchCloseSent = YES;
       __weak ArdiaWebView *weakSelf = self;
       dispatch_async(dispatch_get_main_queue(), ^{
         ArdiaWebView *view = weakSelf;
@@ -290,12 +290,12 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
   [ArdiaTabParking tookTransfer:_transferKey];
   _adoptId = nil;
   ArdiaLaunchTabHolder *launch = (ArdiaLaunchTabHolder *)[ArdiaTabParking takeHolderOfTab:tab];
-  _transferredURL = launch.url ?: tab.url;
-  if (SamePage(_pendingURL, _transferredURL)) _pendingURL = nil;
+  _life.transferredURL = launch.url ?: tab.url;
+  if (SamePage(_life.pendingURL, _life.transferredURL)) _life.pendingURL = nil;
   [self attach:tab];
   if (launch) {
-    _loadedOnce = YES;
-    _requestedURL = launch.url;
+    _requests.loadedOnce = YES;
+    _requests.requestedURL = launch.url;
     [launch replayTo:self tab:tab];
     [self focusAfterLoad];
   }
@@ -310,21 +310,21 @@ static ArdiaCoreTab *StartParkedPage(NSString *url, NSString *profileName, NSStr
 }
 
 - (void)closeBrowser {
-  _createGeneration++;
-  _creating = NO;
+  _life.createEpoch++;
+  _life.leaveCreating();
   if (!_tab) return;
   ArdiaCoreTab *tab = _tab;
-  if (_handingOff && _transferKey.length && !tab.closed) {
+  if (_life.handingOff && _transferKey.length && !tab.closed) {
     [self detach];
     [ArdiaTabParking park:tab forKey:_transferKey];
     return;
   }
-  _closing = YES;
+  _life.phase = ArdiaTabPhase::Closing;
   if (_transferKey.length && !ardia_host::IsPrivateProfile(_profile) && ArdiaHost.isStarted)
     [ArdiaServices call:@"ac_tab_restore_tag" profile:_profile args:@{@"tab" : @(tab.tabId), @"key" : _transferKey}
               completion:^(NSDictionary *) {}];
   [[ArdiaWindowController holding:tab] noteClosing:tab];
-  ArdiaWebView *holder = _lentTo;
+  ArdiaWebView *holder = _standIn.lentTo;
   [self detach];
   if (![holder closesLentTab:tab]) [tab closeNow];
 }

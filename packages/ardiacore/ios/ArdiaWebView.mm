@@ -108,14 +108,14 @@ void AcceptDrops(NSView *root, BOOL accept) {
                                                   NSMutableDictionary<NSString *, ArdiaCoreTab *> *handed = [NSMutableDictionary dictionary];
                                                   for (ArdiaWebView *view in LiveViews().allObjects) {
                                                     if (!view->_tab || view->_tab.closed || !view->_transferKey.length) continue;
-                                                    view->_handingOff = YES;
+                                                    view->_life.handingOff = YES;
                                                     [views setObject:view forKey:view->_transferKey];
                                                     handed[view->_transferKey] = view->_tab;
                                                   }
                                                   [ArdiaTabParking holdAcrossReload:handed
                                                                                 expired:^(NSString *key, ArdiaCoreTab *tab) {
                                                                                   if (ArdiaWebView *view = [views objectForKey:key]; view && view->_tab == tab)
-                                                                                    view->_handingOff = NO;
+                                                                                    view->_life.handingOff = NO;
                                                                                 }];
                                                 };
                                                 if (NSThread.isMainThread) park();
@@ -127,7 +127,6 @@ void AcceptDrops(NSView *root, BOOL accept) {
   if ((self = [super initWithFrame:frameRect])) {
     _profile = @"";
     _visible = YES;
-    _seenByUser = YES;
     _tabIndex = -1;
     self.wantsLayer = YES;
   }
@@ -211,7 +210,7 @@ void AcceptDrops(NSView *root, BOOL accept) {
   if (visible) [self stopHolding];
   if (visible) [self settleRevealsInWindow];
   if (!visible) [_tab exitExclusiveAccess];
-  if (visible && !_awaitingFrame && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) {
+  if (visible && !_frameHold.awaiting && self.alphaValue < 1 && _tab.view.superview == self && !_tab.view.hidden) {
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     self.alphaValue = 1;
@@ -257,7 +256,7 @@ void AcceptDrops(NSView *root, BOOL accept) {
 }
 
 - (void)emit:(NSString *)name payload:(NSDictionary *)payload {
-  if (_navigationQueued && ![name isEqualToString:@"navigation"]) [self emitNavigation];
+  if (_sent.navigationQueued && ![name isEqualToString:@"navigation"]) [self emitNavigation];
   if (_tab) NoteEvent(ardia_host::BrowserId(_tab), name, payload);
   [self.delegate webView:self event:name payload:payload];
 }

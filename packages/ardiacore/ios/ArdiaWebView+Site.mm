@@ -58,14 +58,14 @@ using namespace ardia_runtime;
 }
 
 - (void)notificationAction:(NSString *)notificationId action:(NSString *)action {
-  NSString *frame = notificationId ? _notificationFrames[notificationId] : nil;
+  NSString *frame = notificationId ? _reports.notificationFrames[notificationId] : nil;
   if (!frame) return;
-  if (![action isEqualToString:@"click"]) [_notificationFrames removeObjectForKey:notificationId];
+  if (![action isEqualToString:@"click"]) [_reports.notificationFrames removeObjectForKey:notificationId];
   [self callFrame:frame kind:@"notification" json:JSONText(@{@"id" : notificationId, @"action" : action ?: @""})];
 }
 
 - (void)tab:(ArdiaCoreTab *)tab didChangeMediaAccess:(NSDictionary<NSString *, NSNumber *> *)access {
-  _capturing = [access[@"camera"] boolValue] || [access[@"microphone"] boolValue] || [access[@"screen"] boolValue];
+  _reports.capturing = [access[@"camera"] boolValue] || [access[@"microphone"] boolValue] || [access[@"screen"] boolValue];
   [self emit:@"mediaAccess" payload:access ?: @{}];
 }
 

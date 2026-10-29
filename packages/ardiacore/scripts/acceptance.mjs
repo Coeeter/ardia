@@ -70,6 +70,8 @@ const usesPageA = [
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
   "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
   "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer", "webkit-now-playing-frames",
+  "tab-close-before-create", "tab-create-interrupted-by-move", "tab-close-while-lent",
+  "page-reports-follow-the-tab",
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
@@ -4400,6 +4402,104 @@ try {
     if (!holding || holding.window !== windowNumber) throw new Error(`the tab's strip is window ${holding?.window}, its view is in ${windowNumber}`);
     return { windowId, kept, strip: holding.strip, window: holding.window };
   });
+
+  // MARK: Page view lifecycle
+
+  const toFirst = () => evalApp(`ac.actions.switchToTab(${JSON.stringify(first.id)}); return true`).catch(() => null);
+  const chromeTabKeys = async () => (await engine("tabs.strips")).strips.flatMap((st) => st.tabs.map((t) => t.key));
+  const reopenClosed = async (tag, then) => {
+    const tab = await openTab(`${base}/c?${tag}`, "Page C");
+    await sleep(800);
+    const entry = await evalApp(`ac.store.getState().closeTab(${JSON.stringify(tab.id)}); return ac.store.getState().closedTabs.find((c) => c.tabId === ${JSON.stringify(tab.id)})?.id ?? null`);
+    if (!entry) throw new Error(`no closed entry for ${tag}`);
+    await sleep(800);
+    return evalApp(`const s = ac.store.getState(); const before = new Set(Object.keys(s.tabs));
+      s.restoreClosed(${JSON.stringify(entry)}, ${JSON.stringify(mainWindow)});
+      const id = Object.keys(ac.store.getState().tabs).find((t) => !before.has(t)); ac.store.getState().activate(id); ${then}; return id`);
+  };
+
+  await check("tab-close-before-create", async () => {
+    const leaked = [];
+    for (const delay of [0, 20, 60, 120]) {
+      const id = await reopenClosed(`close-before-${delay}`, `setTimeout(() => ac.store.getState().closeTab(id), ${delay})`);
+      await sleep(2500);
+      if ((await chromeTabKeys()).includes(id)) leaked.push({ delay, id });
+    }
+    await toFirst();
+    if (leaked.length) throw new Error(`a tab closed while its page was being made kept a Chrome tab: ${JSON.stringify(leaked)}`);
+    return { delays: [0, 20, 60, 120] };
+  });
+
+  await check("tab-create-interrupted-by-move", async () => {
+    const id = await reopenClosed("create-moved", `ac.store.getState().moveTabsToWindow([id], null)`);
+    try {
+      const windowId = await until("the tab in its new window", () => evalApp(`const s = ac.store.getState(); const w = s.tabs[${JSON.stringify(id)}]?.windowId; return w && w !== ${JSON.stringify(mainWindow)} && ac.webviews.get(${JSON.stringify(id)}) ? w : null`), 15000);
+      await until("its page", async () => evalApp(`const s = ac.store.getState(); return s.tabs[${JSON.stringify(id)}]?.title === "Page C" && !s.live[${JSON.stringify(id)}]?.isLoading || null`), 15000);
+      await sleep(1500);
+      const keys = (await chromeTabKeys()).filter((k) => k === id).length;
+      if (keys !== 1) throw new Error(`the moved tab has ${keys} Chrome tabs`);
+      return { windowId };
+    } finally {
+      await closeWindowOf(id).catch(() => null);
+      await closeTab(id).catch(() => null);
+      await toFirst();
+    }
+  });
+
+  await check("tab-close-while-lent", async () => {
+    const a = await openTab(`${base}/a?lender`, "Page A");
+    const b = await openTab(`${base}/b?holder`, "Page B");
+    try {
+      await evalApp(`ac.actions.switchToTab(${JSON.stringify(a.id)}); return true`);
+      await until("A shown", async () => (await state()).active === a.id);
+      await sleep(500);
+      await evalApp(`ac.actions.switchToTab(${JSON.stringify(b.id)}); ac.store.getState().closeTab(${JSON.stringify(a.id)}); return true`);
+      await until("A's Chrome tab gone", async () => !(await chromeTabKeys()).includes(a.id) || null, 5000);
+      await until("B shown with its page", async () => (await state()).active === b.id && (await evalApp(`return !!ac.webviews.get(${JSON.stringify(b.id)})`)) || null, 5000);
+      const t = await pageFor(b.id, "/b?holder");
+      const title = (await cdp(t, "Runtime.evaluate", { expression: "document.title", returnByValue: true })).result.value;
+      return { title };
+    } finally {
+      await closeTab(a.id).catch(() => null);
+      await closeTab(b.id).catch(() => null);
+      await toFirst();
+    }
+  });
+
+  await check("page-reports-follow-the-tab", async () => withPopupExtension({}, async () => {
+    await engine("sites.setSetting", { profile: "", engine: "chromium", origin: base, type: "notifications", value: "allow" });
+    const blocked = (id) => evalApp(`return ac.pageState.getState().pages[${JSON.stringify(id)}]?.blocked ?? 0`);
+    const theme = (id) => evalApp(`return ac.store.getState().live[${JSON.stringify(id)}]?.themeColor ?? null`);
+    const ads = await freshTab(`${base}/ac-ads?reports`);
+    const red = (await openTab(`${base}/red-header?reports`, "Red header")).id;
+    let windowId = null;
+    try {
+      await until("the ad page's count", async () => (await blocked(ads)) === 2 || null, 8000);
+      await until("the red header's colour", async () => (await theme(red)) === "#C80000" || null, 5000);
+      const redPage = await pageFor(red, "/red-header?reports");
+      await cdp(redPage, "Runtime.evaluate", { expression: "window.__clicked = false; const n = new Notification('Reports', { tag: 'reports' }); n.onclick = () => (window.__clicked = true); true", userGesture: true });
+      const note = await until("the notification", async () => (await eventsOf(red)).findLast((x) => x.name === "notification"), 8000);
+      windowId = await evalApp(`return ac.store.getState().moveTabsToWindow([${JSON.stringify(ads)}, ${JSON.stringify(red)}], null)`);
+      await until("both tabs in the new window", () => evalApp(`const s = ac.store.getState(); return [${JSON.stringify(ads)}, ${JSON.stringify(red)}].every((id) => s.tabs[id]?.windowId === ${JSON.stringify(windowId)} && ac.webviews.get(id)) || null`), 10000);
+      await sleep(1000);
+      const adsPage = await pageFor(ads, "/ac-ads?reports");
+      await cdp(adsPage, "Runtime.evaluate", { expression: "document.body.appendChild(Object.assign(new Image(), { src: '/nnblock-again.png' })); true" });
+      const count = await until("the count carried on", async () => { const n = await blocked(ads); return n >= 3 ? n : null; }, 8000)
+        .catch(async (e) => { throw new Error(`${e.message}; count ${await blocked(ads)}`); });
+      if (count !== 3) throw new Error(`the moved page's count is ${count}, not 3`);
+      if ((await theme(red)) !== "#C80000") throw new Error(`the moved page's colour is ${await theme(red)}`);
+      await evalApp(`return ac.webviews.get(${JSON.stringify(red)}).notificationAction(${JSON.stringify(note.payload.id)}, "click")`);
+      const movedRed = await pageFor(red, "/red-header?reports");
+      await until("the click reaching the moved page", async () => (await cdp(movedRed, "Runtime.evaluate", { expression: "window.__clicked", returnByValue: true })).result.value === true || null, 8000);
+      return { count, notification: note.payload.id };
+    } finally {
+      await engine("sites.setSetting", { profile: "", engine: "chromium", origin: base, type: "notifications", value: "default" });
+      if (windowId) await evalApp(`ac.store.getState().closeWindow(${JSON.stringify(windowId)}); return true`).catch(() => null);
+      await closeTab(ads).catch(() => null);
+      await closeTab(red).catch(() => null);
+      await toFirst();
+    }
+  }));
 
   // MARK: Window lifetime
 

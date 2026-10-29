@@ -62,6 +62,7 @@ class Reply {
   ~Reply();
 
   void Send(base::DictValue result);
+  void SendSecretJSON(std::string& json);
   void Ok();
   void Error(std::string_view message);
 

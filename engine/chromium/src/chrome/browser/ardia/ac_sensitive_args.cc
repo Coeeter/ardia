@@ -9,15 +9,15 @@
 namespace ardia {
 
 void Cleanse(std::string& string) {
-  if (!string.empty()) {
-    OPENSSL_cleanse(string.data(), string.size());
-  }
+  string.resize(string.capacity());
+  OPENSSL_cleanse(string.data(), string.size());
+  string.clear();
 }
 
 void Cleanse(std::u16string& string) {
-  if (!string.empty()) {
-    OPENSSL_cleanse(string.data(), string.size() * sizeof(char16_t));
-  }
+  string.resize(string.capacity());
+  OPENSSL_cleanse(string.data(), string.size() * sizeof(char16_t));
+  string.clear();
 }
 
 void Cleanse(base::Value& value) {

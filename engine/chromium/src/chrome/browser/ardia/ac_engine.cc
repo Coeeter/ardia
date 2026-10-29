@@ -68,6 +68,16 @@ void Reply::Send(base::DictValue result) {
   reply(context, ToJSON(result).c_str());
 }
 
+void Reply::SendSecretJSON(std::string& json) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (reply_) {
+    ac_engine_reply_t reply = std::exchange(reply_, nullptr);
+    void* context = std::exchange(context_, nullptr);
+    reply(context, json.c_str());
+  }
+  Cleanse(json);
+}
+
 void Reply::Ok() {
   Send(base::DictValue().Set("ok", true));
 }

@@ -11,6 +11,7 @@ import { notePinChoices } from "../pins/pinChoices";
 import { createPeekSlice, type PeekSlice } from "../peek/peek";
 import { pinHome } from "../pins/pinHomes";
 import { createProfilesSlice, DEFAULT_PROFILE, type ProfilesSlice } from "../profiles/profiles";
+import { engineProfiles } from "../profiles/engineProfiles";
 import { createSettingsSlice, migrateSavedSettings, parseSettings, type SettingsSlice } from "../settings/settings";
 import { createSplitsSlice, sanitizeSplits, type SplitsSlice } from "../splits/splits";
 import { activated, apply } from "../tabs/tabs";
@@ -57,7 +58,6 @@ export type HydrateData = Partial<
     | "closedGroups"
     | "deletedGroups"
     | "cleanedTabs"
-    | "bookmarks"
     | "downloads"
     | "settings"
   >
@@ -154,8 +154,8 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
         .map((g) => [g.id, g]),
     );
     const splits = sanitizeSplits(data.splits ?? {}, tabs);
-    let bookmarks = data.bookmarks ?? s.bookmarks;
-    for (const id of profileOrder) bookmarks = ensureRoots(bookmarks, engineProfile({ profiles }, id))[0];
+    let bookmarks = s.bookmarks;
+    for (const engine of engineProfiles({ profiles })) bookmarks = ensureRoots(bookmarks, engine)[0];
     const focused = data.focusedWindowId && windows[data.focusedWindowId] ? data.focusedWindowId : (windowOrder.at(-1) ?? null);
 
     const engines = new Set(Object.keys(profiles).map((id) => engineProfile({ profiles }, id)));

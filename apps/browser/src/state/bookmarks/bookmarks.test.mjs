@@ -108,7 +108,8 @@ test("the store's tree and Chrome's stay alike: the app's edits go as ops, an ex
 });
 
 test("an edit made at launch, before Chrome's tree is read, reaches Chrome and stays", async () => {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   stub.docs.clear();
   stub.bookmarkDbs.clear();
   stub.chromeBookmarkEdit("", [{ op: "add", id: "0f0f0f0f-0000-4000-8000-0000000000a1", k: "u", t: "In Chrome", u: "https://chrome.example/", a: 1, parent: "bar" }]);
@@ -121,7 +122,8 @@ test("an edit made at launch, before Chrome's tree is read, reaches Chrome and s
 });
 
 test("ops Chrome can't apply (an extension moved things meanwhile) stop there: nothing the store kept is removed", async () => {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   stub.docs.clear();
   stub.bookmarkDbs.clear();
   const stop = startBookmarks();
@@ -143,7 +145,8 @@ test("ops Chrome can't apply (an extension moved things meanwhile) stop there: n
 });
 
 test("at launch the bar shows the last tree read from Chrome until Chrome's loads, and nothing of it is written back", async () => {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   stub.docs.clear();
   stub.bookmarkDbs.clear();
   stub.chromeBookmarkEdit("", [{ op: "add", id: "0f0f0f0f-0000-4000-8000-0000000000c1", k: "u", t: "Now", u: "https://now.example/", a: 1, parent: "bar" }]);

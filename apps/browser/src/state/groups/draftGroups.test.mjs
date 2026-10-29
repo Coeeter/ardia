@@ -30,7 +30,8 @@ const tree = (groupId) => {
 const roots = (w) => sidebarEntries(S(), w).pinned.filter((e) => e.startsWith("g:")).map((e) => e.slice(2));
 
 function start() {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   const w = S().createWindow({ url: "https://home.example/" });
   const bar = bookmarkRoots(S(), P)?.bar ?? (S().addBookmark({ profileId: P, url: "https://seed.example/", title: "seed" }), bookmarkRoots(S(), P).bar);
   return { w, bar };

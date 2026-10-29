@@ -9,7 +9,8 @@ const { closeFolderMenus, openFolderMenu, useFolderMenus } = await import("./fol
 const S = () => useBrowser.getState();
 
 function seed() {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   const add = (title, parentId) => S().addBookmark({ profileId: "default", url: `https://${title.toLowerCase()}.example/`, title, parentId });
   const a = add("A");
   const b = add("B");
@@ -151,7 +152,8 @@ test("a drop reaches Chrome's bookmarks as a move, so sync and the bookmark mana
   const stub = await import("../../test-native/index.ts");
   const { reloadBookmarks, startBookmarks } = await import("./engineSync.ts");
   const settle = () => new Promise((r) => setTimeout(r, 0));
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   stub.docs.clear();
   stub.bookmarkDbs.clear();
   const stop = startBookmarks();

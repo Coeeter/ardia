@@ -11,7 +11,8 @@ const P = "default";
 const pinnedGroups = () => Object.values(S().groups).filter((g) => g.pinned);
 
 function start() {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   const w = S().createWindow({ url: "https://home.example/" });
   S().addBookmark({ profileId: P, url: "https://seed.example/", title: "seed" });
   return { w, bar: bookmarkRoots(S(), P).bar };

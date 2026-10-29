@@ -1106,7 +1106,7 @@ test("bookmarks: a Mac on old ids and one on Chrome's UUIDs keep one tree", asyn
   const now = new Device("devNew", folder);
   old.with(() => {
     const n = (id, parentId, x) => ({ id, parentId, addedAt: 5, ...x });
-    S().hydrate({
+    useBrowser.setState({
       bookmarks: {
         nodes: {
           "bar@default": n("bar@default", null, { kind: "folder", title: "Bookmarks Bar", children: ["bm-f"] }),
@@ -1117,11 +1117,13 @@ test("bookmarks: a Mac on old ids and one on Chrome's UUIDs keep one tree", asyn
         },
       },
     });
+    S().hydrate({});
     useBrowser.setState({ bookmarksReady: { "": true } });
   });
   await old.sync();
   now.with(() => {
-    S().hydrate({ bookmarks: { nodes: {} } });
+    useBrowser.setState({ bookmarks: { nodes: {} } });
+    S().hydrate({});
     useBrowser.setState({ bookmarksReady: { "": true } });
     const f = S().addBookmarkFolder({ profileId: "default", title: "F" });
     const a = S().addBookmark({ profileId: "default", url: "https://a.example/", title: "A", parentId: f });
@@ -2062,7 +2064,8 @@ test("bookmarks and history: a Mac on v0.2.43-nightly.4 and one on today's build
 });
 
 test("profiles that share data: records applied through the owner land once in the shared engine, and edits through the sharer go out through the owner", async () => {
-  S().hydrate({ bookmarks: { nodes: {} } });
+  useBrowser.setState({ bookmarks: { nodes: {} } });
+  S().hydrate({});
   stub.historyDbs.clear();
   const a = S().createProfile({ name: "A" });
   const b = S().createProfile({ name: "B", shareWith: a });

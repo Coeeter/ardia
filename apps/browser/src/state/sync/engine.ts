@@ -22,8 +22,8 @@ import { confirmThemes, settleAppliedThemes } from "./syncThemes";
 import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPair, remoteProfileRecord, sharedDataChain } from "./profileLinks";
 import { summarize } from "./syncSummary";
 import { profileScope } from "./records";
-import { onAppEvent } from "../../platform/app";
 import { errorText } from "../../lib/errors";
+import { saveBeforeQuit } from "../app/quit";
 
 const CYCLE_MS = 15_000;
 const AFTER_EDIT_MS = 3_000;
@@ -50,7 +50,7 @@ let cycle: Promise<void> | null = null;
 let again = false;
 let forcePasswordsNext = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
-const { read, loadState, persistJournal, watchScope, clearJournal, save, checkpoint } = syncFiles(() => doc);
+const { read, loadState, persistJournal, watchScope, save, startOver, checkpoint } = syncFiles(() => doc);
 
 function load() {
   const loaded = read();
@@ -213,8 +213,7 @@ async function loadSavedState() {
 async function resetFromElsewhere() {
   await SyncNative?.forget(doc.deviceId!);
   doc = { ...emptyDoc(), folder: doc.folder, types: doc.types };
-  clearJournal();
-  save({ stateNow: true });
+  startOver();
   publishUi({ status: "reset", error: "This device is out of sync. Sync may have been reset from another device." });
 }
 
@@ -237,8 +236,7 @@ export async function chooseSyncFolder(): Promise<string | null> {
 
 function begin(folder: string, deviceId: string, joining: boolean) {
   doc = { ...emptyDoc(), types: doc.types, enabled: true, folder, deviceId, setupAt: Date.now(), joining };
-  clearJournal();
-  save({ stateNow: true });
+  startOver();
   publishUi({ status: "starting", error: null });
   scheduleSync(0);
 }
@@ -295,8 +293,7 @@ export async function stopSync({ deleteData = false } = {}) {
   if (doc.deviceId) await native.forget(doc.deviceId);
   doc = { ...emptyDoc(), folder, types: doc.types };
   forgetScopeAdapters();
-  clearJournal();
-  save({ stateNow: true });
+  startOver();
   publishUi({ status: "off", error: null });
 }
 
@@ -346,7 +343,7 @@ export function startSync() {
       scheduleSync(500);
     });
   }
-  onAppEvent((e) => e.type === "willQuit" && checkpoint());
+  saveBeforeQuit(checkpoint);
   useBrowser.subscribe((s, prev) => {
     if (!doc.enabled || cycle) return;
     if (s.bookmarks !== prev.bookmarks || s.settings !== prev.settings || s.profiles !== prev.profiles || s.groups !== prev.groups) scheduleSync();

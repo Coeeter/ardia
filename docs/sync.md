@@ -139,7 +139,10 @@ Writing:
   saved state and the next cycle writes them again, byte for byte, before anything new. If the
   first write did land, the folder has the same batch twice, which reads as a no-op on every
   version. The journal is local only (no format change) and is emptied once the saved state
-  has its batches.
+  has its batches. Every journal and state write goes through one queue (`syncFiles.ts`), so a
+  state save takes its snapshot, the last part it covers and the clock when its turn comes, and
+  removes the parts only after it has landed. Quitting waits for that queue, with the state saved
+  last, for up to 3 s before the app answers the quit (`saveBeforeQuit`).
 
 Reading (`SyncVault.read`) handles files that aren't there in full yet:
 - iCloud placeholders (`.<id>.nns.icloud` stubs, or dataless files whose

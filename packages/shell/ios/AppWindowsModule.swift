@@ -8,15 +8,22 @@ public class AppWindowsModule: Module {
     Name("ArdiaAppWindows")
     Events(ShellEvents.Channel.window.rawValue)
 
-    OnCreate { ShellEvents.attach(.window, to: self, while: self.lifetime) }
+    OnCreate {
+      self.lifetime.begin(self) {
+        DragPreview.shared.cancel()
+        LeftEdgeWatcher.shared.reset()
+        ShellEvents.retire(self)
+      }
+      ShellEvents.attach(.window, to: self, while: self.lifetime)
+    }
 
     OnDestroy {
-      self.lifetime.end()
       ShellEvents.detach(self) { owned in
         guard owned.contains(.window) else { return }
         WindowManager.shared.runtimeGone()
         LeftEdgeWatcher.shared.reset()
       }
+      self.lifetime.end()
     }
 
     AsyncFunction("openWindow") { (id: String, options: OpenWindowOptions) in

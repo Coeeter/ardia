@@ -5317,6 +5317,34 @@ try {
     if (tabs !== 1 || served.get(path) !== 1) throw new Error(`delivered ${tabs} times, loaded ${served.get(path)} times`);
     return { waitedMs: Math.round(delivery.waitedMs), tabs, loads: served.get(path) };
   });
+  await check("drag-preview-across-reload", async () => {
+    const windowId = await appUp("app-drag-reload.out.log");
+    const preview = () => evalApp(`return globalThis.expo.modules.ArdiaDev.devDragPreviewState()`);
+    const edges = async () => (await evalApp(`return ac.shell.devLeftEdgeStats(false)`)).watched;
+    const edgesBefore = await edges();
+    await evalApp(`const d = ac.shell.dragPreview; d.begin(${JSON.stringify(windowId)}, [40, 40, 160, 28], [20, 14]);
+      d.placeholder("Reload probe", null); d.update("pill", [300, 300]); ac.shell.watchLeftEdge(${JSON.stringify(windowId)}, true); return true`);
+    const shown = await until("the preview", async () => {
+      const p = await preview();
+      return p.visible ? p : null;
+    }, 5000);
+    const edgesWatched = await edges();
+    await evalApp(`setTimeout(() => { try { globalThis.nativeModuleProxy.DevSettings.reload(); } catch {} }, 50); return true`);
+    await sleep(1500);
+    await until("the reloaded app", async () => {
+      try {
+        return await evalApp(`return Object.keys(ac.store.getState().windows).length > 0`, 3000);
+      } catch (e) {
+        if (exited) throw e;
+        return null;
+      }
+    }, 60000);
+    await sleep(1000);
+    const after = await preview();
+    if (after.visible || after.shape !== "hidden") throw new Error(`the preview outlived the reload: ${JSON.stringify(after)}`);
+    return { shown: shown.shape, after: { visible: after.visible, shape: after.shape }, edges: { before: edgesBefore, watched: edgesWatched, afterReload: await edges() } };
+  });
+
 
 
   await check("quit-js-stall", async () => {

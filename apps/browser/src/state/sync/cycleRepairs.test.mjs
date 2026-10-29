@@ -125,7 +125,7 @@ test("a setting an older build received but didn't sync lands after the upgrade,
   await settle();
   await engine.syncNow();
   assert.equal(S().settings.selectedTabGlow, "off", "the synced value takes effect");
-  assert.ok(!S().settings.chosen?.includes("selectedTabGlow"), "not as a choice made here");
+  assert.ok(!S().settingsMeta.chosen.includes("selectedTabGlow"), "not as a choice made here");
   await engine.syncNow();
   assert.ok(!published(GLOW), "and nothing goes back out");
 });

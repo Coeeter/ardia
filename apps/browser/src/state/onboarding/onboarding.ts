@@ -93,7 +93,7 @@ export function questionsFor(step: OnboardingStep): Question[] {
   const list = setsUpLikeBrowser(source) ? QUESTIONS[step].filter((q) => !answeredByPreset(q, preset)) : QUESTIONS[step];
   if (!list.some((q) => SIDEBAR_ONLY.includes(q.id))) return list;
   const b = useBrowser.getState();
-  const { tabLayout } = resolveDraft(["tabLayout"], draft, preset, { ...b.settings, tabLayout: tabLayoutOf(b, windowId) });
+  const { tabLayout } = resolveDraft(["tabLayout"], draft, preset, { ...b.settings, tabLayout: tabLayoutOf(b, windowId) }, b.settingsMeta.chosen);
   return tabLayout === "top" ? list.filter((q) => !SIDEBAR_ONLY.includes(q.id)) : list;
 }
 
@@ -279,9 +279,9 @@ export function resolveDraft<K extends keyof Settings>(
   draft: Partial<Settings>,
   preset: Preset,
   settings: Settings,
+  chosen: readonly string[],
 ): Pick<Settings, K> {
   const presetValues = PRESETS[preset];
-  const chosen = settings.chosen;
   return Object.fromEntries(
     keys.map((k) => [k, k in draft ? draft[k] : k in presetValues && !chosen.includes(k) ? presetValues[k] : settings[k]]),
   ) as Pick<Settings, K>;

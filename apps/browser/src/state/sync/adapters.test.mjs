@@ -11,6 +11,7 @@ const pinnedArea = await import("./pinned.ts");
 const { pinnedOrderAdapter } = await import("./pinnedOrderAdapter.ts");
 const { pinnedRowsAdapter } = await import("./pinnedRowsAdapter.ts");
 const stub = await import("../../test-native/index.ts");
+const { loadSession } = await import("../session/persist.ts");
 const passwords = await import("../../platform/passwords.ts");
 const history = await import("../../platform/history.ts");
 
@@ -145,7 +146,8 @@ const OLD_SESSION = (() => {
 })();
 const relaunch = (device, settings) =>
   device.with(() => {
-    S().hydrate({ settings });
+    stub.docs.set("session.json", JSON.stringify({ version: 7, profiles: S().profiles, profileOrder: S().profileOrder, settings, windows: [], windowOrder: [], tabs: [], groups: [], splits: [] }));
+    S().hydrate(loadSession());
     useBrowser.setState({ history: { "": { list: [], floor: -Infinity, ready: true } }, bookmarksReady: { "": true } });
   });
 
@@ -1988,7 +1990,7 @@ test("settings received while this Mac ran a version that didn't sync them take 
   b.loadSaved();
   await syncAll([b, a]);
   assert.equal(b.with(() => S().settings.selectedTabGlow), "off", "the synced value takes effect after the upgrade");
-  assert.ok(!b.with(() => S().settings.chosen?.includes("selectedTabGlow")), "as a synced value, not a choice made here");
+  assert.ok(!b.with(() => S().settingsMeta.chosen.includes("selectedTabGlow")), "as a synced value, not a choice made here");
   assert.equal(b.with(() => S().settings.pageScrollBars), "system", "a value chosen here stays");
   assert.equal(a.with(() => S().settings.pageScrollBars), "system", "and goes out as the newer edit");
   assert.equal((await b.sync()).published, 0, "settled");

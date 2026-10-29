@@ -14,7 +14,7 @@ import { createPeekSlice, type PeekSlice } from "../peek/peek";
 import { pinHome } from "../pins/pinHomes";
 import { createProfilesSlice, DEFAULT_PROFILE, type ProfilesSlice } from "../profiles/profiles";
 import { engineProfiles } from "../profiles/engineProfiles";
-import { createSettingsSlice, migrateSavedSettings, parseSettings, type SettingsSlice } from "../settings/settings";
+import { createSettingsSlice, parseSettings, parseSettingsMeta, type SettingsSlice } from "../settings/settings";
 import { createSplitsSlice, sanitizeSplits, type SplitsSlice } from "../splits/splits";
 import { activated, apply } from "../tabs/tabs";
 import { createTabsSlice, type TabsSlice } from "../tabs/tabsSlice";
@@ -64,6 +64,7 @@ export type HydrateData = Partial<
     | "cleanedTabs"
     | "downloads"
     | "settings"
+    | "settingsMeta"
   >
 > & { focusedWindowId?: string | null; lastProfileId?: string | null };
 
@@ -124,7 +125,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       ...(data.profileOrder ?? []).filter((id) => profiles[id]),
       ...Object.keys(profiles).filter((id) => !data.profileOrder?.includes(id)),
     ];
-    const settings = parseSettings(migrateSavedSettings(data.settings));
+    const settings = parseSettings(data.settings);
     if (!profiles[settings.defaultProfileId]) settings.defaultProfileId = profileOrder[0]!;
 
     notePinChoices(data.pinChoices ?? {});
@@ -165,6 +166,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
       profileOrder,
       orphanedProfileData: (data.orphanedProfileData ?? []).filter((e) => !engines.has(e)),
       settings,
+      settingsMeta: parseSettingsMeta(data.settingsMeta),
       windows,
       windowOrder,
       tabs,

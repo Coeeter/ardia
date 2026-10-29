@@ -345,7 +345,7 @@ export const createSplitsSlice: StateCreator<BrowserState, [], [], SplitsSlice> 
       const w = s.windows[windowId];
       if (!w) return {};
       const tabLayout = tabLayoutOf(s, windowId) === "sidebar" ? "top" : "sidebar";
-      return { windows: { ...s.windows, [windowId]: { ...w, tabLayout } }, settings: choose(s.settings, { tabLayout }) };
+      return { windows: { ...s.windows, [windowId]: { ...w, tabLayout } }, ...choose(s, { tabLayout }) };
     });
   },
 });

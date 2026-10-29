@@ -6,7 +6,7 @@ import { focusedWindowOf } from "../../browser/src/state/windows/ui";
 
 export const DEMO_PRESET = presetFor("arc");
 
-export const demoSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...PRESETS[DEMO_PRESET], chosen: [], inferred: [] });
+export const demoSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...PRESETS[DEMO_PRESET] });
 
 export function startCustomize() {
   if (useOnboarding.getState().windowId) return;

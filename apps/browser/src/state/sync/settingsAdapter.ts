@@ -17,8 +17,8 @@ export const settingsAdapter: Adapter = {
   adoptRemoteOnJoin: true,
   extract: (base) => {
     const settings = store().settings;
-    const chosen = new Set(settings.chosen);
-    const inferred = new Set(settings.inferred);
+    const chosen = new Set(store().settingsMeta.chosen);
+    const inferred = new Set(store().settingsMeta.inferred);
     const filledIn = (name: SettingKey, value: unknown) => {
       if (!inferred.has(name) || JSON.stringify(value) !== JSON.stringify(DEFAULT_SETTINGS[name])) return false;
       const last = base(recordKey(name)) as { v?: unknown } | undefined;
@@ -51,7 +51,7 @@ export const settingsAdapter: Adapter = {
 
 export function settingsToReapply(records: Record<string, SyncRecord>): string[] {
   const settings = store().settings;
-  const chosen = new Set(settings.chosen);
+  const chosen = new Set(store().settingsMeta.chosen);
   return SYNCED_SETTINGS.flatMap((name) => {
     const key = recordKey(name);
     const value = fromRecord(name, (fromLegacy(records[key]?.v) as { v?: unknown } | null | undefined)?.v);

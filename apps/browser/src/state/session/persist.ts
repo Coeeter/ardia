@@ -13,14 +13,15 @@ import type { BrowserWindow, ParkedPins, SplitView, Tab } from "../browser/types
 import { downloadSession } from "../downloads/downloadsSlice";
 import { parseSaved, versionedJson, unchanged, type Migrations, type SavedObject } from "../../lib/savedDocument";
 import { sessionWithCleanUpMinutes } from "../settings/cleanUpAfter";
+import { parseSettingsMeta, sessionWithSettingsMeta } from "../settings/settings";
 import { sessionWithOwnTabMutes } from "../tabs/mute";
 import { isRegularWindow } from "../windows/small";
 import { isFields, isString, isStringList } from "../../lib/decode";
 import { pageFromDisk, parkedSplitsChecked, pinFromDisk, savedPage, sessionWithSplitSlots, sessionWithTabPages, sessionWithTabPins, slotsFromDisk } from "./savedShapes";
 
 const SAVE_DELAY_MS = 800;
-const SESSION_VERSION = 7;
-const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes, 4: sessionWithTabPages, 5: sessionWithTabPins, 6: sessionWithSplitSlots };
+const SESSION_VERSION = 8;
+const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes, 4: sessionWithTabPages, 5: sessionWithTabPins, 6: sessionWithSplitSlots, 7: sessionWithSettingsMeta };
 const downloadsWithStagingPathOnly = (doc: SavedObject): SavedObject => ({
   ...doc,
   downloads: Array.isArray(doc.downloads)
@@ -66,6 +67,7 @@ const SESSION_FIELDS = {
   profileOrder: field(["profileOrder"], (s) => s.profileOrder),
   orphanedProfileData: field(["orphanedProfileData"], (s) => s.orphanedProfileData),
   settings: field(["settings"], (s) => s.settings),
+  settingsMeta: field(["settingsMeta"], (s) => s.settingsMeta),
   windows: field(["windows"], savedWindows),
   windowOrder: field(["windows", "windowOrder"], (s) => s.windowOrder.filter((id) => savedWindowIds(s).has(id))),
   focusedWindowId: field(["windows", "ui"], savedFocus),
@@ -128,6 +130,7 @@ export function parseSession(json: string | null | undefined): SavedSession | nu
     profileOrder: strings(raw.profileOrder),
     orphanedProfileData: strings(raw.orphanedProfileData),
     settings: isFields(raw.settings) ? (raw.settings as HydrateData["settings"]) : undefined,
+    settingsMeta: parseSettingsMeta(raw.settingsMeta),
     windows: byId(rows<BrowserWindow & { incognito?: unknown }>(raw.windows, windowOk).map(({ incognito: _i, ...w }): BrowserWindow => ({ ...w, kind: "main" }))),
     windowOrder: strings(raw.windowOrder),
     focusedWindowId: nullableString(raw.focusedWindowId),

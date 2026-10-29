@@ -16,6 +16,7 @@ import { fromLegacyUrl } from "../../lib/legacy";
 import type { BrowserState } from "../browser/store";
 import { DEFAULT_SIDEBAR_WIDTH } from "../../lib/windowLayout";
 import { isFields, isString, isStringList } from "../../lib/decode";
+import type { SavedObject } from "../../lib/savedDocument";
 
 export const DEFAULT_PROFILE_ID = "default";
 
@@ -113,7 +114,9 @@ type Specs = typeof SETTING_SPECS;
 export type SettingKey = keyof Specs;
 export const SETTING_KEYS = Object.keys(SETTING_SPECS) as SettingKey[];
 
-export type Settings = { -readonly [K in SettingKey]: Specs[K]["default"] } & { chosen: string[]; inferred: string[] };
+export type Settings = { -readonly [K in SettingKey]: Specs[K]["default"] };
+export type SettingsMeta = { chosen: string[]; inferred: string[] };
+export const NO_SETTINGS_META: SettingsMeta = { chosen: [], inferred: [] };
 
 export type SearchEngineId = string;
 export type BatterySaverWhen = Settings["batterySaverWhen"];
@@ -129,22 +132,18 @@ export function withLinkKeysApart(settings: Settings, patch: Partial<Settings>):
   return "splitLinkModifier" in patch && !("peekModifier" in patch) ? { ...patch, peekModifier: "shift" } : { ...patch, splitLinkModifier: "altShift" };
 }
 
-export const DEFAULT_SETTINGS: Settings = {
-  ...(Object.fromEntries(SETTING_KEYS.map((key) => [key, SETTING_SPECS[key].default])) as Omit<Settings, "chosen" | "inferred">),
-  chosen: [],
-  inferred: [],
-};
+export const DEFAULT_SETTINGS = Object.fromEntries(SETTING_KEYS.map((key) => [key, SETTING_SPECS[key].default])) as Settings;
 
 export function parseSettings(raw: unknown): Settings {
   const saved = isFields(raw) ? raw : {};
   const value = (key: SettingKey) => (SETTING_SPECS[key].valid(saved[key]) ? saved[key] : SETTING_SPECS[key].default);
-  const legacy = isFields(raw) && !raw.chosen ? Object.keys(raw) : null;
-  const settings = {
-    ...(Object.fromEntries(SETTING_KEYS.map((key) => [key, value(key)])) as Omit<Settings, "chosen" | "inferred">),
-    chosen: legacy ?? (isStringList(saved.chosen) ? saved.chosen : []),
-    inferred: legacy ?? (isStringList(saved.inferred) ? saved.inferred : []),
-  };
+  const settings = Object.fromEntries(SETTING_KEYS.map((key) => [key, value(key)])) as Settings;
   return { ...settings, ...withLinkKeysApart(settings, {}) };
+}
+
+export function parseSettingsMeta(raw: unknown): SettingsMeta {
+  const meta = isFields(raw) ? raw : {};
+  return { chosen: isStringList(meta.chosen) ? meta.chosen : [], inferred: isStringList(meta.inferred) ? meta.inferred : [] };
 }
 
 export const validSettingValue = (key: SettingKey, value: unknown) => SETTING_SPECS[key].valid(value);
@@ -187,16 +186,23 @@ function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?:
   return validateEngine(input, searchEngines(settings), ignoreId);
 }
 
-export function choose(settings: Settings, patch: Partial<Settings>): Settings {
-  const added = Object.keys(patch).filter((k) => k !== "chosen" && k !== "inferred" && !settings.chosen.includes(k));
-  return { ...settings, ...patch, chosen: added.length ? [...settings.chosen, ...added] : settings.chosen, inferred: settings.inferred.filter((k) => !(k in patch)) };
+export function choose(s: Pick<BrowserState, "settings" | "settingsMeta">, patch: Partial<Settings>): Pick<BrowserState, "settings" | "settingsMeta"> {
+  const { chosen, inferred } = s.settingsMeta;
+  const added = Object.keys(patch).filter((k) => !chosen.includes(k));
+  const left = inferred.filter((k) => !(k in patch));
+  const settingsMeta = added.length || left.length !== inferred.length ? { chosen: added.length ? [...chosen, ...added] : chosen, inferred: left } : s.settingsMeta;
+  return { settings: { ...s.settings, ...patch }, settingsMeta };
 }
 
-export function migrateSavedSettings(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
-  return withNewTabButtonPosition(withoutBatterySaver(saved));
+export function sessionWithSettingsMeta(doc: SavedObject): SavedObject {
+  if (!isFields(doc.settings)) return doc;
+  const raw = withNewTabButtonPosition(withoutBatterySaver(doc.settings as Partial<Settings & SettingsMeta> & { batterySaver?: unknown }))!;
+  const legacy = !raw.chosen ? Object.keys(raw) : null;
+  const { chosen, inferred, ...settings } = raw;
+  return { ...doc, settings, settingsMeta: { chosen: legacy ?? (isStringList(chosen) ? chosen : []), inferred: legacy ?? (isStringList(inferred) ? inferred : []) } };
 }
 
-function withNewTabButtonPosition(saved: Partial<Settings> | undefined): Partial<Settings> | undefined {
+function withNewTabButtonPosition(saved: Partial<Settings & SettingsMeta> | undefined): Partial<Settings & SettingsMeta> | undefined {
   if (!saved || saved.newTabButtonPosition !== undefined || saved.newTabPosition !== "top") return saved;
   const alongside = (keys: string[]) => (keys.includes("newTabPosition") ? [...new Set([...keys, "newTabButtonPosition"])] : keys);
   return {
@@ -207,7 +213,7 @@ function withNewTabButtonPosition(saved: Partial<Settings> | undefined): Partial
   };
 }
 
-function withoutBatterySaver(saved: (Partial<Settings> & { batterySaver?: unknown }) | undefined): Partial<Settings> | undefined {
+function withoutBatterySaver(saved: (Partial<Settings & SettingsMeta> & { batterySaver?: unknown }) | undefined): Partial<Settings & SettingsMeta> | undefined {
   if (!saved || !("batterySaver" in saved)) return saved;
   const { batterySaver, ...rest } = saved;
   const explicit = batterySaver === false || (batterySaver === true && !!rest.chosen?.includes("batterySaver") && !rest.inferred?.includes("batterySaver"));
@@ -222,6 +228,7 @@ function withoutBatterySaver(saved: (Partial<Settings> & { batterySaver?: unknow
 
 export type SettingsSlice = {
   settings: Settings;
+  settingsMeta: SettingsMeta;
   updateSettings(patch: Partial<Settings>, options?: { fromSync?: boolean }): void;
   setSearchEngine(id: string): void;
   addCustomEngine(input: EngineInput): { id: string } | { error: string };
@@ -234,8 +241,9 @@ const newEngineId = () => `engine-${Date.now().toString(36)}-${(++engineCounter)
 
 export const createSettingsSlice: StateCreator<BrowserState, [], [], SettingsSlice> = (set, get) => ({
   settings: DEFAULT_SETTINGS,
+  settingsMeta: NO_SETTINGS_META,
   updateSettings(patch, { fromSync = false } = {}) {
-    set((s) => ({ settings: fromSync ? { ...s.settings, ...patch } : choose(s.settings, withLinkKeysApart(s.settings, patch)) }));
+    set((s) => (fromSync ? { settings: { ...s.settings, ...patch } } : choose(s, withLinkKeysApart(s.settings, patch))));
   },
 
   setSearchEngine(id) {

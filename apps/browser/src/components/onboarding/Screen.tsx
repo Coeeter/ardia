@@ -4,7 +4,7 @@ import { PROFILE_COLORS } from "../ui/theme";
 import { themeAccent } from "../../lib/profileLook";
 import { curve, usePresence } from "../ui/motion";
 import { onboardingMotion } from "./tokens";
-import { useSettings, useTabLayout } from "../../state/browser/hooks";
+import { useChosenSettings, useSettings, useTabLayout } from "../../state/browser/hooks";
 import { useWindowProfileValue } from "../../state/profiles/hooks";
 import type { Settings } from "../../state/settings/settings";
 import { MockWindow, type PreviewId } from "./previews";
@@ -17,7 +17,8 @@ export function useScreen<K extends keyof Settings>(keys: readonly K[]) {
   const settings = useSettings((st) => st);
   const tabLayout = useTabLayout(windowId);
   const base = { ...settings, tabLayout };
-  const values = resolveDraft(keys, draft, preset, base);
+  const chosen = useChosenSettings();
+  const values = resolveDraft(keys, draft, preset, base, chosen);
   return { values, base, mock: { ...base, ...values } as Settings };
 }
 

@@ -178,7 +178,7 @@ test("the Peek modifier setting: ⇧-click by default, ⌥-click or Off, synced,
   assert.equal(peekModifierOf(S().settings), "shift");
   S().updateSettings({ peekModifier: "alt" });
   assert.equal(peekModifierOf(S().settings), "alt");
-  assert.ok(S().settings.chosen.includes("peekModifier"));
+  assert.ok(S().settingsMeta.chosen.includes("peekModifier"));
   S().updateSettings({ peekModifier: "off" });
   assert.equal(peekModifierOf(S().settings), "off");
   S().hydrate({ profiles: { default: PERSONAL }, profileOrder: ["default"], settings: { peekModifier: "control" } });
@@ -196,7 +196,7 @@ test("the split link setting: ⌥⇧-click by default or ⌥-click, synced, neve
   assert.ok(SYNCED_SETTINGS.includes("splitLinkModifier"));
   S().updateSettings({ splitLinkModifier: "alt" });
   assert.deepEqual(keys(), ["shift", "alt"]);
-  assert.ok(S().settings.chosen.includes("splitLinkModifier"));
+  assert.ok(S().settingsMeta.chosen.includes("splitLinkModifier"));
   S().updateSettings({ peekModifier: "alt" });
   assert.deepEqual(keys(), ["alt", "altShift"]);
   assert.equal(S().settings.splitLinkModifier, "altShift");

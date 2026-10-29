@@ -30,6 +30,8 @@ const { useBrowser } = await import("../browser/store.ts");
 const lifecycle = await import("./tabLifecycle.ts");
 const { keepActiveSiteOf, memorySaverRequest } = await import("./memorySaver.ts");
 const { reloadRecentTabs } = await import("./recentTabWarmup.ts");
+const { loadSession: loadSavedSession } = await import("../session/persist.ts");
+const { docs: savedDocs } = await import("../../test-native/index.ts");
 
 const S = () => useBrowser.getState();
 const memorySaverCalls = () => globalThis.engineCalls.filter(([name]) => name === "memorySaver").map(([, request]) => request);
@@ -118,7 +120,11 @@ test("Battery Saver turned on by low battery stays on through 20%/21% readings u
 });
 
 test("Battery Saver's old switch: a choice and any off are kept, the old default moves to When battery is low", () => {
-  const hydrated = (settings) => (S().hydrate({ settings }), S().settings);
+  const hydrated = (settings) => {
+    savedDocs.set("session.json", JSON.stringify({ version: 7, profiles: S().profiles, profileOrder: S().profileOrder, settings, windows: [], windowOrder: [], tabs: [], groups: [], splits: [] }));
+    S().hydrate(loadSavedSession());
+    return { ...S().settings, chosen: S().settingsMeta.chosen };
+  };
   const untouched = hydrated({ batterySaver: true, showFullUrl: true, chosen: ["showFullUrl"], inferred: [] });
   assert.equal(untouched.batterySaverWhen, "lowBattery");
   assert.equal("batterySaver" in untouched, false);

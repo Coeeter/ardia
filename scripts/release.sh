@@ -186,7 +186,7 @@ if [ "$phase" = build ]; then
   echo "Built $archive (signed ad hoc) and $(basename "$cli_tarball"); sign it with --phase sign."
   exit 0
 fi
-if [ -n "$build_input" ]; then
+if [ "$phase" = sign ] && [ -n "$build_input" ]; then
   rm -rf "$dist"
   mkdir -p "$dist"
   for file in provenance.txt "$(basename "$cli_tarball")" "$(basename "$cli_tarball").sha256"; do

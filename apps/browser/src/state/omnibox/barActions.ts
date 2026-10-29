@@ -9,6 +9,7 @@ import { menuBarRevision, shortcutHint } from "../commands/commandShortcuts";
 import type { Tab } from "../browser/types";
 import { organizeActions } from "./organizeActions";
 import { muteState, muteTitle, siteMuteTitle } from "../tabs/mute";
+import { isWebPageUrl } from "../../lib/url";
 
 type Context = { s: BrowserState; windowId: string; tab: Tab | undefined };
 
@@ -18,7 +19,7 @@ type ActionDef = {
   title?: (c: Context) => string;
   icon?: string;
   keywords?: string[];
-  needs?: "page" | "tab" | "profiles" | "pins";
+  needs?: "page" | "webPage" | "tab" | "profiles" | "pins";
 };
 
 const page = "page" as const;
@@ -79,7 +80,7 @@ const DEFS: ActionDef[] = [
   { command: "devTools", keywords: ["inspect", "devtools", "console"], needs: page },
   { command: "inspectElements", icon: "cursorarrow", keywords: ["inspect element", "element picker"], needs: page },
   { command: "javaScriptConsole", icon: "terminal.fill", keywords: ["console", "js console"], needs: page },
-  { command: "viewSource", icon: "chevron.left.forwardslash.chevron.right", keywords: ["page source", "html"], needs: page },
+  { command: "viewSource", icon: "chevron.left.forwardslash.chevron.right", keywords: ["page source", "html"], needs: "webPage" },
   { command: "savePage", icon: "square.and.arrow.down", keywords: ["save as", "download page"], needs: page },
   { command: "cast", icon: "tv", keywords: ["chromecast", "cast tab"], needs: page },
   { command: "toggleFullUrl", title: ({ s }) => (s.settings.showFullUrl ? "Hide Full URL" : "Show Full URL") },
@@ -113,6 +114,7 @@ export function barActions(s: BrowserState, windowId: string): CommandAction[] {
   const out: CommandAction[] = [];
   for (const d of DEFS) {
     if (d.needs === "page" && !tab?.url) continue;
+    if (d.needs === "webPage" && !isWebPageUrl(tab?.url ?? "")) continue;
     if (d.needs === "tab" && !tab) continue;
     if (d.needs === "profiles" && w?.kind === "private") continue;
     if (d.needs === "pins" && !canTidyPins(s, windowId)) continue;

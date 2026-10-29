@@ -263,13 +263,14 @@ public class SyncModule: Module {
       return nil
     }
     var sealed: [[String: Any]] = []
+    var seen = Set<String>()
     for login in logins {
       guard let realm = login["realm"] as? String, let username = login["username"] as? String,
             let password = login["password"] as? String, let created = login["created"] as? Double else {
         NSLog("[sync] reading passwords: a malformed login; not syncing passwords now")
         return nil
       }
-      guard let origin = Self.loginOrigin(realm) else { continue }
+      guard seen.insert("\(realm)\u{0}\(username)").inserted, let origin = Self.loginOrigin(realm) else { continue }
       guard let seal = try? keys.sealPassword(password, origin: origin, username: username) else { return nil }
       sealed.append(["origin": origin, "username": username, "sealed": seal, "created": created])
     }

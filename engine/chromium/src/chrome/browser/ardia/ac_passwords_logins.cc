@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -226,14 +225,11 @@ void LoginsRead::Send() {
   std::string json;
   json.reserve(JSONBound(*profile_, *account_));
   json += "{\"logins\":[";
-  std::set<std::pair<std::string, std::u16string>> seen;
   bool first = true;
   bool valid = true;
   for (const Credentials* list : {&*profile_, &*account_}) {
     for (const StoredCredential& credential : *list) {
-      if (!Synced(credential) ||
-          !seen.emplace(credential.signon_realm, credential.username_value)
-               .second) {
+      if (!Synced(credential)) {
         continue;
       }
       valid &= AppendLogin(credential, first, json);

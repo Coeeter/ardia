@@ -1,4 +1,4 @@
-import { holds } from "../app/transientUi";
+import { hoverHeld } from "../app/transientUi";
 import { cardReach, pointInRect, type Point, type Rect } from "./hoverAim";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./sidebarUi";
 
@@ -115,14 +115,14 @@ export function suppressHover(value: boolean) {
 
 async function show(windowId: string, target: Target, mine: number) {
   const anchor = await measureRow(windowId, target.id);
-  if (mine !== ticket || suppressed || !anchor || holds("hoverCard", windowId)) return;
+  if (mine !== ticket || suppressed || !anchor || hoverHeld(windowId)) return;
   if (card.pointerOn && sidebarUi().hover) return;
   card.exit = null;
   setSidebarUi({ hover: { windowId, ...target, anchor } });
 }
 
 export function hoverEnter(windowId: string, target: Target) {
-  if (suppressed || holds("hoverStart", windowId)) return;
+  if (suppressed || hoverHeld(windowId)) return;
   stop("show", "hide", "aim");
   card.waiting = null;
   const current = sidebarUi().hover;

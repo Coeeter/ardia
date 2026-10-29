@@ -177,10 +177,16 @@ test("the card holds while the group panel is held, and on release leaves unless
   assert.equal(shown(), null, "its row is its owner again");
 });
 
-test("no card while a row is renamed or the icon picker is open, in any window, or over the command panel", async (t) => {
+test("no card while a row is renamed or the icon picker is open in its window, or over the command panel", async (t) => {
   fresh(t);
   setSidebarUi({ renaming: { kind: "tab", id: "x", windowId: "other" } });
   enter("a");
+  t.mock.timers.tick(500);
+  await settle();
+  assert.equal(shown(), "a", "a rename in another window doesn't stop it");
+  hover.dismissHover();
+  setSidebarUi({ renaming: { kind: "tab", id: "x", windowId: W } });
+  enter("c");
   t.mock.timers.tick(500);
   await settle();
   assert.equal(shown(), null, "renaming");

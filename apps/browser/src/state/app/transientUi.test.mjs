@@ -7,7 +7,9 @@ const { usePages } = await import("../tabs/pageState.ts");
 const { useHistoryMenu } = await import("../tabs/navigation.ts");
 const { useExtensions } = await import("../extensions/store.ts");
 const { showMenu } = await import("../../platform/menus.ts");
-const { holds, peekHeld } = await import("./transientUi.ts");
+const { hoverHeld, peekHeld, toolbarHeld } = await import("./transientUi.ts");
+const { setPeekShown } = await import("../windows/dockMotion.ts");
+const { setToolbarPeek } = await import("../windows/toolbarAutoHide.ts");
 const { cardEntered, dismissHover } = await import("../sidebar/hover.ts");
 
 const S = () => useBrowser.getState();
@@ -20,8 +22,34 @@ function twoWindows(settings = {}) {
   return { w, other, tab: activeTabId(S(), w) };
 }
 
+const focus = (win) => useBrowser.setState((s) => ({ ui: { ...s.ui, focusOrder: [win, ...s.ui.focusOrder.filter((id) => id !== win)] } }));
+const menuClosed = () => new Promise((r) => setTimeout(r, 0));
+
 const SURFACES = {
-  menu: { open: () => void showMenu([]), close: async () => await new Promise((r) => setTimeout(r, 0)) },
+  menuFromSidebar: {
+    open: ({ w }) => {
+      focus(w);
+      setPeekShown(w, true, 245);
+      void showMenu([]);
+    },
+    close: async ({ w }) => {
+      await menuClosed();
+      setPeekShown(w, false);
+    },
+  },
+  menuFromToolbar: {
+    open: ({ w, tab }) => {
+      focus(w);
+      setToolbarPeek(tab, true);
+      void showMenu([]);
+    },
+    close: async ({ tab }) => {
+      await menuClosed();
+      setToolbarPeek(tab, false);
+    },
+  },
+  menuFromPage: { open: ({ w }) => (focus(w), void showMenu([])), close: menuClosed },
+  menuElsewhere: { open: ({ other }) => (focus(other), void showMenu([])), close: menuClosed },
   rename: { open: ({ w }) => setSidebarUi({ renaming: { kind: "tab", id: "x", windowId: w } }), close: () => setSidebarUi({ renaming: null }) },
   renameElsewhere: { open: ({ other }) => setSidebarUi({ renaming: { kind: "tab", id: "x", windowId: other } }), close: () => setSidebarUi({ renaming: null }) },
   iconPicker: { open: ({ w }) => setSidebarUi({ iconPicker: { kind: "tab", id: "x", windowId: w, anchor: null } }), close: () => setSidebarUi({ iconPicker: null }) },
@@ -54,9 +82,10 @@ async function heldWhileOpen(held, settings) {
   return out;
 }
 
-test("the floating sidebar stays out for menus, rename, the icon picker, downloads and the sidebar field's popover", async () => {
+test("the floating sidebar stays out for what's anchored in it: its menus, rename, the icon picker, the hover card, Downloads and the sidebar field's popover", async () => {
   assert.deepEqual(await heldWhileOpen(({ w }) => peekHeld(w)), {
-    menu: true, rename: true, renameElsewhere: false, iconPicker: true, iconPickerElsewhere: false, hoverCard: true, downloads: true,
+    menuFromSidebar: true, menuFromToolbar: false, menuFromPage: false, menuElsewhere: false,
+    rename: true, renameElsewhere: false, iconPicker: true, iconPickerElsewhere: false, hoverCard: true, downloads: true,
     popover: false, panel: false, find: false, historyMenu: false, extensionPopup: false,
   });
 });
@@ -65,20 +94,18 @@ test("a page popover holds the floating sidebar only when it hangs off the sideb
   assert.equal((await heldWhileOpen(({ w }) => peekHeld(w), { addressBar: "sidebar" })).popover, true);
 });
 
-test("the auto-hidden toolbar stays shown for the command panel, Find, a page popover, the history menu and an extension popup", async () => {
-  assert.deepEqual(await heldWhileOpen(({ w, tab }) => holds("toolbar", w, tab)), {
-    menu: false, rename: false, renameElsewhere: false, iconPicker: false, iconPickerElsewhere: false, hoverCard: false, downloads: false,
+test("the auto-hidden toolbar stays shown for what's anchored in it: its menus, the command panel, Find, a page popover, the history menu and an extension popup", async () => {
+  assert.deepEqual(await heldWhileOpen(({ w, tab }) => toolbarHeld(w, tab)), {
+    menuFromSidebar: false, menuFromToolbar: true, menuFromPage: false, menuElsewhere: false,
+    rename: false, renameElsewhere: false, iconPicker: false, iconPickerElsewhere: false, hoverCard: false, downloads: false,
     popover: true, panel: true, find: true, historyMenu: true, extensionPopup: true,
   });
 });
 
-test("no hover card shows over the command panel, or while a row is renamed or the icon picker is open in any window", async () => {
-  assert.deepEqual(await heldWhileOpen(({ w }) => holds("hoverCard", w)), {
-    menu: false, rename: true, renameElsewhere: true, iconPicker: true, iconPickerElsewhere: true, hoverCard: false, downloads: false,
-    popover: false, panel: true, find: false, historyMenu: false, extensionPopup: false,
-  });
-  assert.deepEqual(await heldWhileOpen(({ w }) => holds("hoverStart", w)), {
-    menu: false, rename: false, renameElsewhere: false, iconPicker: false, iconPickerElsewhere: false, hoverCard: false, downloads: false,
-    popover: false, panel: true, find: false, historyMenu: false, extensionPopup: false,
+test("no hover card starts in a window while anything is open in it, and something open in another window doesn't stop it", async () => {
+  assert.deepEqual(await heldWhileOpen(({ w }) => hoverHeld(w)), {
+    menuFromSidebar: true, menuFromToolbar: true, menuFromPage: true, menuElsewhere: false,
+    rename: true, renameElsewhere: false, iconPicker: true, iconPickerElsewhere: false, hoverCard: false, downloads: true,
+    popover: true, panel: true, find: true, historyMenu: true, extensionPopup: true,
   });
 });

@@ -1,12 +1,13 @@
 import { layout } from "../ui/theme";
 import { currentSettings } from "../../state/browser/current";
-import type { DragSource, DropSpot } from "../../state/drag/drops";
+import type { DragSource } from "../../state/drag/drops";
 import { descendantGroupIds, resolveDropNow } from "../../state/sidebar/current";
 import { tabDragOutside } from "../../state/drag/tabDrag";
 import { dragMarksOf, markDrag } from "../../state/sidebar/dragMarks";
 import { folderPanel } from "../../state/sidebar/tileFolderUi";
-import { overPins, pinGridHeight, pinSlot } from "./pinZone";
-import { boxed, type Drop, FOLDER_HOLD_MS, folderOf, inside, isGroupItem, type Item, PIN_SLOT, pinnedBlock, ROW_GAP, spring, tailKey } from "./dragModel";
+import { overPins, pinGridHeight } from "./pinZone";
+import { boxed, type Drop, FOLDER_HOLD_MS, folderOf, inside, type Item, pinnedBlock, ROW_GAP, spring } from "./dragModel";
+import { aimAt, type Pointing } from "./dragZones";
 import { DragGeometry } from "./dragGeometry";
 import { hapticTick } from "../../state/drag/dragNative";
 import { entryKey } from "../../state/sidebar/entryKey";
@@ -50,31 +51,16 @@ export class DragTargeting extends DragGeometry {
     const count = this.external || (folderOf(source) ? 1 : dragged.size);
     const rowPitch = (boxed(source) ? source.foldedHeight() : layout.rowHeight * (source.kind === "split" ? 1 : Math.max(1, this.ghost?.count ?? this.external ?? 1))) + ROW_GAP;
     const blocks = live.filter(pinnedBlock).sort(byY);
-    const rest = blocks.map((b) => b.key);
     const moved = this.sources
       .filter((s) => s.frame)
       .sort(byY)
       .flatMap((s) => (s.kind === "group" || s.kind === "live" || s.kind === "split" ? [s.key] : s.tabIds.map((id) => entryKey("tab", id))));
-    const pinnedAt = (): { before: Item | undefined; beforeId: string | null; sequence: string[] } => {
-      const before = blocks.find((b) => cy(b) > y);
-      const at = before ? blocks.indexOf(before) : blocks.length;
-      const next = blocks.slice(at).find((b) => firstTab(b) !== null);
-      return { before, beforeId: firstTab(next), sequence: [...rest.slice(0, at), ...moved, ...rest.slice(at)] };
-    };
     const dragSource: DragSource = {
       kind: source.kind === "group" || source.kind === "split" || source.kind === "live" ? source.kind : "tab",
       groupId: source.kind === "group" ? source.groupId : undefined,
       folderId: folderOf(source),
       external: !!this.external,
     };
-    let aim: DropSpot | null = null;
-    let sequence: string[] | undefined;
-    let gapKey: string | null = null;
-    let pitch = rowPitch;
-    let into: string | null = null;
-    let onto: string | null = null;
-    let folderTarget: string | null = null;
-    let folderAway = false;
 
     const sidebar = this.viewport ?? this.rootFrame;
     const tiles = this.at(this.regionFrames.get("tiles") ?? null, this.tilesFixed);
@@ -85,88 +71,57 @@ export class DragTargeting extends DragGeometry {
     if (this.gridBase)
       this.gridGrowth = Math.min(pinGridHeight(cells.length + (overTiles ? count : 0), this.gridBase.w, layout.pinnedHeight, balanced), this.tilesFixed ? this.tilesRoom : Infinity) - this.gridBase.h;
     const list = this.at(this.regionFrames.get("list") ?? null);
-    const inPinned = !!list && y < list.y;
     const panel = folderPanel();
     const panelFrame = panel ? (this.regionFrames.get("folder") ?? null) : null;
     const wasAway = dragMarksOf(this.marks).folderAway;
     const inPanel = !away && !wasAway && tabsDrag && !this.external && !!panelFrame && inside(panelFrame, x, y);
-    if (source.section === "folder" && !inPanel) folderAway = true;
+    const folderAway = source.section === "folder" && !inPanel;
     const canFolder = tabsDrag && !this.external && !folderOf(source);
     const home = source.section === "tiles" && source.frame ? cells.filter((c) => byY(c, source) < 0).length : null;
     const spot = !away && tabsDrag && overTiles && tiles ? this.pointed(tiles, cells, count, home, x, y, canFolder) : null;
     const target = spot?.part === "centre" ? spot.cell : null;
     if (target) this.holdOver(target);
     else this.clearHold();
-    if (away) {
-      aim = null;
-    } else if (inPanel && panel) {
-      const members = live.filter((i) => i.section === "folder" && i.kind !== "tail").sort(byY);
-      const before = members.find((m) => cy(m) > y);
-      const anchor = members.find((m) => firstTab(m) !== null);
-      aim = anchor ? { zone: "folder", ontoId: firstTab(anchor)!, beforeId: firstTab(before) } : null;
-      gapKey = anchor ? (before?.key ?? tailKey("folder")) : null;
-    } else if (target && this.holdReady === target.key) {
-      aim = { zone: "folder", ontoId: firstTab(target)! };
-      gapKey = this.gapKey;
-      pitch = this.pitch;
-      folderTarget = target.key;
-    } else if (overTiles && tiles) {
-      const index = !spot ? Math.min(cells.length, pinSlot(tiles, cells.length + count, layout.pinnedHeight, x, y, balanced)) : spot.part === "after" ? spot.index + 1 : spot.part === "before" ? spot.index : spot.gap;
-      const before = this.gridBase ? cells[index] : undefined;
-      aim = { zone: "tiles", beforeId: firstTab(before) };
-      sequence = rest;
-      gapKey = before?.key ?? tailKey("tiles");
-      pitch = PIN_SLOT;
-    } else {
-      const hits =
-        tabsDrag || source.kind === "group" || source.kind === "split"
-          ? live
-              .filter(isGroupItem)
-              .flatMap((g) => {
-                const f = this.shown(g);
-                const start = this.at(g.headerFrame);
-                const header = start && { ...start, y: start.y + f.y - this.at(g.frame)!.y };
-                const onHeader = !!header && inside(header, x, y) && Math.abs(y - (header.y + header.h / 2)) < header.h / 3;
-                if (g.collapsed || (source.kind === "group" && onHeader)) return onHeader ? [{ g, into: true, h: f.h }] : [];
-                return inside(f, x, y) && (!header || y > header.y + header.h / 2) ? [{ g, into: false, h: f.h }] : [];
-              })
-              .sort((a, z) => a.h - z.h)
-          : [];
-      const hit = hits[0];
-      if (hit?.into) {
-        aim = { zone: "group", groupId: hit.g.groupId, beforeId: null };
-        sequence = rest;
-        into = hit.g.groupId;
-      } else if (hit) {
-        const members = live.filter((i) => (i.kind === "row" || i.kind === "group" || i.kind === "split") && i.parentGroup === hit.g.groupId).sort(byY);
-        const before = members.find((m) => cy(m) > y);
-        aim = { zone: "group", groupId: hit.g.groupId, beforeId: firstTab(before) };
-        sequence = rest;
-        gapKey = before?.key ?? tailKey({ group: hit.g.groupId });
-      } else if ((onto = tabsDrag && !this.external ? this.ontoTarget(live, y, this.overPinnedRows(y) ? "pinnedRows" : "list") : null)) {
-        aim = { zone: "onto", targetId: this.items.get(onto)!.tabIds[0]! };
-        gapKey = this.gapKey;
-        pitch = this.pitch;
-      } else if (((tabsDrag || source.kind === "split") && this.overPinnedRows(y)) || ((source.kind === "group" || source.kind === "live") && inPinned)) {
-        const pinned = pinnedAt();
-        aim = { zone: "pinnedRows", beforeId: pinned.beforeId };
-        sequence = pinned.sequence;
-        gapKey = pinned.before?.key ?? tailKey("pinnedGroups");
-      } else if (source.kind !== "live") {
-        const items = live.filter((i) => i.section === "list" && !i.parentGroup && i.kind !== "tail" && i.kind !== "tile").sort(byY);
-        const before = items.find((b) => cy(b) > y && firstTab(b) !== null);
-        gapKey = before?.key ?? tailKey("list");
-        aim = { zone: "list", beforeId: firstTab(before) };
-        sequence = rest;
-      }
-    }
-    const resolved = resolveDropNow(dragSource, aim);
-    const drop: Drop = resolved.type !== "none" && sequence ? { ...resolved, sequence } : resolved;
-    if (drop.type === "none") {
-      gapKey = null;
-      into = null;
-    }
-    if (drop.type !== "onto") onto = null;
+
+    const pointing: Pointing = {
+      x,
+      y,
+      source,
+      live,
+      cy,
+      byY,
+      firstTab,
+      tabsDrag,
+      external: !!this.external,
+      blocks,
+      moved,
+      away,
+      inPanel,
+      held: target && this.holdReady === target.key ? target : null,
+      overTiles,
+      tiles,
+      spot,
+      cells,
+      count,
+      balanced,
+      grid: !!this.gridBase,
+      inPinned: !!list && y < list.y,
+      kept: { gapKey: this.gapKey, pitch: this.pitch },
+      shown: (i) => this.shown(i),
+      at: (f) => this.at(f),
+      ontoTarget: (section) => this.ontoTarget(live, y, section),
+      overPinnedRows: () => this.overPinnedRows(y),
+      leadTab: (key) => this.items.get(key)!.tabIds[0]!,
+    };
+    const aim = aimAt(pointing);
+    const resolved = resolveDropNow(dragSource, aim.spot);
+    const drop: Drop = resolved.type !== "none" && aim.sequence ? { ...resolved, sequence: aim.sequence } : resolved;
+    const dropped = drop.type !== "none";
+    const gapKey = dropped ? aim.gapKey : null;
+    const pitch = aim.pitch ?? rowPitch;
+    const into = dropped ? (aim.into ?? null) : null;
+    const onto = drop.type === "onto" ? (aim.onto ?? null) : null;
+    const folderTarget = aim.folderTarget ?? null;
 
     if (folderAway !== dragMarksOf(this.marks).folderAway) markDrag(this.marks, { folderAway });
     const key = JSON.stringify(drop);

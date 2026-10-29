@@ -2060,3 +2060,32 @@ test("bookmarks and history: a Mac on v0.2.43-nightly.4 and one on today's build
   assert.deepEqual(nightlyFourHistory(old), [], "today's history delete arrives");
   assert.equal((await today.sync()).published + (await old.sync()).published, 0, "settled");
 });
+
+test("profiles that share data: records applied through the owner land once in the shared engine, and edits through the sharer go out through the owner", async () => {
+  S().hydrate({ bookmarks: { nodes: {} } });
+  stub.historyDbs.clear();
+  const a = S().createProfile({ name: "A" });
+  const b = S().createProfile({ name: "B", shareWith: a });
+  useBrowser.setState((s) => ({ history: { ...s.history, [a]: { list: [], floor: -Infinity, ready: true } }, bookmarksReady: { ...s.bookmarksReady, [a]: true } }));
+  const t = Date.now() - 3_600_000;
+  const known = { known: () => true, now: Date.now(), horizon: 0, joined: true };
+  const visits = new Map([["h:https://in.example/", { t: "In", n: 1, vt: [t] }]]);
+  await adapters.historyAdapter(a).apply(visits, new Set(visits.keys()), () => undefined, known);
+  const marks = new Map([["bm:in-key", { k: "u", p: "bar", t: "In", u: "https://in.example/", a: t, pos: "a" }]]);
+  adapters.bookmarksAdapter(a).apply(marks, new Set(marks.keys()), () => undefined, known);
+
+  assert.deepEqual(historyOf(S(), b).map((h) => h.url), ["https://in.example/"], "B sees what came in for A");
+  assert.equal(historyOf(S(), a), historyOf(S(), b));
+  assert.deepEqual(stub.chromeHistory(a).get("https://in.example/")?.visits, [t], "one visit, in A's engine");
+  assert.equal(stub.chromeHistory(b).size, 0, "nothing in an engine of B's own");
+  const inBar = (url) => Object.values(S().bookmarks.nodes).filter((n) => n.kind === "url" && n.url === url);
+  assert.equal(inBar("https://in.example/").length, 1, "one bookmark node");
+  assert.equal(inBar("https://in.example/")[0].parentId, bookmarkRoots(S(), b).bar, "under the shared bar");
+
+  S().importHistory(b, [{ url: "https://out.example/", title: "Out", visits: 1, lastVisit: t + 1000 }]);
+  S().addBookmark({ profileId: b, url: "https://out.example/", title: "Out" });
+  const history = adapters.historyAdapter(a).extract(() => undefined, [], Date.now(), () => false);
+  const bookmarks = adapters.bookmarksAdapter(a).extract(() => undefined, [], Date.now(), () => false);
+  assert.deepEqual([...history.values.keys()].sort(), ["h:https://in.example/", "h:https://out.example/"]);
+  assert.deepEqual([...bookmarks.values.values()].map((v) => v.u).sort(), ["https://in.example/", "https://out.example/"]);
+});

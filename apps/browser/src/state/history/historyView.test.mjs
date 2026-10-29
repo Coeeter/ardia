@@ -5,6 +5,8 @@ globalThis.__DEV__ = false;
 const { useBrowser } = await import("../browser/store.ts");
 const { reloadHistory, startHistory } = await import("./engineSync.ts");
 const { historyOf } = await import("./history.ts");
+const { bookmarkRoots, isBookmarked } = await import("../bookmarks/bookmarks.ts");
+const model = await import("../browser/model.ts");
 const { firstWindowCommitted } = await import("../../lib/afterFirstWindow.ts");
 const stub = await import("../../test-native/index.ts");
 
@@ -115,26 +117,74 @@ test("history.json: a quit right after the move keeps the file until Chrome has 
   stop2();
 });
 
-test("profiles that share data read one history, and each change to it reaches listeners once", () => {
+test("profiles that share data read one history and one tree in every state a listener hears, and each change is heard once", async () => {
   S().hydrate({});
+  stub.docs.clear();
+  stub.historyDbs.clear();
+  const stop = startHistory();
   const a = S().createProfile({ name: "A" });
   const b = S().createProfile({ name: "B", shareWith: a });
+  await reloadHistory();
   const t = Date.now() - 60_000;
   let heard = 0;
-  const off = useBrowser.subscribe(() => heard++);
+  const disagreements = [];
+  const off = useBrowser.subscribe((s) => {
+    heard++;
+    if (historyOf(s, a) !== historyOf(s, b)) disagreements.push(`history at ${heard}`);
+    if (JSON.stringify(bookmarkRoots(s, a)) !== JSON.stringify(bookmarkRoots(s, b))) disagreements.push(`roots at ${heard}`);
+    if (isBookmarked(s, a, "https://mark.example/") !== isBookmarked(s, b, "https://mark.example/")) disagreements.push(`bookmark at ${heard}`);
+  });
   S().importHistory(b, [
     { url: "https://one.example/", title: "One", visits: 1, lastVisit: t },
     { url: "https://two.example/", title: "Two", visits: 1, lastVisit: t + 1000 },
   ]);
   assert.equal(heard, 1, "an import through B");
-  assert.equal(historyOf(S(), a), historyOf(S(), b));
   S().removeHistory(a, ["https://one.example/"]);
   assert.equal(heard, 2, "a removal through A");
   assert.deepEqual(historyOf(S(), b).map((h) => h.url), ["https://two.example/"]);
+  S().addBookmark({ profileId: b, url: "https://mark.example/", title: "Mark" });
+  assert.equal(heard, 3, "a bookmark through B");
+  assert.ok(isBookmarked(S(), a, "https://mark.example/"));
+  await tick();
+  const settled = heard;
+  stub.chromeVisit(a, "https://three.example/", "Three", t + 2000);
+  await tick();
+  assert.equal(heard, settled + 1, "a visit Chrome reports for the shared engine");
+  assert.deepEqual(historyOf(S(), b).map((h) => h.url), ["https://three.example/", "https://two.example/"]);
   S().clearHistory(b, t + 500);
-  assert.equal(heard, 3, "a clear through B");
+  assert.equal(heard, settled + 2, "a clear through B");
   assert.deepEqual(historyOf(S(), a), []);
+  assert.deepEqual(disagreements, []);
   off();
+  stop();
+});
+
+test("a history read still running when the owner is deleted lands for the profile that still shares its data", async () => {
+  S().hydrate({});
+  stub.docs.clear();
+  stub.historyDbs.clear();
+  const stop = startHistory();
+  await reloadHistory();
+  const fake = stub.ardiaCoreNativeModules.ArdiaHistory;
+  const call = fake.call;
+  let release;
+  const held = new Promise((r) => (release = r));
+  let holding = 0;
+  fake.call = (verb, profile, json) => (verb === "query" && profile !== "" ? (holding++, held.then(() => call(verb, profile, json))) : call(verb, profile, json));
+  try {
+    const a = S().createProfile({ name: "A" });
+    const b = S().createProfile({ name: "B", shareWith: a });
+    await until(() => holding > 0, "A's first read is held");
+    stub.chromeHistory(a).set("https://pending.example/", { title: "Pending", visits: [Date.now() - 1000] });
+    S().deleteProfile(a);
+    assert.equal(model.engineProfile(S(), b), a, "B keeps A's engine");
+    release();
+    await until(() => historyOf(S(), b).length === 1, "the read lands");
+    assert.deepEqual(historyOf(S(), b).map((h) => h.url), ["https://pending.example/"]);
+  } finally {
+    fake.call = call;
+    stop();
+  }
 });
 
 test("a history read that lands after the last profile on its engine is deleted doesn't bring the view back", async () => {

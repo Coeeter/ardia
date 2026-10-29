@@ -65,7 +65,10 @@ class Device {
     this.scopes = { app: emptyScope(), p: emptyScope() };
     this.clock = new Clock(id);
     stub.passwordStores.set(id, new Map());
-    this.passwords = adapters.passwordsAdapter("default", () => true, sealedLogins());
+    this.passwords = adapters.passwordsAdapter("default", sealedLogins())(true);
+  }
+  loadSaved() {
+    this.with(() => (this.scopes.app.unapplied = [...new Set([...this.scopes.app.unapplied, ...settingsToReapply(this.scopes.app.records)])]));
   }
   with(fn) {
     stub.current.device = this.id;
@@ -90,7 +93,6 @@ class Device {
         options,
       });
     try {
-      if (!this.settings) this.scopes.app.unapplied = [...new Set([...this.scopes.app.unapplied, ...settingsToReapply(this.scopes.app.records)])];
       const app = await run("app", [this.settings ?? settingsAdapter]);
       const p = await run(
         profileId === "default" ? "p" : `p:${profileId}`,
@@ -368,7 +370,7 @@ test("pinned tabs sync once however many windows show them; a closed window or a
 
 const rowsOf = (d) =>
   d.with(() => {
-    const w = S().windowOrder.find((id) => !S().windows[id].incognito);
+    const w = S().windowOrder.find((id) => S().windows[id].kind !== "private");
     const ids = model.viewTabIds(S(), w).filter((id) => !!S().tabs[id].pin);
     const at = (row) => ids.filter((id) => !!(S().tabs[id].pin?.as === "row") === row).map((id) => `${S().tabs[id].pinnedUrl}${S().tabs[id].customTitle ? ` ${S().tabs[id].customTitle}` : ""}`);
     return { tiles: at(false), rows: at(true) };
@@ -1907,12 +1909,11 @@ test("a bookmark made while another adapter is still reading survives that sync"
   let reads = 0;
   b.passwords = adapters.passwordsAdapter(
     "default",
-    () => true,
     sealedLogins(async () => {
       if (++reads === 2) S().addBookmark({ profileId: "default", url: "https://second.example/", title: "Made during the sync" });
       return stub.readLogins();
     }),
-  );
+  )(true);
   await b.sync();
   assert.equal(reads >= 2, true, "the password read ran after the bookmarks' catch-up");
   const has = (d) => d.with(() => Object.values(S().bookmarks.nodes).some((n) => n.kind === "url" && n.url === "https://second.example/"));
@@ -1984,6 +1985,7 @@ test("settings received while this Mac ran a version that didn't sync them take 
   assert.ok("set:selectedTabGlow" in b.scopes.app.base && !b.scopes.app.unapplied.includes("set:selectedTabGlow"), "and counts it as applied");
 
   b.settings = undefined;
+  b.loadSaved();
   await syncAll([b, a]);
   assert.equal(b.with(() => S().settings.selectedTabGlow), "off", "the synced value takes effect after the upgrade");
   assert.ok(!b.with(() => S().settings.chosen?.includes("selectedTabGlow")), "as a synced value, not a choice made here");

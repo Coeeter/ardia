@@ -268,7 +268,7 @@ export function deviceTabsAdapter(profileId: string, deviceId: string, name: () 
       if (retired) return { values: new Map(), ignore: (k) => k !== key };
       const s = store();
       const open = Object.values(s.tabs)
-        .filter((t) => t.profileId === profileId && !t.pin && !isAsleep(t) && isWebPageUrl(t.url) && !s.windows[t.windowId]?.incognito && !isPeekTab(s, t.id))
+        .filter((t) => t.profileId === profileId && !t.pin && !isAsleep(t) && isWebPageUrl(t.url) && s.windows[t.windowId]?.kind !== "private" && !isPeekTab(s, t.id))
         .sort((a, z) => z.lastActiveAt - a.lastActiveAt)
         .slice(0, MAX_DEVICE_TABS)
         .map((t) => ({ u: t.url, t: t.customTitle || t.title }));
@@ -290,7 +290,7 @@ const nativePasswords: SealedPasswords = {
   save: async (p, origin, username, sealed, replacing) => !!(await SyncNative?.savePassword(p, origin, username, sealed, replacing)),
 };
 
-export function passwordsAdapter(profileId: string, forced: () => boolean, logins: SealedPasswords = nativePasswords): Adapter {
+export function passwordsAdapter(profileId: string, logins: SealedPasswords = nativePasswords): (forced: boolean) => Adapter {
   let lastRead = 0;
   let quietUntil = 0;
   let created = new Map<string, number>();
@@ -301,11 +301,11 @@ export function passwordsAdapter(profileId: string, forced: () => boolean, login
     if (!list) return null;
     return new Map(list.map((l) => [keyOf(l.origin, l.username), { o: l.origin, u: l.username, s: l.sealed, c: l.created }] as const));
   };
-  return {
+  return (forced) => ({
     prefix: "pws:",
     extract: async () => {
       const now = Date.now();
-      if (now < quietUntil || (now - lastRead < PASSWORD_READ_INTERVAL && !forced())) return null;
+      if (now < quietUntil || (now - lastRead < PASSWORD_READ_INTERVAL && !forced)) return null;
       const local = await read();
       if (!local) return null;
       lastRead = now;
@@ -347,5 +347,5 @@ export function passwordsAdapter(profileId: string, forced: () => boolean, login
       if (!settled) quietUntil = Date.now() + 30_000;
       return ok;
     },
-  };
+  });
 }

@@ -48,8 +48,8 @@ export const currentSyncFolder = () => useSync.getState().folder;
 let doc: SyncDoc = emptyDoc();
 let cycle: Promise<void> | null = null;
 let again = false;
+let forcePasswordsNext = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let forcePasswords = false;
 const { read, loadState, persistJournal, watchScope, clearJournal, save, checkpoint } = syncFiles(() => doc);
 
 function load() {
@@ -85,16 +85,20 @@ function scheduleSync(delay = AFTER_EDIT_MS) {
 }
 
 export async function syncNow() {
-  forcePasswords = true;
-  await runCycle();
+  await runCycle({ forcePasswords: true });
 }
 
-async function runCycle(options: { retiring?: boolean } = {}) {
+type CycleOptions = { retiring?: boolean; forcePasswords?: boolean };
+
+async function runCycle({ retiring = false, forcePasswords = false }: CycleOptions = {}) {
   if (!SyncNative || !doc.enabled || !doc.folder || !doc.deviceId) return;
   if (cycle) {
     again = true;
+    forcePasswordsNext ||= forcePasswords;
     return;
   }
+  const options = { retiring, forcePasswords: forcePasswords || forcePasswordsNext };
+  forcePasswordsNext = false;
   cycle = cycleOnce(SyncNative, doc.folder, doc.deviceId, options);
   try {
     await cycle;
@@ -103,7 +107,7 @@ async function runCycle(options: { retiring?: boolean } = {}) {
   }
 }
 
-async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string, device: string, { retiring = false }) {
+async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string, device: string, { retiring, forcePasswords }: Required<CycleOptions>) {
   clearTimeout(timer);
   const slow = setTimeout(() => useSync.getState().status === "updated" && publishUi({ status: "updating" }), 1000);
   try {
@@ -116,7 +120,6 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
     const app = appScopeOf(doc);
     const appSettled = watchScope(APP_SCOPE, app, clock);
     settleAppliedThemes(doc.profiles, app);
-    if (doc.types.settings && !retiring) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
     try {
       await syncScope({
         scope: APP_SCOPE,
@@ -146,7 +149,7 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
           scope,
           state,
           transport,
-          adapters: profileAdapters(doc, profileId, retire, () => forcePasswords),
+          adapters: profileAdapters(doc, profileId, retire, forcePasswords),
           clock,
           device,
           options: { expired: historyExpired, persist: persistJournal(scope) },
@@ -166,7 +169,6 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
     }
     doc.clock = clock.last;
     doc.lastSyncedAt = Date.now();
-    forcePasswords = false;
     publishUi({ status: "updated", error: null, pending });
   } catch (error) {
     if ((error as { code?: unknown } | null)?.code === "ERR_SYNC_FOLDER_UNREADABLE") {
@@ -200,6 +202,12 @@ export function adoptProfileTheme(profileId: string) {
   delete link.themeAdopting;
   save();
   if (doc.enabled) scheduleSync(AFTER_EDIT_MS);
+}
+
+async function loadSavedState() {
+  await loadState();
+  const app = doc.scopes[APP_SCOPE];
+  if (app) app.unapplied = [...new Set([...app.unapplied, ...settingsToReapply(app.records)])];
 }
 
 async function resetFromElsewhere() {
@@ -256,7 +264,7 @@ export async function enterRecoveryPhrase(folder: string, text: string): Promise
   if (doc.enabled && doc.deviceId && useSync.getState().status === "locked") {
     const result = await native.enterPhrase(doc.deviceId, text, doc.folder ?? folder);
     if ("ok" in result) {
-      await loadState();
+      await loadSavedState();
       publishUi({ status: "starting", error: null });
       scheduleSync(0);
     }
@@ -332,7 +340,7 @@ export function startSync() {
   if (doc.enabled && doc.deviceId) {
     void SyncNative.unlock(doc.deviceId).then(async (ok) => {
       if (!ok) return publishUi({ status: "locked", error: "Enter your recovery phrase to keep syncing on this Mac." });
-      await loadState();
+      await loadSavedState();
       settleAppliedThemes(doc.profiles, doc.scopes[APP_SCOPE]);
       publishUi();
       scheduleSync(500);

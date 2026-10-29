@@ -9,7 +9,7 @@ import { APP_SCOPE, typeSyncedFor, type DataType, type SyncDoc } from "./syncDoc
 
 export const deviceName = () => SyncNative?.deviceName() ?? "This Mac";
 
-const passwordAdapters = new Map<string, Adapter>();
+const passwordAdapters = new Map<string, (forced: boolean) => Adapter>();
 const extensionAdapters = new Map<string, ExtensionsAdapter>();
 
 export function forgetScopeAdapters() {
@@ -39,18 +39,18 @@ export function appAdapters(doc: SyncDoc, retiring: boolean, themeAdopted: (prof
   ];
 }
 
-export function profileAdapters(doc: SyncDoc, profileId: string, retiring: boolean, forcePasswords: () => boolean): Adapter[] {
+export function profileAdapters(doc: SyncDoc, profileId: string, retiring: boolean, forcePasswords: boolean): Adapter[] {
   const id = doc.deviceId!;
   if (retiring) return [deviceTabsAdapter(profileId, id, deviceName, true)];
   const synced = (type: DataType) => typeSynced(doc, type, profileId);
   let passwords = passwordAdapters.get(profileId);
-  if (!passwords) passwordAdapters.set(profileId, (passwords = passwordsAdapter(profileId, forcePasswords)));
+  if (!passwords) passwordAdapters.set(profileId, (passwords = passwordsAdapter(profileId)));
   return [
     ...(synced("pinned") ? pinnedAreaAdapters(profileId) : []),
     ...(synced("bookmarks") ? [inTodaysNames(bookmarksAdapter(profileId))] : []),
     ...(synced("history") ? [inTodaysNames(historyAdapter(profileId))] : []),
     inTodaysNames(deviceTabsAdapter(profileId, id, deviceName, !synced("tabs"))),
-    ...(synced("passwords") ? [passwords] : []),
+    ...(synced("passwords") ? [passwords(forcePasswords)] : []),
     ...(synced("extensions") ? [extensionsOf(profileId)] : []),
   ];
 }

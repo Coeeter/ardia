@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { S, readDrag, gaps, committed, settle } from "./dragScene.mjs";
 import { live } from "../../../state/live/store.ts";
 import { tileFolderOf } from "../../../state/pins/tileFolders.ts";
+import { splitRowPanes } from "../../../state/splits/splits.ts";
 
 export function labeller() {
   const labels = new Map();
@@ -9,7 +10,7 @@ export function labeller() {
     const s = S();
     for (const t of Object.values(s.tabs)) labels.set(t.id, new URL(t.pinnedUrl || t.url).hostname.split(".")[0]);
     for (const g of Object.values(s.groups)) labels.set(g.id, `G(${g.name})`);
-    for (const sp of Object.values(s.splits ?? {})) labels.set(sp.id, `S(${sp.tabIds.map((id) => labels.get(id) ?? id).join("+")})`);
+    for (const sp of Object.values(s.splits ?? {})) labels.set(sp.id, `S(${splitRowPanes(s, sp).map((id) => labels.get(id) ?? id).join("+")})`);
     for (const t of Object.values(s.tabs)) {
       const folder = tileFolderOf(t);
       if (folder && !labels.has(folder.id)) labels.set(folder.id, `TF${labels.size}`);

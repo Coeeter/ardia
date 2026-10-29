@@ -281,10 +281,15 @@ for (const sp of Object.values(s.splits)) s.separateSplit(sp.id);
 s.updateSettings({ appearance: "dark", tabLayout: "sidebar", addressBar: "toolbar", bookmarksBar: "never" });
 if (!s.windows[W].sidebarOpen) s.toggleSidebar(W);
 s.activate("t3");
+s.updateProfile("default", { pinnedCollapsed: false });
 return ac.shell.devSetPointer(W, 0, 0, false);
 `;
 
 const main = (name, body, extra = {}) => ({ name, window: "w1", body, ...extra });
+const DIVIDER_HOVER = `const list = globalThis.sidebarDrag.regions.get("list");
+return new Promise((r) => list.measureInWindow((x, y) => r([x, y])))
+  .then(([x, y]) => ac.shell.devSetPointer(W, { x: x + 40, y: y - 12 }))
+  .then(() => settle(400));`;
 const STATES = [
   main("dia-dark-ntp", ""),
   main("dia-light-ntp", `st().updateSettings({ appearance: "light" });`),
@@ -327,6 +332,10 @@ const STATES = [
   main("dia-light-split", `st().updateSettings({ appearance: "light" }); st().activate("t1"); st().createSplit(["t1", "t2"]);`),
   main("dia-light-edit-bookmark", `st().updateSettings({ appearance: "light" }); const b = Object.values(st().bookmarks.nodes).find((n) => n.kind === "url" && n.title === "Swift"); ac.pages.bookmarkEditor.setState({ open: { windowId: W, bookmarkId: b.id, folder: false, profileId: "default" } });`),
   main("top-light-ntp", `st().updateSettings({ appearance: "light", tabLayout: "top" });`),
+  main("dia-dark-divider-hover", DIVIDER_HOVER),
+  main("dia-light-divider-hover", `st().updateSettings({ appearance: "light" }); ${DIVIDER_HOVER}`),
+  main("dia-dark-pinned-divider-hover", `st().pinTabs(["p3"], true, true); return settle(300).then(() => { ${DIVIDER_HOVER} });`),
+  main("dia-dark-pinned-folded", `st().pinTabs(["p3"], true, true); st().updateProfile("default", { pinnedCollapsed: true }); return settle(300);`),
 ];
 const SETTINGS_PANES = ["general", "profiles", "sync", "tabs", "appearance", "privacy", "passwords", "autofill", "extensions", "search", "engines", "shortcuts", "liveFolders", "calendar", "advanced"];
 const stableFor = (pane) => (pane === "privacy" ? 12 : 1);

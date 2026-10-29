@@ -92,7 +92,7 @@ test("closing a member unloads it and keeps it in its folder", () => {
   S().activate(b);
   S().closeTab(b);
   assert.ok(S().tabs[b], "kept");
-  assert.equal(!!S().tabs[b].navigation || !!S().tabs[b].adoptId, false, "unloaded");
+  assert.equal(!!S().tabs[b].page.nav || !!S().tabs[b].page.adopt, false, "unloaded");
   assert.deepEqual(cells(w), ["[a,b]", "c", "d"]);
 });
 
@@ -146,7 +146,7 @@ test("folders park with the last window, come back from it, and survive a relaun
 });
 
 test("older data: a folder field on a tab that isn't a tile is dropped at launch", () => {
-  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
+  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
   const folder = { id: "tf-1", name: "" };
   S().hydrate({
     windows: { w: { id: "w", profileId: "default", incognito: false, tabIds: ["t", "r", "u"], activeTabIds: { default: "u" }, sidebarOpen: true, frame: null, createdAt: 0 } },

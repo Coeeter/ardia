@@ -2,7 +2,7 @@ import type { BrowserState } from "../browser/store";
 import { rejoinGroups } from "../groups/groups";
 import { findLast, IDLE_LIVE, isIncognitoProfile, makeTab, newId, resolveWindowId } from "../browser/model";
 import { restoreId } from "../tabs/adoptIds";
-import { hasPage } from "../tabs/pageSession";
+import { adoptedPage, hasPage } from "../tabs/pageSession";
 import { adoptParkedPins } from "../pins/parkedPins";
 import { holderOf, swapPinPage } from "../pins/pinShare";
 import { lastActiveProfile } from "./small";
@@ -75,7 +75,7 @@ export function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string
   if (tile) {
     const unloaded = !hasPage(tile);
     const tabs = unloaded
-      ? { ...s.tabs, [tile.id]: { ...tile, url: entry.tab.url, title: entry.tab.title, favicon: entry.tab.favicon, muted: entry.tab.muted, adoptId: restoreId(entry.restoreFrom ?? tile.id) } }
+      ? { ...s.tabs, [tile.id]: { ...tile, url: entry.tab.url, title: entry.tab.title, favicon: entry.tab.favicon, muted: entry.tab.muted, page: adoptedPage(restoreId(entry.restoreFrom ?? tile.id)) } }
       : s.tabs;
     const next: BrowserState = { ...s, closedTabs, tabs };
     return apply(next, activated(next, tile.id));
@@ -112,7 +112,7 @@ export function restoreWindow(s: BrowserState, entry: ClosedWindow): BrowserStat
   const ids: string[] = [];
   for (const { active, tabId, ...snap } of entry.tabs) {
     const t = makeTab(id, profileOk(snap.profileId), "", { ...snap, profileId: profileOk(snap.profileId) });
-    if (tabId && snap.url) t.wakeAdoptId = restoreId(tabId);
+    if (tabId && snap.url) t.page = { kind: "idle", wake: restoreId(tabId) };
     tabs[t.id] = t;
     live[t.id] = IDLE_LIVE;
     ids.push(t.id);

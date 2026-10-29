@@ -42,8 +42,8 @@ test("hydrate repairs dangling references", () => {
       w2: { id: "w2", profileId: "default", incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 },
     },
     tabs: {
-      t1: { id: "t1", windowId: "w1", profileId: "default", url: "https://a.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0 },
-      t2: { id: "t2", windowId: "nowhere", profileId: "default", url: "https://b.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0 },
+      t1: { id: "t1", windowId: "w1", profileId: "default", url: "https://a.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
+      t2: { id: "t2", windowId: "nowhere", profileId: "default", url: "https://b.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
     },
     groups: { g: { id: "g", windowId: "w1", profileId: "default", name: "", icon: null, color: null, collapsed: false, pinned: false, tabIds: ["missing"], createdAt: 0 } },
   });
@@ -61,18 +61,18 @@ test("a reopened window's tabs wake with their back/forward list", () => {
   const [a] = S().windows[w].tabIds;
   const b = S().newTab(w, { url: "b.com", background: true });
   const lazy = S().newTab(w, { url: "c.com", background: true, snapshot: { url: "https://c.com" } });
-  S().updateTab(lazy, { navigation: null });
+  S().updateTab(lazy, { page: { kind: "idle" } });
   S().closeWindow(w);
   S().reopenClosedWindow();
   const w2 = S().windowOrder.at(-1);
   const [ra, rb, rc] = S().windows[w2].tabIds.map((id) => S().tabs[id]);
-  assert.match(ra.adoptId, new RegExp(`^restore:${a}$`), "the shown tab loads with its history");
-  assert.match(rb.wakeAdoptId, new RegExp(`^restore:${b}$`), "the others keep it until they wake");
-  assert.equal(rb.navigation, null);
-  assert.equal(rc.wakeAdoptId, undefined, "a tab that never loaded has none");
+  assert.match(ra.page.adopt, new RegExp(`^restore:${a}$`), "the shown tab loads with its history");
+  assert.match(rb.page.wake, new RegExp(`^restore:${b}$`), "the others keep it until they wake");
+  assert.equal(rb.page.nav, undefined);
+  assert.equal(rc.page.wake, undefined, "a tab that never loaded has none");
   S().activate(rb.id);
-  assert.match(S().tabs[rb.id].adoptId, new RegExp(`^restore:${b}$`));
-  assert.equal(S().tabs[rb.id].wakeAdoptId, undefined);
+  assert.match(S().tabs[rb.id].page.adopt, new RegExp(`^restore:${b}$`));
+  assert.equal(S().tabs[rb.id].page.wake, undefined);
 });
 
 test("profiles sharing data read one engine's history and bookmarks after the session is saved and loaded again", async () => {
@@ -200,9 +200,9 @@ test("⌘W on a pinned tab unloads its page; the tile stays with its title, icon
   assert.equal(tile.url, "https://mail.com");
   assert.equal(tile.title, "Inbox");
   assert.equal(tile.favicon, "data:mail");
-  assert.equal(tile.navigation, null, "no page: its web view unmounts");
-  assert.equal(tile.adoptId, undefined);
-  assert.equal(tile.unloaded, true);
+  assert.equal(tile.page.nav, undefined, "no page: its web view unmounts");
+  assert.equal(tile.page.adopt, undefined);
+  assert.equal(tile.page.kind, "asleep");
   assert.deepEqual(view(w), ["https://mail.com", "https://a.com"]);
   assert.equal(active(w), a);
 });
@@ -214,9 +214,9 @@ test("holding ⌘W over pinned tiles ends by closing the window: no unloaded pag
   select(x);
   const wakes = [];
   for (let i = 0; i < 10 && S().windows[w]; i++) {
-    const before = S().tabs[x].navigation;
+    const before = S().tabs[x].page.nav;
     S().closeTab(active(w));
-    if (S().windows[w] && !before && S().tabs[x].navigation) wakes.push(i);
+    if (S().windows[w] && !before && S().tabs[x].page.nav) wakes.push(i);
   }
   assert.deepEqual(wakes, [], "x.com never loads again");
   assert.equal(S().windows[w], undefined, "the window closed, as in Dia");
@@ -227,7 +227,7 @@ const sidebar = (w) =>
   model.viewTabIds(S(), w).filter((id) => model.inPinnedContainer(S(), id)).map((id) => {
     const t = S().tabs[id];
     const g = Object.values(S().groups).find((g) => g.tabIds.includes(id));
-    return `${g ? `${g.name}/` : ""}${t.url}${t.navigation || t.adoptId ? " (loaded)" : ""}`;
+    return `${g ? `${g.name}/` : ""}${t.url}${t.page.nav || t.page.adopt ? " (loaded)" : ""}`;
   });
 
 function pinnedWindow() {

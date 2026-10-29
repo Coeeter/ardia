@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
+const { wokenPage } = await import("../tabs/pageSession.ts");
 const { parkWindowPins, adoptParkedPins } = await import("../pins/parkedPins.ts");
 const { sidebarEntries, groupEntries, numberedTabs } = await import("../sidebar/entries.ts");
 
@@ -215,7 +216,7 @@ test("merging two windows' pins never folds a pinned split's panes into another 
   for (const w of ["wA", "wB"]) assert.equal(model.viewTabIds(S(), w).filter((id) => S().tabs[id].pinned).length, 3, "A's own pin and the split's two panes, in each window");
 });
 
-const loaded = (id) => !!(S().tabs[id].navigation || S().tabs[id].adoptId || S().tabs[id].pageIn);
+const loaded = (id) => !!(S().tabs[id].page.nav || S().tabs[id].page.adopt || S().tabs[id].page.holderId);
 const shown = (w) => S().windows[w].activeTabIds[S().windows[w].profileId];
 
 test("closing a pane of a pinned split closes the split as one pinned row and keeps it a split", () => {
@@ -292,12 +293,12 @@ test("showing a closed pinned split again wakes every pane as a loaded tab", () 
   S().pinTabs([b], true);
   S().activate(b);
   S().closeTab(b);
-  assert.equal(S().tabs[b].unloaded && S().tabs[c].unloaded, true);
+  assert.equal(S().tabs[b].page.kind === "asleep" && S().tabs[c].page.kind === "asleep", true);
   S().activate(b);
-  S().updateTab(c, model.wake(S().tabs[c]));
+  S().updateTab(c, { page: wokenPage(S().tabs[c]) });
   assert.equal(shown(w), b);
   assert.equal(loaded(b) && loaded(c), true);
-  assert.equal(!!S().tabs[b].unloaded || !!S().tabs[c].unloaded, false, "no pane keeps the closed flag once its page loads");
+  assert.equal(S().tabs[b].page.kind === "asleep" || S().tabs[c].page.kind === "asleep", false, "no pane keeps the closed flag once its page loads");
 });
 
 test("a link opened into a split's other pane takes that pane with its own tab and keeps the old pane as a tab after the split", () => {
@@ -308,8 +309,8 @@ test("a link opened into a split's other pane takes that pane with its own tab a
   const result = S().openSplitPane(w, { anchorTabId: b, url: "https://e.com/", side: "right", background: true, adoptId: "tab:42", inPlaceOf: c });
   assert.equal(result.ok, true);
   const e = result.tabId;
-  assert.equal(S().tabs[e].adoptId, "tab:42", "the engine's tab is adopted, not loaded again");
-  assert.equal(S().tabs[e].navigation, null);
+  assert.equal(S().tabs[e].page.adopt, "tab:42", "the engine's tab is adopted, not loaded again");
+  assert.equal(S().tabs[e].page.nav, null);
   assert.deepEqual(S().splits[splitId].tabIds, [b, e]);
   assert.equal(splitOfTab(c), undefined);
   assert.deepEqual(S().windows[w].tabIds, [a, b, e, c, d], "the old pane follows the split");

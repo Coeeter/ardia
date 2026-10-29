@@ -24,6 +24,6 @@ test("an adopt id is a kind and a key, and only a restore id names a pending res
   assert.deepEqual(adoptKind(cloneId("t:2")), { kind: "clone", key: "t:2" });
   assert.equal(adoptKind("nonsense:1"), null);
   assert.equal(adoptKind("plain"), null);
-  assert.equal(pendingRestore({ wakeAdoptId: restoreId("t1") }), "t1");
-  assert.equal(pendingRestore({ wakeAdoptId: "tab:7" }), undefined);
+  assert.equal(pendingRestore({ page: { kind: "asleep", wake: restoreId("t1") } }), "t1");
+  assert.equal(pendingRestore({ page: { kind: "asleep", wake: "tab:7" } }), undefined);
 });

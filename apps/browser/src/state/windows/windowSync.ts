@@ -4,6 +4,7 @@ import type { BrowserState } from "../browser/store";
 import { engineProfile, windowTitle } from "../browser/model";
 import { windowOpens } from "./windowOpenOrder";
 import { focusedWindowOf } from "./ui";
+import { adoptOf } from "../tabs/pageSession";
 
 export type LightsCenter = [number, number] | null;
 
@@ -54,7 +55,7 @@ export function createWindowSync({ port, getState, isQuitting, lightsCenter, isU
       open.add(id);
       titles.set(id, windowTitle(s, id));
       const profile = engineProfile(s, w.profileId);
-      const claim = w.kind === "small" ? s.tabs[w.tabIds[0] ?? ""]?.adoptId : undefined;
+      const claim = w.kind === "small" ? adoptOf(s.tabs[w.tabIds[0] ?? ""]) : undefined;
       const small = w.kind === "small"
         ? { kind: "small" as const, size: s.settings.littleArdiaSize, ...(claim?.startsWith("link:") ? { claim } : {}), ...(w.linkPointer ? { pointer: w.linkPointer } : {}) }
         : {};

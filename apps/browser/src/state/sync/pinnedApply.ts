@@ -26,7 +26,8 @@ import {
   type PinGroupValue,
   type PinValue,
 } from "./pinRecords";
-import { hasPage, homeWindow, store, type Window } from "./pinnedSyncState";
+import { homeWindow, store, type Window } from "./pinnedSyncState";
+import { ASLEEP, hasPage, isAsleep } from "../tabs/pageSession";
 
 export function applyPinned(profileId: string, visible: Map<string, unknown>, changed: Set<string>, base: (key: string) => unknown, records: ApplyRecords): boolean | void {
   if ([...changed].every((k) => k.startsWith(PIN_ROW))) return true;
@@ -162,7 +163,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
   const removable = goneTabs.filter((id) => {
     const t = s.tabs[id]!;
     const w = s.windows[t.windowId];
-    const kept = !!t.navigation || !!t.adoptId || Object.values(w?.activeTabIds ?? {}).includes(id);
+    const kept = hasPage(t) || Object.values(w?.activeTabIds ?? {}).includes(id);
     return w && !kept && w.tabIds.some((other) => other !== id && !goneTabs.includes(other));
   });
   s = removeTabs(s, removable, false);
@@ -204,7 +205,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
         ...(group ? { tileFolder: undefined } : old.pinned || marked(pinKeyOf(old)) ? {} : folderMark(base, pinKeyOf(old))),
         customTitle: v.t,
         customIcon: v.i,
-        ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
+        ...(isAsleep(old) ? { url: v.u, title: v.ti } : {}),
       };
       note(pinKeyOf(tabs[id]!), id);
       continue;
@@ -219,8 +220,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
       pinnedUrl: (group && syncedHomeIn(base, keyOfLocal.get(id) ?? id)) || v.u || null,
       ...(!group && marked(keyOfLocal.get(id) ?? id) ? { pinnedAsRow: true as const } : {}),
       ...(!group && !marked(keyOfLocal.get(id) ?? id) ? folderMark(base, keyOfLocal.get(id) ?? id) : {}),
-      navigation: null,
-      unloaded: true,
+      page: ASLEEP,
     };
     note(keyOfLocal.get(id) ?? id, id);
     tabs[id] = tab;
@@ -260,8 +260,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
           ...makeTab(windowId, profileId, t.url, { title: t.title, favicon: t.favicon, customTitle: t.customTitle, customIcon: t.customIcon }),
           pinKey: pinKeyOf(t),
           pinnedUrl: t.pinnedUrl,
-          navigation: null,
-          unloaded: true,
+          page: ASLEEP,
         };
         tabs[copy.id] = copy;
         tabs[id] = { ...t, pinKey: undefined };

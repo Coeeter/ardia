@@ -61,8 +61,8 @@ test("Add to Sidebar as Group: a pinned group with nested groups, unloaded pinne
   assert.deepEqual(tree(g), ["https://a.example/", { Sub: ["https://b.example/"] }, "https://c.example/"]);
   for (const id of S().groups[g].tabIds) {
     const t = S().tabs[id];
-    assert.equal(t.unloaded, true);
-    assert.equal(t.navigation, null);
+    assert.equal(t.page.kind, "asleep");
+    assert.equal(t.page.nav, undefined);
   }
   assert.equal(Object.keys(S().bookmarks.nodes).length, before, "the bookmarks stay");
   assert.deepEqual(roots(w), [g]);

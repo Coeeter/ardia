@@ -38,8 +38,9 @@ import { closeWebNotification, showWebNotification } from "../../state/site/webN
 import { closeLittleArdiaOnEscape } from "../../state/littleArdia/actions";
 import { closePeekOnEscape } from "../../state/peek/actions";
 import { withoutFragment } from "../../lib/url";
+import { adoptOf, loadedPage, navigationOf } from "../../state/tabs/pageSession";
 
-const webViewTab = (t: Tab | undefined) => ({ navigation: t?.navigation, adoptId: t?.adoptId, profileId: t?.profileId ?? "", shownUrl: t?.url ?? "" });
+const webViewTab = (t: Tab | undefined) => ({ navigation: navigationOf(t), adoptId: adoptOf(t), profileId: t?.profileId ?? "", shownUrl: t?.url ?? "" });
 
 const isBlank = (url: string) => !url || url === "about:blank";
 
@@ -104,7 +105,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
     [],
   );
 
-  const prewarmOnly = () => !tab()?.navigation && !adoptId;
+  const prewarmOnly = () => !navigationOf(tab()) && !adoptId;
 
   const onOpenWindow = (request: OpenWindowRequest) => {
     const t = tab();
@@ -139,11 +140,11 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         adoptIconPage(tabId);
         const url = initialDocumentAccessed && committedInitial ? "about:blank" : reported;
         const untouched = committedInitial === undefined ? reported === "" && !(tab()?.openerId && adoptId) : committedInitial && !initialDocumentAccessed;
-        const target = pending.current ?? (lastPage.current === null ? (tab()?.navigation?.url ?? null) : null);
+        const target = pending.current ?? (lastPage.current === null ? (navigationOf(tab())?.url ?? null) : null);
         if (target === null && prewarmOnly()) {
           if (isBlank(url)) return;
           adopted.current = url;
-          updateTab(tabId, { navigation: navigationTo(url) });
+          updateTab(tabId, { page: loadedPage(navigationTo(url)) });
         }
         if (target !== null && isBlank(url) && !target.startsWith("about:") && untouched) {
           updateLive(tabId, { isLoading: true });

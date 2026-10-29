@@ -511,7 +511,7 @@ test("a mirrored row kept open after a local unpin is the tab another Mac's re-p
     const copy = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://docs.example/");
     assert.ok(copy && S().tabs[copy].pinKey, "B's second window has its own copy of the row");
     S().activate(copy);
-    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], navigation: { url: "https://docs.example/", seq: 1 } } } }));
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], page: { kind: "loaded", nav: { url: "https://docs.example/", seq: 1 } } } } }));
     S().closeWindow(b1);
     S().pinTabs([copy], false);
   });
@@ -523,7 +523,7 @@ test("a mirrored row kept open after a local unpin is the tab another Mac's re-p
   const docs = b.with(() => Object.values(S().tabs).filter((t) => t.url === "https://docs.example/" || t.pinnedUrl === "https://docs.example/"));
   assert.equal(docs.length, 1, "one tab for the page on B, not an unloaded row beside it");
   assert.equal(docs[0].pinned && docs[0].pinnedAsRow, true, "and it is the row again");
-  assert.ok(docs[0].navigation, "with its page");
+  assert.ok(docs[0].page.nav, "with its page");
 });
 
 for (const row of [true, false]) {
@@ -545,7 +545,7 @@ for (const row of [true, false]) {
       const b2 = S().createWindow({ url: "https://b-two.example/" });
       copy = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://docs.example/");
       S().activate(copy);
-      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], navigation: { url: "https://docs.example/", seq: 1 } } } }));
+      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [copy]: { ...s.tabs[copy], page: { kind: "loaded", nav: { url: "https://docs.example/", seq: 1 } } } } }));
       S().closeWindow(b1);
       S().pinTabs([copy], false);
       const other = S().newTab(b2, { url: "https://mate.example/" });
@@ -963,7 +963,7 @@ for (const split of [false, true]) {
     b.with(() => {
       const bx = tabAt("https://x.example/");
       S().activate(bx);
-      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [bx]: { ...s.tabs[bx], navigation: { url: "https://x.example/", seq: 1 } } } }));
+      useBrowser.setState((s) => ({ tabs: { ...s.tabs, [bx]: { ...s.tabs[bx], page: { kind: "loaded", nav: { url: "https://x.example/", seq: 1 } } } } }));
     });
     a.with(() => S().pinTabs([x], false));
     await syncAll([a, b]);
@@ -1002,14 +1002,14 @@ test("a pinned group whose members are open in two windows of a Mac keeps both p
   await syncAll([a, b]);
   const open = (url) => {
     const id = tabAt(url);
-    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [id]: { ...s.tabs[id], navigation: { url, seq: 1 } } } }));
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [id]: { ...s.tabs[id], page: { kind: "loaded", nav: { url, seq: 1 } } } } }));
     return id;
   };
   b.with(() => {
     open("https://x.example/");
     b2 = S().createWindow({ url: "https://b-two.example/" });
     const yb2 = S().windows[b2].tabIds.find((id) => S().tabs[id].pinnedUrl === "https://y.example/");
-    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [yb2]: { ...s.tabs[yb2], navigation: { url: "https://y.example/", seq: 1 } } } }));
+    useBrowser.setState((s) => ({ tabs: { ...s.tabs, [yb2]: { ...s.tabs[yb2], page: { kind: "loaded", nav: { url: "https://y.example/", seq: 1 } } } } }));
   });
   a.with(() => S().pinTabs([x, y], false));
   await syncAll([a, b]);
@@ -1024,7 +1024,7 @@ test("a pinned group whose members are open in two windows of a Mac keeps both p
   await syncAll([a, b]);
   assert.deepEqual(pinnedGroupMembers(a, "default", true), [["Team", ["https://x.example/", "https://y.example/"]]], "A keeps its order");
   windowsWhole(b);
-  const pages = b.with(() => Object.values(S().tabs).filter((t) => t.navigation).map((t) => `${t.url}@${t.windowId === b1 ? "b1" : t.windowId === b2 ? "b2" : "?"}`).sort());
+  const pages = b.with(() => Object.values(S().tabs).filter((t) => t.page.nav).map((t) => `${t.url}@${t.windowId === b1 ? "b1" : t.windowId === b2 ? "b2" : "?"}`).sort());
   assert.ok(pages.includes("https://x.example/@b1") && pages.includes("https://y.example/@b2"), JSON.stringify(pages));
   assert.ok(pinnedGroupMembers(b, "default").every(([name, urls]) => name === "Team" && urls.join() === "https://x.example/,https://y.example/"));
   assert.equal((await b.sync()).published + (await a.sync()).published + (await b.sync()).published, 0, "settled");

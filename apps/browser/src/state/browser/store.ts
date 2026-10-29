@@ -127,13 +127,11 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
     const tabs: Record<string, Tab> = {};
     for (const t of Object.values(data.tabs ?? {})) {
       if (!rawWindows[t.windowId] || !profileOk(t.profileId)) continue;
-      const { adoptId: _, pageIn: _held, ...rest } = t;
-      const { pinnedAsRow, tileFolder, ...kept } = rest;
+      const { pinnedAsRow, tileFolder, ...kept } = t;
       tabs[t.id] = {
         ...kept,
         ...(pinnedAsRow && kept.pinned ? { pinnedAsRow } : {}),
         ...(tileFolder && kept.pinned && !pinnedAsRow ? { tileFolder } : {}),
-        navigation: null,
         pinnedUrl: kept.pinnedUrl ?? pinHome(kept, kept.pinned),
       };
     }

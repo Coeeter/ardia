@@ -68,7 +68,7 @@ test("closing a row unloads it and keeps it; Close All Tabs keeps rows", () => {
   S().activate(a);
   S().closeTab(a);
   assert.ok(S().tabs[a], "still there");
-  assert.equal(!!S().tabs[a].navigation || !!S().tabs[a].adoptId, false, "unloaded");
+  assert.equal(!!S().tabs[a].page.nav || !!S().tabs[a].page.adopt, false, "unloaded");
   assert.deepEqual(entries(w).rows, ["https://a.com/"]);
   S().activate(a);
   S().clearUnpinnedTabs(w);
@@ -98,7 +98,7 @@ test("a second middle click removes a closed row or pinned group tab, a tile or 
   assert.deepEqual(entries(w).rows, ["https://b.com/", "https://c.com/"]);
   assert.equal(S().closedTabs.length, closedBefore);
   const back = model.viewTabIds(S(), w).find((id) => S().tabs[id].pinnedUrl === "https://b.com/");
-  assert.equal(!!S().tabs[back].navigation || !!S().tabs[back].adoptId, false, "back closed, not loaded");
+  assert.equal(!!S().tabs[back].page.nav || !!S().tabs[back].page.adopt, false, "back closed, not loaded");
   assert.equal(model.activeTabId(S(), w), e);
   const lastPage = S().closedTabs.find((x) => x.tabId === back);
   assert.ok(lastPage, "the row's earlier close now points at the row that came back");
@@ -141,7 +141,7 @@ test("remove, undo, then reopening the row's earlier close wakes it with its own
   const back = model.viewTabIds(S(), w).find((id) => S().tabs[id].pinnedUrl === "https://a.com/");
   const lastPage = S().closedTabs.find((x) => x.tabId === back);
   S().restoreClosed(lastPage.id, w);
-  assert.equal(S().tabs[back].adoptId, `restore:${a}`);
+  assert.equal(S().tabs[back].page.adopt, `restore:${a}`);
 });
 
 test("undoing a pinned group tab's removal puts it back in its place in the group, in every window", () => {
@@ -231,7 +231,7 @@ test("rows park with the last window and come back as rows, and survive a relaun
 });
 
 test("older data: 0.2.7's pinnedRow stays a tile, a stray row flag on an unpinned tab is dropped", () => {
-  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
+  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
   S().hydrate({
     windows: { w: { id: "w", profileId: "default", incognito: false, tabIds: ["r", "t", "u"], activeTabIds: { default: "u" }, sidebarOpen: true, frame: null, createdAt: 0 } },
     windowOrder: ["w"],

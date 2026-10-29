@@ -62,7 +62,7 @@ test("Back, Forward or Reload on a frozen copy pull the page back, then run on i
   S().activate(tileOf(b, "https://mail.com"));
   assert.ok(await until(() => S().tabs[mail].windowId === b));
   const frozen = S().windows[a].activeTabIds.default;
-  assert.equal(S().tabs[frozen].pageIn, mail);
+  assert.equal(S().tabs[frozen].page.holderId, mail);
   S().updateLive(mail, { canGoBack: true });
   const calls = [];
   withLivePage(frozen, (p) => p.goBack());

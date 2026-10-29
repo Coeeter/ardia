@@ -2,16 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
+const { wokenPage } = await import("../tabs/pageSession.ts");
 const { startPinHandoff } = await import("./pinHandoff.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../session/persist.ts");
 const stub = await import("../../test-native/index.ts");
 
 const S = () => useBrowser.getState();
 const reset = () => S().hydrate({});
-const loaded = (id) => !!S().tabs[id]?.navigation || !!S().tabs[id]?.adoptId;
+const loaded = (id) => !!S().tabs[id]?.page.nav || !!S().tabs[id]?.page.adopt;
 const shown = (w) => model.activeTabId(S(), w);
 const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === url);
-const pages = (url) => Object.values(S().tabs).filter((t) => t.pinnedUrl === url && (t.navigation || t.adoptId));
+const pages = (url) => Object.values(S().tabs).filter((t) => t.pinnedUrl === url && (t.page.nav || t.page.adopt));
 
 function twoWindows() {
   const a = S().createWindow({ url: "https://mail.com" });
@@ -35,7 +36,7 @@ test("selecting a pin in B while A holds its page moves the page; A keeps the ta
   assert.equal(tileOf(b, "https://mail.com"), mail, "in B's tile slot");
   assert.equal(S().tabs[copy].windowId, a, "the copy took its place in A");
   assert.equal(shown(a), copy, "A keeps showing that pin, selected");
-  assert.equal(S().tabs[copy].pageIn, mail, "frozen: its page is in B");
+  assert.equal(S().tabs[copy].page.holderId, mail, "frozen: its page is in B");
   assert.equal(loaded(copy), false, "no second page");
   assert.equal(pages("https://mail.com").length, 1, "one live page for the pin");
   assert.equal(S().live[copy].playingAudio, true, "A's tile shows the same audio state");
@@ -50,7 +51,7 @@ test("clicking the frozen copy in A pulls the page back; B keeps it frozen", () 
   assert.equal(S().tabs[mail].windowId, a, "the page is back in A");
   assert.equal(shown(a), mail);
   assert.equal(S().tabs[frozenInA].windowId, b);
-  assert.equal(S().tabs[frozenInA].pageIn, mail, "B now shows it frozen");
+  assert.equal(S().tabs[frozenInA].page.holderId, mail, "B now shows it frozen");
   assert.equal(pages("https://mail.com").length, 1);
 });
 
@@ -62,7 +63,7 @@ test("B switching to another tab leaves the page in B until another window asks"
   S().activate(other);
   assert.equal(S().tabs[mail].windowId, b, "it stays");
   assert.equal(loaded(mail), true);
-  assert.equal(S().tabs[shown(a)].pageIn, mail, "A still shows it frozen");
+  assert.equal(S().tabs[shown(a)].page.holderId, mail, "A still shows it frozen");
 });
 
 test("closing B while it holds the page returns the page to A in place, no reload", () => {
@@ -73,7 +74,7 @@ test("closing B while it holds the page returns the page to A in place, no reloa
   assert.equal(S().tabs[mail].windowId, a, "the same page is back in A");
   assert.equal(shown(a), mail, "shown where the frozen copy was");
   assert.equal(loaded(mail), true);
-  assert.equal(Object.values(S().tabs).some((t) => t.pageIn), false, "nothing frozen is left");
+  assert.equal(Object.values(S().tabs).some((t) => t.page.holderId), false, "nothing frozen is left");
   assert.equal(tileOf(a, "https://mail.com"), mail);
 });
 
@@ -85,7 +86,7 @@ test("unloading the pin in either window unloads it everywhere; nothing reloads"
   S().closeTab(frozen);
   assert.equal(loaded(mail), false, "the page in B is unloaded too");
   assert.equal(loaded(frozen), false);
-  assert.equal(S().tabs[frozen].pageIn, undefined);
+  assert.equal(S().tabs[frozen].page.holderId, undefined);
   assert.notEqual(shown(a), frozen, "A moved on");
   assert.notEqual(shown(b), mail, "B moved on");
   assert.equal(pages("https://mail.com").length, 0);
@@ -109,7 +110,7 @@ test("navigating from a frozen copy (address bar, Back to Pinned URL) pulls the 
   S().updateTab(mail, { url: "https://mail.com/inbox", title: "Inbox" }, {});
   S().returnToPinnedUrl(shown(a));
   assert.equal(S().tabs[mail].windowId, a, "the page came back to A");
-  assert.equal(S().tabs[mail].navigation.url, "https://mail.com", "and navigates home");
+  assert.equal(S().tabs[mail].page.nav.url, "https://mail.com", "and navigates home");
   assert.equal(pages("https://mail.com").length, 1);
 });
 
@@ -122,7 +123,7 @@ test("Move to Window and Merge All Windows: the holder joins the frozen copy's w
   assert.equal(tileOf(a, "https://mail.com"), mail, "one tile, the live one");
   assert.equal(model.viewTabIds(S(), a).filter((id) => S().tabs[id].pinnedUrl === "https://mail.com").length, 1);
   assert.equal(shown(a), mail, "A shows the live page where the frozen copy was");
-  assert.equal(Object.values(S().tabs).some((t) => t.pageIn), false);
+  assert.equal(Object.values(S().tabs).some((t) => t.page.holderId), false);
 });
 
 test("a window that gets the pin selected implicitly shows it frozen instead of loading a copy", () => {
@@ -135,7 +136,7 @@ test("a window that gets the pin selected implicitly shows it frozen instead of 
   S().closeTab(other);
   assert.equal(S().tabs[mail].windowId, b);
   const frozen = shown(a);
-  assert.equal(S().tabs[frozen].pageIn, mail);
+  assert.equal(S().tabs[frozen].page.holderId, mail);
   assert.equal(pages("https://mail.com").length, 1);
 });
 
@@ -162,7 +163,7 @@ test("a pin in a split keeps its own page; private windows have no pins; another
   S().activate(copy);
   assert.equal(S().tabs[mail].windowId, a, "the split keeps its pane");
   assert.equal(loaded(copy), true, "B loads its own page, as before");
-  assert.equal(S().tabs[copy].pageIn, undefined);
+  assert.equal(S().tabs[copy].page.holderId, undefined);
 
   const p = S().createWindow({ incognito: true, url: "https://secret.com" });
   assert.equal(model.viewTabIds(S(), p).some((id) => S().tabs[id].pinned), false);
@@ -179,8 +180,8 @@ test("a pin in a split keeps its own page; private windows have no pins; another
   assert.ok(workCopy, "A paged to Work shows Work's pins");
   S().activate(workCopy);
   assert.equal(S().tabs[wt].windowId, two.a, "Work's page moves into A while A shows Work");
-  assert.equal(S().tabs[workCopy].pageIn, wt, "the Work window shows it frozen");
-  assert.equal(S().tabs[two.mail].pageIn, undefined, "default's pins are untouched");
+  assert.equal(S().tabs[workCopy].page.holderId, wt, "the Work window shows it frozen");
+  assert.equal(S().tabs[two.mail].page.holderId, undefined, "default's pins are untouched");
   assert.equal(loaded(two.mail), true);
 });
 
@@ -196,10 +197,10 @@ test("persisted sessions never carry a frozen link; the copy relaunches unloaded
   const saved = JSON.parse(stub.docs.get("session.json"));
   const tab = Array.isArray(saved.tabs) ? saved.tabs.find((t) => t.id === frozen) : saved.tabs?.[frozen];
   assert.ok(tab, "the copy is saved");
-  assert.equal(tab.pageIn, undefined);
-  assert.equal(tab.unloaded, true);
+  assert.equal(tab.page.holderId, undefined);
+  assert.equal(tab.page.kind, "asleep");
   S().hydrate(loadSession());
-  assert.ok(S().tabs[frozen].pageIn, "relaunch: the window focused last loads the pin, the other shows it frozen");
+  assert.ok(S().tabs[frozen].page.holderId, "relaunch: the window focused last loads the pin, the other shows it frozen");
   assert.equal(pages("https://mail.com").length, 1, "one page after relaunch too");
 });
 
@@ -223,9 +224,9 @@ test("a background wake of a copy whose page another window holds never makes a 
   reset();
   const { a, b, mail } = twoWindows();
   const copy = tileOf(b, "https://mail.com");
-  S().updateTab(copy, model.wake(S().tabs[copy]));
+  S().updateTab(copy, { page: wokenPage(S().tabs[copy]) });
   assert.equal(pages("https://mail.com").length, 1, "one page");
-  assert.equal(S().tabs[copy].pageIn, mail, "the late wake becomes a frozen copy");
+  assert.equal(S().tabs[copy].page.holderId, mail, "the late wake becomes a frozen copy");
   assert.equal(loaded(mail), true, "the page the user had stays");
 
   reset();
@@ -237,9 +238,9 @@ test("a background wake of a copy whose page another window holds never makes a 
   const bCopy = tileOf(two.b, "https://mail.com");
   S().activate(bCopy);
   assert.equal(loaded(bCopy), true, "nobody held it: B loads it");
-  S().updateTab(two.mail, model.wake(S().tabs[two.mail]));
+  S().updateTab(two.mail, { page: wokenPage(S().tabs[two.mail]) });
   assert.equal(pages("https://mail.com").length, 1, "A's queued warmup loses to B's page");
-  assert.equal(S().tabs[two.mail].pageIn, bCopy);
+  assert.equal(S().tabs[two.mail].page.holderId, bCopy);
 });
 
 test("leaving a split hands the pin back to one page", () => {
@@ -254,7 +255,7 @@ test("leaving a split hands the pin back to one page", () => {
   assert.equal(pages("https://mail.com").length, 1, "one page again once the split is gone");
   const [holder] = pages("https://mail.com");
   const other = holder.id === mail ? copy : mail;
-  assert.equal(S().tabs[other].pageIn, holder.id, "the other copy is frozen on it");
+  assert.equal(S().tabs[other].page.holderId, holder.id, "the other copy is frozen on it");
 });
 
 test("Edit Pinned Page on an unselected copy navigates the one page, wherever it is", () => {
@@ -264,7 +265,7 @@ test("Edit Pinned Page on an unselected copy navigates the one page, wherever it
   S().setPinnedUrl(copy, "https://mail.com/new");
   assert.equal(pages("https://mail.com/new").length, 1, "one page, at the new URL");
   assert.equal(S().tabs[mail].windowId, a, "it stays in A: B didn't ask to show it");
-  assert.equal(S().tabs[mail].navigation.url, "https://mail.com/new");
+  assert.equal(S().tabs[mail].page.nav.url, "https://mail.com/new");
   assert.equal(loaded(copy), false);
   assert.equal(S().tabs[copy].pinnedUrl, "https://mail.com/new");
 });

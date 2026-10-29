@@ -12,7 +12,7 @@ const handle = () => ({ loadUrl: async (url, options) => void loads.push({ url, 
 const setup = () => {
   const tab = {
     id: "a", windowId: "w1", profileId: "default", url: "https://a.com/", title: "", favicon: null, pinned: false, muted: false, zoom: 1,
-    customTitle: null, customIcon: null, pinnedUrl: null, navigation: { url: "https://a.com/", seq: 1 }, openerId: null, createdAt: 0, lastActiveAt: 0,
+    customTitle: null, customIcon: null, pinnedUrl: null, page: { kind: "loaded", nav: { url: "https://a.com/", seq: 1 } }, openerId: null, createdAt: 0, lastActiveAt: 0,
   };
   const win = { id: "w1", profileId: "default", incognito: false, tabIds: ["a"], activeTabIds: { default: "a" }, sidebarOpen: true, frame: null, createdAt: 0 };
   S().hydrate({ profiles: { default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 } }, windows: { w1: win }, tabs: { a: tab }, focusedWindowId: "w1" });
@@ -30,7 +30,7 @@ const rerender = (ref) => {
 test("a navigation starts in the store action, once, and its view effect skips it", () => {
   setup();
   S().navigate("a", "https://b.com/");
-  const seq = S().tabs.a.navigation.seq;
+  const seq = S().tabs.a.page.nav.seq;
   assert.deepEqual(loads, [{ url: "https://b.com/", userInitiated: true }]);
   assert.equal(takeStartedNavigation("a", seq), true);
   assert.equal(takeStartedNavigation("a", seq), false);
@@ -39,7 +39,7 @@ test("a navigation starts in the store action, once, and its view effect skips i
 test("a re-render that hands the same view a new handle object still skips the second load", () => {
   const ref = setup();
   S().navigate("a", "https://b.com/");
-  const seq = S().tabs.a.navigation.seq;
+  const seq = S().tabs.a.page.nav.seq;
   rerender(ref);
   assert.equal(takeStartedNavigation("a", seq), true);
   assert.equal(loads.length, 1);
@@ -48,7 +48,7 @@ test("a re-render that hands the same view a new handle object still skips the s
 test("a view that remounted after the start loads the page itself", () => {
   const ref = setup();
   S().navigate("a", "https://b.com/");
-  const seq = S().tabs.a.navigation.seq;
+  const seq = S().tabs.a.page.nav.seq;
   webviewRef("a")(handle());
   ref(null);
   assert.equal(takeStartedNavigation("a", seq), false);
@@ -57,7 +57,7 @@ test("a view that remounted after the start loads the page itself", () => {
 test("an older navigation's start doesn't cover a newer one", () => {
   setup();
   S().navigate("a", "https://b.com/");
-  assert.equal(takeStartedNavigation("a", S().tabs.a.navigation.seq + 1), false);
+  assert.equal(takeStartedNavigation("a", S().tabs.a.page.nav.seq + 1), false);
 });
 
 test("with no view yet, the view effect loads as before", () => {
@@ -65,5 +65,5 @@ test("with no view yet, the view effect loads as before", () => {
   ref(null);
   S().navigate("a", "https://b.com/");
   assert.equal(loads.length, 0);
-  assert.equal(takeStartedNavigation("a", S().tabs.a.navigation.seq), false);
+  assert.equal(takeStartedNavigation("a", S().tabs.a.page.nav.seq), false);
 });

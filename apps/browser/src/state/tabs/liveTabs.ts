@@ -12,6 +12,7 @@ import { settleMovedPins } from "../pins/pinMirror";
 import { splitOf } from "../splits/splits";
 import { activated, apply, removeTabs } from "./tabs";
 import { isAdoptKind } from "./adoptIds";
+import { adoptOf } from "./pageSession";
 import { orderSections } from "../groups/groups";
 
 type Keyed = StripTab & { key: string };
@@ -22,7 +23,7 @@ const chromeGroupOf = (s: BrowserState, key: string | undefined) => {
   return g && rootOf(s.groups, g.id);
 };
 
-const madeByChrome = (s: BrowserState, key: string) => isAdoptKind(s.tabs[key]?.adoptId, "tab");
+const madeByChrome = (s: BrowserState, key: string) => isAdoptKind(adoptOf(s.tabs[key]), "tab");
 const CHROME_COLORS = new Set<string>(TAB_GROUP_COLORS);
 const chromeColor = (color: TabGroup["color"]): StripGroup["color"] => (color && CHROME_COLORS.has(color) ? (color as StripGroup["color"]) : "grey");
 

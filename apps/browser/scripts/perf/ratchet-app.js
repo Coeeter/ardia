@@ -28,7 +28,7 @@ const extra = {
       for (const [id, t] of Object.entries(s.tabs)) {
         const was = prev.tabs[id];
         if (!was || t === was || shown.has(id)) continue;
-        if ((t.navigation && !was.navigation) || (t.adoptId && !was.adoptId)) {
+        if ((t.page.nav && !was.page.nav) || (t.page.adopt && !was.page.adopt)) {
           backgroundWakeAt = Date.now();
           return;
         }

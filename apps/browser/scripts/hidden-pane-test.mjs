@@ -81,7 +81,7 @@ try {
 
   const hiddenChanges = await ac(`${S}
     const url = ${JSON.stringify(page("HiddenLoad"))};
-    S().updateTab("b", { navigation: { url, seq: Date.now() } });
+    S().updateTab("b", { page: { kind: "loaded", nav: { url, seq: Date.now() } } });
     let ok = false;
     return audit.until(() => S().tabs.b.title === "HiddenLoad").then((loadedIt) => {
       ok = loadedIt;
@@ -110,7 +110,7 @@ try {
   check("shown: the permission prompt that came while hidden", shown.prompt === true);
 
   const panes = await ac(`${S}
-    const want = () => S().windows.w1.tabIds.filter((id) => S().tabs[id]?.navigation || S().tabs[id]?.adoptId).sort().join(",");
+    const want = () => S().windows.w1.tabIds.filter((id) => S().tabs[id]?.page.nav || S().tabs[id]?.page.adopt).sort().join(",");
     const have = () => [...ac.webviews.keys()].filter((id) => S().tabs[id]?.windowId === "w1").sort().join(",");
     const steps = [];
     let e;

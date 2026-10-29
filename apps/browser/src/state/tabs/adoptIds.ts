@@ -1,7 +1,5 @@
-import type { Tab } from "../browser/types";
-
-export type AdoptKind = "restore" | "clone" | "tab" | "ardiacore" | "webkit" | "link";
-export type AdoptId = `${AdoptKind}:${string}`;
+import type { AdoptId, AdoptKind, Tab } from "../browser/types";
+import { wakeOf } from "./pageSession";
 
 const KINDS: readonly AdoptKind[] = ["restore", "clone", "tab", "ardiacore", "webkit", "link"];
 
@@ -15,9 +13,11 @@ export function adoptKind(id: string | undefined): { kind: AdoptKind; key: strin
   return KINDS.includes(kind) ? { kind, key: id.slice(colon + 1) } : null;
 }
 
+export const asAdoptId = (id: string | undefined): AdoptId | undefined => (adoptKind(id) ? (id as AdoptId) : undefined);
+
 export const isAdoptKind = (id: string | undefined, kind: AdoptKind) => adoptKind(id)?.kind === kind;
 
-export function pendingRestore(t: Pick<Tab, "wakeAdoptId">): string | undefined {
-  const id = adoptKind(t.wakeAdoptId);
+export function pendingRestore(t: Tab | undefined): string | undefined {
+  const id = adoptKind(wakeOf(t));
   return id?.kind === "restore" ? id.key : undefined;
 }

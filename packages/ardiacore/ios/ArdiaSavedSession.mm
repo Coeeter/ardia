@@ -20,7 +20,7 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 @implementation ArdiaSavedSession
 
 + (NSInteger)version {
-  return 4;
+  return 5;
 }
 
 + (instancetype)readFrom:(NSString *)directory {

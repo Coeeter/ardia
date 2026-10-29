@@ -4,6 +4,7 @@ import { inPinnedContainer } from "../browser/model";
 import { groupOf, pinnedChildGroup } from "../pins/tabGrouping";
 import { splitOf } from "../splits/splits";
 import type { BrowserWindow, Tab } from "../browser/types";
+import { isAsleep } from "./pageSession";
 
 const regular = (s: BrowserState, id: string) => !inPinnedContainer(s, id);
 
@@ -90,7 +91,7 @@ const hiddenInGroup = (s: BrowserState, id: string) => {
 export function openerSuccessor(s: BrowserState, closed: string, order: string[], left: string[]): string | undefined {
   const at = order.indexOf(closed);
   const candidates = [...left.filter((id) => order.indexOf(id) > at), ...left.filter((id) => order.indexOf(id) < at).reverse()].filter(
-    (id) => !s.tabs[id]!.unloaded && !hiddenInGroup(s, id),
+    (id) => !isAsleep(s.tabs[id]) && !hiddenInGroup(s, id),
   );
   const opener = s.tabs[closed]?.openerId;
   return (

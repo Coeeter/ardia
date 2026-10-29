@@ -28,7 +28,7 @@ test("a tab counts as unloaded only while it has no page anywhere", () => {
   assert.equal(unloaded(copy), false, "a pin whose page another window holds, before it's selected");
   S().activate(copy);
   const frozen = tileOf(a, "https://mail.com");
-  assert.ok(S().tabs[frozen].pageIn, "A's copy shows the page B now holds");
+  assert.ok(S().tabs[frozen].page.holderId, "A's copy shows the page B now holds");
   assert.equal(unloaded(frozen), false, "a pin live in another window");
 });
 

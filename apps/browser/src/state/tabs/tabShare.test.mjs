@@ -6,13 +6,13 @@ const { pinKeyOf } = model;
 
 const S = () => useBrowser.getState();
 const reset = () => S().hydrate({});
-const loaded = (id) => !!S().tabs[id]?.navigation || !!S().tabs[id]?.adoptId;
+const loaded = (id) => !!S().tabs[id]?.page.nav || !!S().tabs[id]?.page.adopt;
 const shown = (w) => model.activeTabId(S(), w);
 const list = (w) => model.viewTabIds(S(), w).filter((id) => !S().tabs[id].pinned && S().tabs[id].url);
 const urls = (w) => list(w).map((id) => S().tabs[id].url);
 const keys = (w) => list(w).map((id) => pinKeyOf(S().tabs[id]));
 const rowOf = (w, url) => list(w).find((id) => S().tabs[id].url === url);
-const pages = (url) => Object.values(S().tabs).filter((t) => t.url === url && (t.navigation || t.adoptId) && !t.pageIn);
+const pages = (url) => Object.values(S().tabs).filter((t) => t.url === url && (t.page.nav || t.page.adopt) && !t.page.holderId);
 const share = (on) => S().updateSettings({ shareTabsAcrossWindows: on });
 
 function twoWindows() {
@@ -31,7 +31,7 @@ test("off by default: each window keeps its own unpinned tabs, as before", () =>
   const { a, b } = twoWindows();
   assert.deepEqual(urls(a), ["https://a1.com", "https://a2.com"]);
   assert.deepEqual(urls(b), ["https://b1.com"]);
-  assert.equal(Object.values(S().tabs).some((t) => t.pageIn || t.pinKey), false);
+  assert.equal(Object.values(S().tabs).some((t) => t.page.holderId || t.pinKey), false);
 });
 
 test("turning it on gives every window of the profile the same list; each keeps its selection", () => {
@@ -66,7 +66,7 @@ test("selecting a tab that is live in another window moves its page here; that w
   S().activate(copy);
   assert.equal(S().tabs[a1].windowId, b, "the live tab (same id, same page) is now in B");
   assert.equal(shown(b), a1);
-  assert.equal(S().tabs[shown(a)].pageIn, a1, "A keeps that row selected, showing the page frozen");
+  assert.equal(S().tabs[shown(a)].page.holderId, a1, "A keeps that row selected, showing the page frozen");
   assert.equal(pages("https://a1.com").length, 1, "one live page");
   assert.deepEqual(keys(a), keys(b), "the lists didn't change");
   S().activate(shown(a));
@@ -79,7 +79,7 @@ test("rows of a tab live elsewhere follow its title and address", () => {
   share(true);
   S().updateTab(a1, { url: "https://a1.com/page", title: "Page" }, {});
   const copy = S().tabs[list(b)[0]];
-  assert.equal(copy.pageIn, a1);
+  assert.equal(copy.page.holderId, a1);
   assert.equal(copy.url, "https://a1.com/page");
   assert.equal(copy.title, "Page");
 });
@@ -136,7 +136,7 @@ test("turning it off leaves each tab in one window: the live one, nothing duplic
   assert.equal(all.length, 3, "three tabs, once each");
   assert.equal(S().tabs[a1].windowId, b, "a1's page stays where it is live");
   assert.ok(list(b).includes(b1));
-  assert.equal(Object.values(S().tabs).some((t) => t.pageIn || t.pinKey), false);
+  assert.equal(Object.values(S().tabs).some((t) => t.page.holderId || t.pinKey), false);
   assert.ok(S().windows[a], "no window closed");
   S().newTab(a, { url: "https://after.com" });
   assert.equal(rowOf(b, "https://after.com"), undefined, "and windows are separate again");
@@ -147,7 +147,7 @@ test("pinning a shared tab from a window showing it frozen keeps its live page",
   const { a, b, a1 } = twoWindows();
   share(true);
   const copy = rowOf(b, "https://a1.com");
-  assert.equal(S().tabs[copy].pageIn, a1);
+  assert.equal(S().tabs[copy].page.holderId, a1);
   S().pinTabs([copy], true);
   assert.ok(S().tabs[a1], "the live tab is still there");
   assert.equal(loaded(a1), true, "with its page");
@@ -194,8 +194,8 @@ for (const how of ["openSplitPane", "replaceSplitPane"]) {
     const { a, b, a1, b1 } = twoWindows();
     share(true);
     const copy = rowOf(b, "https://a1.com");
-    assert.equal(S().tabs[copy].pageIn, a1);
-    const seq = S().tabs[a1].navigation.seq;
+    assert.equal(S().tabs[copy].page.holderId, a1);
+    const seq = S().tabs[a1].page.nav.seq;
     if (how === "openSplitPane") S().openSplitPane(b, { anchorTabId: b1, tabId: copy });
     else {
       const b2 = S().newTab(b, { url: "https://b2.com", background: true });
@@ -209,7 +209,7 @@ for (const how of ["openSplitPane", "replaceSplitPane"]) {
     assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
     assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
     assert.equal(pages("https://a1.com").length, 1, "no second page loaded");
-    assert.equal(S().tabs[a1].navigation.seq, seq, "the page itself, not a reload");
+    assert.equal(S().tabs[a1].page.nav.seq, seq, "the page itself, not a reload");
   });
 }
 
@@ -226,8 +226,8 @@ for (const where of ["pinned split", "split in a pinned group"]) {
       else S().placeTabs([b2], { pinned: false, groupId: S().groupTabs([b1], { pinned: true, name: "P" }) });
       assert.equal(model.inPinnedContainer(S(), b2), true);
       const copy = rowOf(b, "https://a1.com");
-      assert.equal(S().tabs[copy].pageIn, a1);
-      const seq = S().tabs[a1].navigation.seq;
+      assert.equal(S().tabs[copy].page.holderId, a1);
+      const seq = S().tabs[a1].page.nav.seq;
       if (how === "openSplitPane") S().openSplitPane(b, { anchorTabId: b2, tabId: copy });
       else S().replaceSplitPane(b3, copy);
       assert.ok(S().tabs[a1], "the live tab is still there");
@@ -236,7 +236,7 @@ for (const where of ["pinned split", "split in a pinned group"]) {
       assert.equal(model.inPinnedContainer(S(), a1), true, "pinned with the split");
       assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
       assert.equal(pages("https://a1.com").length, 1, "no second page loaded");
-      assert.equal(S().tabs[a1].navigation.seq, seq, "the page itself, not a reload");
+      assert.equal(S().tabs[a1].page.nav.seq, seq, "the page itself, not a reload");
     });
   }
 }
@@ -258,7 +258,7 @@ for (const where of ["pinned split", "split in a pinned group"]) {
     else S().placeTabs([y], { pinned: false, groupId: S().groupTabs([b1], { pinned: true, name: "P" }) });
     S().updateTab(z, { url: "", title: "New Tab" }, {});
     const copy = rowOf(b, "https://x.com");
-    assert.equal(S().tabs[copy].pageIn, x);
+    assert.equal(S().tabs[copy].page.holderId, x);
     S().replaceSplitPane(z, copy);
     assert.equal(S().tabs[x].windowId, b, "the page went to B's split");
     assert.ok(S().splits[splitId].tabIds.includes(x));

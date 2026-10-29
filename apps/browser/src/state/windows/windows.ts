@@ -16,7 +16,7 @@ import {
 } from "../browser/model";
 import { restoringGroup } from "../pins/closedTabs";
 import { markPinned } from "../pins/pinChoices";
-import { hasLoadedPage } from "../tabs/pageSession";
+import { hasLoadedPage, hasPage, IDLE, isAsleep, loadedPage, withWake } from "../tabs/pageSession";
 import { adoptParkedPins, parkWindowPins } from "../pins/parkedPins";
 import { settleMovedPins } from "../pins/pinMirror";
 import { returnSharedPages } from "../pins/pinShare";
@@ -25,7 +25,7 @@ import { pendingRestore } from "../tabs/adoptIds";
 import { sharedElsewhere, sharesTabs } from "../tabs/tabShare";
 import { isSmall, isSmallWindow, lastActiveProfile, linkProfileOf, mainWindowFor } from "./small";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
-import type { BrowserWindow, ClosedWindow, Frame, ParkedPins, Tab } from "../browser/types";
+import type { AdoptId, BrowserWindow, ClosedWindow, Frame, ParkedPins, Tab } from "../browser/types";
 import { emptyWindow, smallWindow, withWindow } from "./newWindow";
 import { lastClosedEntry, lastClosedTab, restoreTab, restoreWindow } from "./reopenClosed";
 import { groupTree, regrouped, splitsWithin, withSplitsBack } from "./groupMoves";
@@ -36,7 +36,7 @@ export type CreateWindowOptions = {
   profileId?: string;
   incognito?: boolean;
   url?: string;
-  adoptId?: string;
+  adoptId?: AdoptId;
   tabIds?: string[];
   frame?: Frame | null;
   small?: boolean;
@@ -90,9 +90,9 @@ export function moveTabsInto(s: BrowserState, ids: string[], targetId: string): 
   const live = { ...next.live };
   const activeTabIds = { ...w.activeTabIds };
   for (const tab of moving) {
-    const { adoptId: _adopted, ...t } = tab;
+    const t = tab;
     const loaded = hasLoadedPage(tab);
-    tabs[t.id] = { ...t, windowId: targetId, navigation: loaded ? navigationTo(t.url) : null };
+    tabs[t.id] = { ...t, windowId: targetId, page: loaded ? loadedPage(navigationTo(t.url)) : hasPage(tab) ? IDLE : tab.page };
     live[t.id] = IDLE_LIVE;
     activeTabIds[t.profileId] ??= t.id;
   }
@@ -118,8 +118,7 @@ function intoProfile(s: BrowserState, tabId: string, profileId: string): Browser
   const next = removeTabs(s, [tabId], false);
   const base = next.windows[w.id] ?? { ...w, tabIds: [], activeTabIds: {} };
   const loaded = hasLoadedPage(tab);
-  const { adoptId: _, wakeAdoptId: _w, ...rest } = tab;
-  const moved: Tab = { ...rest, profileId, navigation: loaded ? navigationTo(tab.url) : null, lastActiveAt: Date.now() };
+  const moved: Tab = { ...tab, profileId, page: loaded ? loadedPage(navigationTo(tab.url)) : hasPage(tab) ? IDLE : withWake(tab.page, undefined), lastActiveAt: Date.now() };
   const pinChoices = tab.pinned ? markPinned(next.pinChoices, profileId, { tabs: [pinKeyOf(moved)], placed: [pinKeyOf(moved)] }) : next.pinChoices;
   const tabs = { ...next.tabs, [tabId]: moved };
   const index = Math.min(w.tabIds.indexOf(tabId), base.tabIds.length);
@@ -244,7 +243,7 @@ export const createWindowsSlice: StateCreator<BrowserState, [], [], WindowsSlice
     s = adoptParkedPins(s, windowId, profileId);
     const remembered = w.activeTabIds[profileId];
     let target = remembered && s.tabs[remembered]?.windowId === windowId ? remembered : undefined;
-    target ??= s.windows[windowId]!.tabIds.find((id) => s.tabs[id]?.profileId === profileId && !s.tabs[id]!.unloaded);
+    target ??= s.windows[windowId]!.tabIds.find((id) => s.tabs[id]?.profileId === profileId && !isAsleep(s.tabs[id]));
     if (!target) [s, target] = withNewTab(s, windowId, { profileId, background: true });
     s = apply(s, activated(s, target));
     if (focusedWindowOf(s) === windowId) s = { ...s, ui: { ...s.ui, lastProfileId: profileId } };

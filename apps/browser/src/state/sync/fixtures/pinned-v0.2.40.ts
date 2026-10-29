@@ -36,7 +36,7 @@ const PIN_NEST = "pinn:";
 
 type Window = BrowserState["windows"][string];
 
-const hasPage = (t: Tab) => !!t.navigation || !!t.adoptId;
+const hasPage = (t: Tab) => t.page.kind === "loaded" || t.page.kind === "adopted";
 
 const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter((w): w is Window => !!w && !w.incognito && w.kind !== "small");
 
@@ -280,7 +280,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       const removable = goneTabs.filter((id) => {
         const t = s.tabs[id]!;
         const w = s.windows[t.windowId];
-        const kept = !!t.navigation || !!t.adoptId || Object.values(w?.activeTabIds ?? {}).includes(id);
+        const kept = t.page.kind === "loaded" || t.page.kind === "adopted" || Object.values(w?.activeTabIds ?? {}).includes(id);
         return w && !kept && w.tabIds.some((other) => other !== id && !goneTabs.includes(other));
       });
       s = removeTabs(s, removable, false);
@@ -320,7 +320,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
             customTitle: v.t,
             customIcon: v.i,
-            ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
+            ...(old.page.kind === "asleep" ? { url: v.u, title: v.ti } : {}),
           };
           note(pinKeyOf(tabs[id]!), id);
           continue;
@@ -334,8 +334,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           ...pinKeyField(id),
           pinnedUrl: group ? null : v.u,
           ...(!group && marked(keyOfLocal.get(id) ?? id) ? { pinnedAsRow: true as const } : {}),
-          navigation: null,
-          unloaded: true,
+          page: { kind: "asleep" },
         };
         note(keyOfLocal.get(id) ?? id, id);
         tabs[id] = tab;
@@ -374,8 +373,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             const copy: Tab = {
               ...makeTab(windowId, profileId, t.url, { title: t.title, favicon: t.favicon, customTitle: t.customTitle, customIcon: t.customIcon }),
               pinKey: pinKeyOf(t),
-              navigation: null,
-              unloaded: true,
+              page: { kind: "asleep" },
             };
             tabs[copy.id] = copy;
             tabs[id] = { ...t, pinKey: undefined };

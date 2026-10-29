@@ -6,6 +6,7 @@ import type { BrowserWindow, HistoryEntry, ParkedPins, Tab, TabGroup } from "../
 import { samePage } from "../../lib/url";
 import { historyOf } from "../history/history";
 import { isRegularWindow } from "../windows/small";
+import { ASLEEP, withWake } from "../tabs/pageSession";
 
 
 type PinSource = Pick<BrowserState, "tabs" | "groups" | "history" | "profiles"> & Partial<Pick<BrowserState, "windows" | "splits">>;
@@ -100,9 +101,7 @@ export function adoptParkedPins(s: BrowserState, windowId: string, profileId: st
     const tab: Tab = {
       ...makeTab(windowId, profileId, snap.url, { ...snap, profileId, pinned: !groupId, pinnedUrl: home || null }),
       ...(tabs[id] ? { id: newId("tab"), pinKey: id } : { id }),
-      navigation: null,
-      unloaded: true,
-      ...(restoreFrom && !tabs[id] ? { wakeAdoptId: restoreId(restoreFrom) } : {}),
+      page: withWake(ASLEEP, restoreFrom && !tabs[id] ? restoreId(restoreFrom) : undefined),
     };
     tabs[tab.id] = tab;
     live[tab.id] = IDLE_LIVE;

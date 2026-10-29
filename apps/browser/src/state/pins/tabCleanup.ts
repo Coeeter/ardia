@@ -153,7 +153,7 @@ export function abandonedNewTabs(s: BrowserState, windowId: string): string[] {
   const shown = w.activeTabIds[w.profileId];
   const out = w.tabIds.filter((id) => {
     const t = s.tabs[id];
-    return !!t && t.windowId === w.id && !t.url && !t.navigation && !t.adoptId && !t.pinned && id !== shown && !selected.has(id);
+    return !!t && t.windowId === w.id && !t.url && !hasPage(t) && !t.pinned && id !== shown && !selected.has(id);
   });
   return out.length >= w.tabIds.length ? out.slice(0, w.tabIds.length - 1) : out;
 }

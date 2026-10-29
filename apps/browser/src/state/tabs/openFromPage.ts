@@ -5,11 +5,13 @@ import { engineProfile } from "../browser/model";
 import { peekSourceOf } from "../peek/peek";
 import { isSmall, originalProfile, privateWindowProfile } from "../windows/small";
 import { openLinkInSplit, openSplitPane } from "../splits/actions";
-import { isAdoptKind } from "./adoptIds";
+import { asAdoptId, isAdoptKind } from "./adoptIds";
 
 export type { OpenWindowRequest } from "../../platform/tabs";
 
-export function openFromPage({ url, adoptId, disposition, profile, point }: OpenWindowRequest, page: { windowId: string; profileId: string; tabId?: string }) {
+export function openFromPage(request: OpenWindowRequest, page: { windowId: string; profileId: string; tabId?: string }) {
+  const { url, disposition, profile, point } = request;
+  const adoptId = asAdoptId(request.adoptId);
   const s = useBrowser.getState();
   const w = s.windows[page.windowId];
   if (!w) return;

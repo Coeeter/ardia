@@ -14,7 +14,7 @@ const pinned = (w) =>
     return `${g ? `${g.name}/` : ""}${t.customTitle ?? ""}${t.pinnedUrl || t.url}`;
   });
 const regular = (w) => model.viewTabIds(S(), w).filter((id) => !model.inPinnedContainer(S(), id)).map((id) => S().tabs[id].url);
-const loaded = (id) => !!S().tabs[id].navigation || !!S().tabs[id].adoptId;
+const loaded = (id) => !!S().tabs[id].page.nav || !!S().tabs[id].page.adopt;
 const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === url);
 
 function twoWindows() {
@@ -42,7 +42,7 @@ test("⌘N while a window is open: the new window shows the profile's pinned tab
   S().activate(copy);
   assert.equal(S().tabs[mail].windowId, b, "clicking it in the new window brings the first window's page over");
   assert.equal(loaded(mail), true, "the same page, still loaded");
-  assert.equal(S().tabs[copy].pageIn, mail, "the first window keeps a frozen copy in its place");
+  assert.equal(S().tabs[copy].page.holderId, mail, "the first window keeps a frozen copy in its place");
   assert.equal(loaded(copy), false);
   assert.deepEqual(pinned(a), PINS);
 });
@@ -111,7 +111,7 @@ test("relaunch: every restored window shows the pins; a 0.2.27 session whose win
   assert.deepEqual(pinned(a), PINS);
   assert.deepEqual(pinned(b), PINS);
 
-  const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0 });
+  const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 });
   const win = (id, tabIds) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: tabIds.at(-1) }, sidebarOpen: true, frame: null, createdAt: 0 });
   S().hydrate({
     windows: { w1: win("w1", ["x1", "m1", "r1"]), w2: win("w2", ["y2", "x2", "r2"]) },

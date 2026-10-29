@@ -127,7 +127,7 @@ function tabFor(key, profileId) {
   const s = S();
   const all = Object.values(s.tabs).filter((t) => keyOf(t) === key && (!profileId || t.profileId === profileId));
   const shown = (t) => s.windows[t.windowId]?.profileId === t.profileId;
-  return all.find((t) => inContainer(s, t) && shown(t)) ?? all.find((t) => inContainer(s, t)) ?? all.find((t) => t.navigation) ?? all[0];
+  return all.find((t) => inContainer(s, t) && shown(t)) ?? all.find((t) => inContainer(s, t)) ?? all.find((t) => t.page.nav) ?? all[0];
 }
 const groupFor = (key) => Object.values(S().groups).find((g) => keyOf(g) === key && g.pinned) ?? Object.values(S().groups).find((g) => keyOf(g) === key);
 
@@ -169,13 +169,13 @@ const everSent = (k, key, name, url) => sentBy(k, key, doneBy(k, name)).some((v)
 const inPinnedGroup = (key) => Object.values(S().groups).some((g) => g.pinned && g.tabIds.includes(tabFor(key)?.id));
 function navigate(key, url) {
   const t = tabFor(key);
-  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], url, unloaded: undefined, navigation: { url, seq: (s.tabs[t.id].navigation?.seq ?? 0) + 1 } } } }));
+  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], url, page: { kind: "loaded", nav: { url, seq: (s.tabs[t.id].page.nav?.seq ?? 0) + 1 } } } } }));
   return !!t;
 }
 const record = (mac, p, key) => mac.scopes[p]?.records[key]?.v;
 function loadX(k) {
   const t = tabFor(k.X);
-  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], unloaded: undefined, navigation: { url: t.url, seq: 1 } } } }));
+  if (t) useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], page: { kind: "loaded", nav: { url: t.url, seq: 1 } } } } }));
 }
 function parkAndReopen() {
   for (const w of Object.values(S().windows)) if (w.profileId === "default") S().closeWindow(w.id);
@@ -270,7 +270,7 @@ const OPS = [
       (k) => {
         const t = tabFor(k.X);
         if (!t) return;
-        useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], url: X_OTHER, unloaded: undefined, navigation: { url: X_OTHER, seq: 2 } } } }));
+        useBrowser.setState((s) => ({ tabs: { ...s.tabs, [t.id]: { ...s.tabs[t.id], url: X_OTHER, page: { kind: "loaded", nav: { url: X_OTHER, seq: 2 } } } } }));
         const g = groupFor(k.G);
         if (g?.pinned) (S().placeTabs([t.id], { pinned: false, groupId: g.id }), done(k, "navXIntoG"));
       },
@@ -489,7 +489,7 @@ async function runPair(startRow, opA, opB, schedule) {
     const pages = new Set();
     let holders = 0;
     for (const m of among) m.with(() => {
-      const shown = Object.values(S().tabs).filter((t) => t.profileId === p && keyOf(t) === key.slice(6) && inContainer(S(), t) && !t.unloaded);
+      const shown = Object.values(S().tabs).filter((t) => t.profileId === p && keyOf(t) === key.slice(6) && inContainer(S(), t) && t.page.kind !== "asleep");
       if (shown.length) holders++;
       for (const t of shown) pages.add(`${t.url}|${t.title}`);
     });
@@ -603,7 +603,7 @@ test("a pin waiting for a group that never arrives stands alone once the wait is
 });
 
 const copyIn = (w, key) => Object.values(S().tabs).find((t) => t.windowId === w && keyOf(t) === key);
-const load = (id, url) => useBrowser.setState((s) => ({ tabs: { ...s.tabs, [id]: { ...s.tabs[id], url, unloaded: undefined, navigation: { url, seq: (s.tabs[id].navigation?.seq ?? 0) + 1 } } } }));
+const load = (id, url) => useBrowser.setState((s) => ({ tabs: { ...s.tabs, [id]: { ...s.tabs[id], url, page: { kind: "loaded", nav: { url, seq: (s.tabs[id].page.nav?.seq ?? 0) + 1 } } } } }));
 
 const PAGE_CASES = {
   "a member navigated in a window behind another": async ({ a, b, k }, variant) => {

@@ -5,7 +5,7 @@ import { inPinnedContainer, isPinnedRow, newId, tabLayoutOf } from "../browser/m
 import { placing } from "../pins/placing";
 import { choose } from "../settings/settings";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
-import type { BrowserWindow, SplitView, Tab } from "../browser/types";
+import type { AdoptId, BrowserWindow, SplitView, Tab } from "../browser/types";
 
 export type SplitsSlice = {
   splits: Record<string, SplitView>;
@@ -30,7 +30,7 @@ export type OpenPaneOptions = {
   anchorTabId?: string;
   side?: SplitSide;
   background?: boolean;
-  adoptId?: string;
+  adoptId?: AdoptId;
   inPlaceOf?: string;
 };
 export type OpenPaneResult = { ok: true; tabId: string; splitId: string } | { ok: false; reason: "max" | "invalid" };

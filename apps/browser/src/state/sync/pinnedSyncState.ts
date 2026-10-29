@@ -8,7 +8,6 @@ export const store = () => useBrowser.getState();
 
 export type Window = BrowserState["windows"][string];
 
-export const hasPage = (t: Tab) => !!t.navigation || !!t.adoptId;
 
 
 export const openWindows = (s: BrowserState) => s.windowOrder.map((id) => s.windows[id]).filter(isRegularWindow);

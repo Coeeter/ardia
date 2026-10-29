@@ -1,7 +1,8 @@
 import { removeDownloadStaging, type Download } from "../../platform/downloads";
 import { readDocument, writeDocument } from "../../platform/documents";
 import { SESSION_DOCUMENT } from "./sessionDocument";
-import { pendingRestore } from "../tabs/adoptIds";
+import { isAdoptKind } from "../tabs/adoptIds";
+import { wakeOf } from "../tabs/pageSession";
 import { useBrowser, type BrowserState, type HydrateData } from "../browser/store";
 import { inPinnedContainer, isIncognitoProfile, snapshotTab } from "../browser/model";
 import { earlyLaunchTabOn, launchTab, linkProfile } from "../tabs/launchTab";
@@ -10,7 +11,7 @@ import { restoreLaunchLook, saveLaunchLook } from "../windows/launchLook";
 import { parkWindowPins } from "../pins/parkedPins";
 import { closedWindowEntry, MAX_CLOSED_WINDOWS } from "../pins/closedTabs";
 import { isPeekTab } from "../peek/peek";
-import type { BrowserWindow, Tab } from "../browser/types";
+import type { AdoptId, BrowserWindow, Tab, TabPage } from "../browser/types";
 import { downloadSession } from "../downloads/downloadsSlice";
 import { parseSaved, versionedJson, unchanged, type Migrations, type SavedObject } from "../../lib/savedDocument";
 import { sessionWithCleanUpMinutes } from "../settings/cleanUpAfter";
@@ -19,8 +20,20 @@ import { isRegularWindow } from "../windows/small";
 import { isFields, isString, isStringList } from "../../lib/decode";
 
 const SAVE_DELAY_MS = 800;
-const SESSION_VERSION = 4;
-const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes };
+type SavedPage = Extract<TabPage, { kind: "idle" | "asleep" }>;
+const SESSION_VERSION = 5;
+const isRestoreId = (v: unknown): v is AdoptId => isString(v) && isAdoptKind(v, "restore");
+const sessionWithTabPages = (doc: SavedObject): SavedObject => ({
+  ...doc,
+  tabs: Array.isArray(doc.tabs)
+    ? doc.tabs.map((t: unknown) => {
+        if (!isFields(t)) return t;
+        const { navigation: _n, adoptId: _a, pageIn: _p, unloaded, wakeAdoptId, ...tab } = t;
+        return { ...tab, page: { kind: unloaded === true ? "asleep" : "idle", ...(isRestoreId(wakeAdoptId) ? { wake: wakeAdoptId } : {}) } };
+      })
+    : doc.tabs,
+});
+const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes, 4: sessionWithTabPages };
 const downloadsWithStagingPathOnly = (doc: SavedObject): SavedObject => ({
   ...doc,
   downloads: Array.isArray(doc.downloads)
@@ -52,9 +65,16 @@ function doc<F extends Record<string, Field<Key, unknown>>>(name: string, versio
 const publicTab = (t: { profileId: string }) => !isIncognitoProfile(t.profileId);
 const publicProfiles = <T,>(byProfile: Record<string, T>) => Object.fromEntries(Object.entries(byProfile).filter(([profileId]) => publicTab({ profileId })));
 
-const persistedTab = ({ navigation: _n, adoptId: _a, wakeAdoptId, pageIn, ...tab }: Tab) => {
-  const t = pageIn ? { ...tab, unloaded: true as const } : tab;
-  return pendingRestore({ wakeAdoptId }) && !isIncognitoProfile(t.profileId) ? { ...t, wakeAdoptId } : t;
+const savedPage = (t: Tab): SavedPage => {
+  const wake = wakeOf(t);
+  const kind = t.page.kind === "asleep" || t.page.kind === "frozen" ? "asleep" : "idle";
+  return isRestoreId(wake) && !isIncognitoProfile(t.profileId) ? { kind, wake } : { kind };
+};
+const persistedTab = (t: Tab) => ({ ...t, page: savedPage(t) });
+const pageFromDisk = (v: unknown): SavedPage => {
+  const page = isFields(v) ? v : {};
+  const kind = page.kind === "asleep" ? "asleep" : "idle";
+  return isRestoreId(page.wake) ? { kind, wake: page.wake } : { kind };
 };
 
 const savedWindows = (s: Pick<BrowserState, "windows">) =>
@@ -136,7 +156,7 @@ export function parseSession(json: string | null | undefined): SavedSession | nu
     windowOrder: strings(raw.windowOrder),
     focusedWindowId: nullableString(raw.focusedWindowId),
     lastProfileId: nullableString(raw.lastProfileId),
-    tabs: byId(rows<Tab>(raw.tabs, tabOk)),
+    tabs: byId(rows<Tab>(raw.tabs, tabOk).map((t) => ({ ...t, page: pageFromDisk(t.page) }))),
     groups: byId(rows(raw.groups, groupOk)),
     splits: byId(rows(raw.splits, splitOk)),
     closedTabs: rows(raw.closedTabs, closedTabOk),

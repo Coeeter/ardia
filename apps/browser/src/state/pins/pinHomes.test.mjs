@@ -29,7 +29,7 @@ test("a tab in a pinned group keeps the page it was pinned at and goes back ther
   assert.equal(awayFromPin(S().tabs[a]), true);
   S().closeTab(a);
   assert.equal(S().tabs[a].url, "https://a.com/", "⌘W unloads it at its home");
-  assert.equal(S().tabs[a].unloaded, true);
+  assert.equal(S().tabs[a].page.kind, "asleep");
   assert.equal(awayFromPin(S().tabs[a]), false);
 });
 
@@ -42,7 +42,7 @@ test("Back to Pinned URL and Replace Pin work on a pinned group's tab", () => {
   assert.equal(S().tabs[a].pinnedUrl, "https://a.com/login");
   go(a, "https://a.com/elsewhere");
   S().returnToPinnedUrl(a);
-  assert.equal(S().tabs[a].navigation?.url ?? S().tabs[a].url, "https://a.com/login");
+  assert.equal(S().tabs[a].page.nav?.url ?? S().tabs[a].url, "https://a.com/login");
 });
 
 test("a home follows the tab between pinned places and goes when it leaves them", () => {

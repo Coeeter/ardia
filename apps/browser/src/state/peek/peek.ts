@@ -3,7 +3,7 @@ import type { BrowserState } from "../browser/store";
 import { activeTabId, IDLE_LIVE, makeTab, navigationTo, without } from "../browser/model";
 import { forgetOpeners, insertionIndex } from "../tabs/openers";
 import { groupWithOpener } from "../pins/tabGrouping";
-import { hasNavigatedPage } from "../tabs/pageSession";
+import { hasNavigatedPage, loadedPage, renavigated } from "../tabs/pageSession";
 import { isSmall } from "../windows/small";
 import { activated, apply, removeTabs } from "../tabs/tabs";
 import { pinnedGroupMembers } from "../browser/structure";
@@ -81,7 +81,7 @@ export const createPeekSlice: StateCreator<BrowserState, [], [], PeekSlice> = (s
     if (!source || !w || isSmall(s, w.id) || !peekable(url) || !w.tabIds.includes(sourceTabId)) return "";
     s = withoutPeek(s, w.id);
     if (activeTabId(s, w.id) !== sourceTabId) s = apply(s, activated(s, sourceTabId));
-    const tab = { ...makeTab(w.id, source.profileId, url), openerId: sourceTabId, navigation: navigationTo(url, true) };
+    const tab = { ...makeTab(w.id, source.profileId, url), openerId: sourceTabId, page: loadedPage(navigationTo(url, true)) };
     set({
       ...s,
       tabs: { ...s.tabs, [tab.id]: tab },
@@ -104,7 +104,7 @@ export const createPeekSlice: StateCreator<BrowserState, [], [], PeekSlice> = (s
     s = { ...s, peeks: without(s.peeks, [windowId]) };
     if (activate) s = forgetOpeners(s, windowId);
     const loaded = hasNavigatedPage(tab);
-    const moved = { ...tab, openerId: s.tabs[peek.sourceId] ? peek.sourceId : null, navigation: loaded ? navigationTo(tab.url) : tab.navigation, lastActiveAt: Date.now() };
+    const moved = { ...tab, openerId: s.tabs[peek.sourceId] ? peek.sourceId : null, page: loaded ? renavigated(tab, navigationTo(tab.url)) : tab.page, lastActiveAt: Date.now() };
     const tabs = { ...s.tabs, [tab.id]: moved };
     const w = s.windows[windowId]!;
     const tabIds = [...w.tabIds];

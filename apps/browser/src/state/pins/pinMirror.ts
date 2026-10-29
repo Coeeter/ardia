@@ -2,7 +2,7 @@ import type { BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { ancestorIds, depthOf, orderSections, placeBlock, syncGroupOrder, withParent } from "../groups/groups";
 import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pinKeyOf, without } from "../browser/model";
-import { hasPage } from "../tabs/pageSession";
+import { ASLEEP, hasPage } from "../tabs/pageSession";
 import { removeFromSplits } from "../splits/splits";
 import { sharedListTab, sharesTabs } from "../tabs/tabShare";
 import { removeTabs } from "../tabs/tabs";
@@ -206,8 +206,7 @@ export function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
       zoom: src.zoom,
     }),
     pinKey: pinKeyOf(src),
-    navigation: null,
-    unloaded: true,
+    page: ASLEEP,
   };
 }
 

@@ -35,7 +35,7 @@ test("a peek is a live tab of the window that stays out of its tab list", () => 
   assert.ok(isPeekTab(S(), id));
   assert.equal(peekSourceOf(S(), id), a);
   assert.equal(S().tabs[id].windowId, w);
-  assert.equal(S().tabs[id].navigation.url, "https://peek.example/page");
+  assert.equal(S().tabs[id].page.nav.url, "https://peek.example/page");
   assert.equal(S().tabs[id].openerId, a);
   assert.deepEqual(S().peeks[w].from, { x: 100, y: 200 });
   assert.deepEqual(order(w), before);
@@ -76,7 +76,7 @@ test("Open as Tab keeps the same tab, puts it right after its source and shows i
   assert.deepEqual(order(w).slice(0, 3), [a, id, b]);
   assert.equal(S().windows[w].activeTabIds.default, id);
   assert.equal(S().tabs[id].url, "https://peek.example/next");
-  assert.equal(S().tabs[id].navigation.url, "https://peek.example/next");
+  assert.equal(S().tabs[id].page.nav.url, "https://peek.example/next");
   assert.equal(S().live[id].canGoBack, true);
   assert.equal(S().tabs[id].openerId, a);
 });

@@ -1,7 +1,7 @@
 import { appUrlOrigin, displayHost } from "@ardia/core";
 import type { BrowserState } from "./store";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
-import type { BrowserWindow, Profile, Tab, TabGroup, TabLive, TabSnapshot } from "./types";
+import type { BrowserWindow, Navigation, Profile, Tab, TabGroup, TabLive, TabSnapshot } from "./types";
 import { pinnedGroupMembers } from "./structure";
 
 
@@ -13,7 +13,7 @@ export const pinKeyOf = (x: { id: string; pinKey?: string }) => x.pinKey ?? x.id
 export const familyKeyOf = (t: Pick<Tab, "profileId" | "id" | "pinKey">) => `${t.profileId}\u0001${pinKeyOf(t)}`;
 
 let navSeq = 0;
-export const navigationTo = (url: string, userInitiated = false) => ({ url, seq: ++navSeq, ...(userInitiated ? { userInitiated } : {}) });
+export const navigationTo = (url: string, userInitiated = false): Navigation => ({ url, seq: ++navSeq, ...(userInitiated ? { userInitiated } : {}) });
 
 export const incognitoProfileId = (windowId: string, originalProfileId: string) => `incognito:${windowId}@${originalProfileId}`;
 export const isIncognitoProfile = (profileId: string) => profileId.startsWith("incognito:");
@@ -61,14 +61,10 @@ export function makeTab(windowId: string, profileId: string, url = "", snapshot?
     pinnedUrl: null,
     openerId: null,
     ...snapshot,
-    navigation: url ? navigationTo(url) : null,
+    page: url ? { kind: "loaded", nav: navigationTo(url) } : { kind: "idle" },
     createdAt: now,
     lastActiveAt: now,
   };
-}
-
-export function wake(t: Tab): Partial<Tab> {
-  return t.wakeAdoptId ? { adoptId: t.wakeAdoptId, wakeAdoptId: undefined, unloaded: undefined } : { navigation: navigationTo(t.url), unloaded: undefined };
 }
 
 export const snapshotTab = (t: Tab): TabSnapshot => ({
@@ -111,7 +107,7 @@ export function closesWindow(s: BrowserState, id: string): boolean {
   const tab = s.tabs[id];
   const w = tab && s.windows[tab.windowId];
   if (!tab || !w || tab.profileId !== w.profileId || inPinnedContainer(s, id)) return false;
-  return viewTabIds(s, w.id).every((t) => t === id || s.tabs[t]!.unloaded);
+  return viewTabIds(s, w.id).every((t) => t === id || s.tabs[t]!.page.kind === "asleep");
 }
 
 export function activeTabId(s: BrowserState, windowId: string, profileId?: string): string | undefined {

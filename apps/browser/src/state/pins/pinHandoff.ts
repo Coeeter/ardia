@@ -5,6 +5,7 @@ import { useBrowser } from "../browser/store";
 import { activeTabId, familyKeyOf } from "../browser/model";
 import { holderOf } from "./pinShare";
 import { withDeadline } from "../../lib/deadline";
+import { holderOfPage } from "../tabs/pageSession";
 
 const CAPTURE_DEADLINE_MS = 250;
 const PAINT_DEADLINE_MS = 120;
@@ -115,7 +116,7 @@ export function startPinHandoff() {
     }
     if (s.tabs === prev.tabs) return;
     const { frames } = useFrozenPages.getState();
-    const gone = Object.keys(frames).filter((id) => !s.tabs[id]?.pageIn && !Object.values(useFrozenPages.getState().bridges).some((b) => b.copyId === id));
+    const gone = Object.keys(frames).filter((id) => !holderOfPage(s.tabs[id]) && !Object.values(useFrozenPages.getState().bridges).some((b) => b.copyId === id));
     if (!gone.length) return;
     const next = { ...frames };
     for (const id of gone) delete next[id];

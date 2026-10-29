@@ -6,7 +6,7 @@ globalThis.__DEV__ = false;
 registerHooks({
   resolve(specifier, context, next) {
     if (!context.parentURL?.endsWith("/state/app/cliControl.ts") || specifier !== "../pages/urls") return next(specifier, context);
-    const stub = "export const isInternalTab = (t) => /^ardia:\\/\\//i.test(t.navigation?.url ?? t.url ?? '');";
+    const stub = "export const isInternalTab = (t) => /^ardia:\\/\\//i.test(t.page.nav?.url ?? t.url ?? '');";
     return { url: `data:text/javascript,${encodeURIComponent(stub)}`, shortCircuit: true };
   },
 });
@@ -103,7 +103,7 @@ test("a page parked behind New Tab or an Ardia page is not what the user is look
   S().updateTab(a, { url: tab.url, title: tab.title });
   await settle();
   assert.deepEqual(active, [a, null, a], "Forward shows the page again");
-  S().updateTab(a, { url: "ardia://settings", navigation: { ...S().tabs[a].navigation, url: "ardia://settings" } });
+  S().updateTab(a, { url: "ardia://settings", page: { kind: "loaded", nav: { ...S().tabs[a].page.nav, url: "ardia://settings" } } });
   await settle();
   assert.deepEqual(active, [a, null, a, null], "an Ardia page over a parked WebContents");
   emit({ state: "off", generation: 4 });

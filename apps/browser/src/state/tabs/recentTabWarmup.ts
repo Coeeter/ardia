@@ -1,9 +1,8 @@
 import type { SystemState } from "../../platform/performance";
 import { useBrowser } from "../browser/store";
-import { wake } from "../browser/model";
 import { isInternalTab } from "../pages/urls";
 import { holderOf } from "../pins/pinShare";
-import { restoredLazily } from "./pageSession";
+import { restoredLazily, wokenPage } from "./pageSession";
 import { shownTabIds } from "./shownTabs";
 
 const store = () => useBrowser.getState();
@@ -25,7 +24,7 @@ export function reloadRecentTabs(sys: SystemState) {
     setTimeout(() => {
       const now = store();
       const t = now.tabs[id];
-      if (t && restoredLazily(t) && !holderOf(now, id)) now.updateTab(id, wake(t));
+      if (t && restoredLazily(t) && !holderOf(now, id)) now.updateTab(id, { page: wokenPage(t) });
     }, 2000 * (i + 1)),
   );
   return ids;

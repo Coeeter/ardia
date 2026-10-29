@@ -50,18 +50,26 @@ export type Tab = {
   pinnedUrl: string | null;
   pinnedAsRow?: true;
   tileFolder?: TileFolder;
-  navigation: { url: string; seq: number; userInitiated?: boolean } | null;
-  adoptId?: string;
+  page: TabPage;
   openerId: string | null;
-  wakeAdoptId?: string;
   liveItem?: { folderId: string; itemId: string };
-  unloaded?: boolean;
   pinKey?: string;
-  pageIn?: string;
   engine?: PageEngine;
   createdAt: number;
   lastActiveAt: number;
 };
+
+export type AdoptKind = "restore" | "clone" | "tab" | "ardiacore" | "webkit" | "link";
+export type AdoptId = `${AdoptKind}:${string}`;
+
+export type Navigation = { url: string; seq: number; userInitiated?: boolean };
+
+export type TabPage =
+  | { kind: "idle"; wake?: AdoptId }
+  | { kind: "asleep"; wake?: AdoptId }
+  | { kind: "frozen"; holderId: string; wake?: AdoptId }
+  | { kind: "adopted"; adopt: AdoptId; nav: Navigation | null }
+  | { kind: "loaded"; nav: Navigation };
 
 export type TileFolder = { id: string; name: string; renamedAt?: number };
 

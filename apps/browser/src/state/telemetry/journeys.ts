@@ -4,6 +4,7 @@ import { capture, isSharing, useTelemetry } from "./client";
 import { appInfo, percentile } from "./transport";
 import { jsStartedAt } from "./jsStart";
 import { fieldTiming } from "../../platform/fieldTiming";
+import { isAsleep } from "../tabs/pageSession";
 
 let on = false;
 
@@ -193,7 +194,7 @@ export function launchCommitted() {
   const keys: string[] = [];
   for (const id of s.windowOrder) {
     const tab = activeTabId(s, id);
-    if (tab && s.tabs[tab]?.url && !s.tabs[tab]!.unloaded) keys.push(tab);
+    if (tab && s.tabs[tab]?.url && !isAsleep(s.tabs[tab])) keys.push(tab);
   }
   launch = { journey: "j1", t0: start, commit: Date.now(), keys, tabs: Object.keys(s.tabs).length, windows: s.windowOrder.length };
   frame("launch", "content");

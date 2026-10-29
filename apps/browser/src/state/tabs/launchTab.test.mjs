@@ -11,7 +11,7 @@ const S = () => useBrowser.getState();
 startPersistence();
 const tab = (id, windowId, url, profileId = "default") => ({
   id, windowId, profileId, url, title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null,
-  pinnedUrl: null, navigation: null, openerId: null, createdAt: 0, lastActiveAt: 0,
+  pinnedUrl: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0,
 });
 const win = (id, tabIds, active, extra = {}) => ({
   id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: active }, sidebarOpen: true, frame: null, createdAt: 0, ...extra,
@@ -27,7 +27,7 @@ test("the focused window's active web page, under its engine profile", () => {
   hydrate([win("w1", ["a", "b"], "b"), win("w2", ["c"], "c")], [tab("a", "w1", "https://a.com/"), tab("b", "w1", "https://b.com/x"), tab("c", "w2", "http://c.com/")], { focusedWindowId: "w1" });
   assert.deepEqual(launchTab(S(), (S().ui.focusOrder[0] ?? null)), { id: "b", url: "https://b.com/x", profile: "" });
   assert.deepEqual(launchTab(S(), "w2"), { id: "c", url: "http://c.com/", profile: "" });
-  assert.equal(S().tabs.b.navigation?.url, "https://b.com/x");
+  assert.equal(S().tabs.b.page.nav?.url, "https://b.com/x");
 });
 
 test("another profile's tab names that profile's engine profile", () => {
@@ -60,34 +60,34 @@ test("session.json's hint is what the next launch claims", () => {
 });
 
 test("a reopened tab not shown yet keeps its back/forward list across a relaunch; nothing else pending does", () => {
-  const waking = (id, wakeAdoptId, profileId) => ({ ...tab(id, "w1", `https://${id}.com/`, profileId), wakeAdoptId });
+  const waking = (id, wake, profileId) => ({ ...tab(id, "w1", `https://${id}.com/`, profileId), page: { kind: "idle", wake } });
   hydrate(
     [win("w1", ["a", "b", "c", "p"], "a")],
     [tab("a", "w1", "https://a.com/"), waking("b", "restore:old-b"), waking("c", "tab:42"), waking("p", "restore:old-p", "incognito:w9@default")],
     { focusedWindowId: "w1" },
   );
   flushPersistence();
-  const saved = Object.fromEntries(JSON.parse(stub.docs.get("session.json")).tabs.map((t) => [t.id, t.wakeAdoptId]));
+  const saved = Object.fromEntries(JSON.parse(stub.docs.get("session.json")).tabs.map((t) => [t.id, t.page.wake]));
   assert.deepEqual(saved, { a: undefined, b: "restore:old-b", c: undefined, p: undefined }, "only a regular tab's restore");
   S().hydrate(loadSession());
-  assert.equal(S().tabs.b.wakeAdoptId, "restore:old-b");
+  assert.equal(S().tabs.b.page.wake, "restore:old-b");
   S().activate("b");
-  assert.equal(S().tabs.b.adoptId, "restore:old-b", "shown, it wakes with its list");
+  assert.equal(S().tabs.b.page.adopt, "restore:old-b", "shown, it wakes with its list");
   S().setFocusedWindow("w1");
   assert.deepEqual(launchTab(S(), "w1"), { id: "b", url: "https://b.com/", profile: "" }, "woken, the next launch loads it by its address");
-  S().updateTab("b", { adoptId: undefined, wakeAdoptId: "restore:old-b" });
+  S().updateTab("b", { page: { kind: "idle", wake: "restore:old-b" } });
   assert.equal(launchTab(S(), "w1"), null, "not woken yet: it keeps its list");
 });
 
 test("a tab the engine made (a link, an extension, DevTools) is the hint once adopted, and the relaunch claims it", () => {
   hydrate([win("w1", ["a"], "a")], [tab("a", "w1", "https://a.com/")], { focusedWindowId: "w1" });
   const id = S().newTab("w1", { url: "https://made.example/page", adoptId: "tab:7" });
-  assert.equal(S().tabs[id].adoptId, "tab:7");
+  assert.equal(S().tabs[id].page.adopt, "tab:7");
   assert.deepEqual(savedHint(), { id, url: "https://made.example/page", profile: "" });
   S().hydrate(loadSession());
-  assert.equal(S().tabs[id].adoptId, undefined, "the relaunch loads it by its address");
+  assert.equal(S().tabs[id].page.adopt, undefined, "the relaunch loads it by its address");
   assert.deepEqual(launchTab(S(), (S().ui.focusOrder[0] ?? null)), { id, url: "https://made.example/page", profile: "" });
-  assert.equal(S().tabs[id].navigation?.url, "https://made.example/page");
+  assert.equal(S().tabs[id].page.nav?.url, "https://made.example/page");
 });
 
 test("no hint when the next launch won't restore the session", () => {

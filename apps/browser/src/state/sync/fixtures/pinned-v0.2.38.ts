@@ -102,7 +102,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       const removable = goneTabs.filter((id) => {
         const t = s.tabs[id]!;
         const w = s.windows[t.windowId];
-        const kept = !!t.navigation || !!t.adoptId || Object.values(w?.activeTabIds ?? {}).includes(id);
+        const kept = t.page.kind === "loaded" || t.page.kind === "adopted" || Object.values(w?.activeTabIds ?? {}).includes(id);
         return w && !kept && w.tabIds.some((other) => other !== id && !goneTabs.includes(other));
       });
       s = removeTabs(s, removable, false);
@@ -129,7 +129,7 @@ export function pinnedAdapter(profileId: string): Adapter {
             pinnedUrl: group ? null : v.u,
             customTitle: v.t,
             customIcon: v.i,
-            ...(old.unloaded ? { url: v.u, title: v.ti } : {}),
+            ...(old.page.kind === "asleep" ? { url: v.u, title: v.ti } : {}),
           };
           continue;
         }
@@ -140,8 +140,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
           id,
           pinnedUrl: group ? null : v.u,
-          navigation: null,
-          unloaded: true,
+          page: { kind: "asleep" },
         };
         tabs[id] = tab;
         windows[windowId] = { ...w, tabIds: [...w.tabIds, id] };

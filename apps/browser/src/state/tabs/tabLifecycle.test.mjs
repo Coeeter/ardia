@@ -140,7 +140,7 @@ test("a recent pin queued for warming at launch stays closed when the user close
   const w = S().createWindow({ url: "https://a.com" });
   const pin = S().newTab(w, { url: "https://p.com", background: true, pinned: true });
   const warm = S().newTab(w, { url: "https://q.com", background: true, pinned: true });
-  const cold = (id) => ({ ...S().tabs[id], navigation: null, lastActiveAt: Date.now() });
+  const cold = (id) => ({ ...S().tabs[id], page: { kind: "idle" }, lastActiveAt: Date.now() });
   useBrowser.setState({ tabs: { ...S().tabs, [pin]: cold(pin), [warm]: cold(warm) } });
   const sys = { physicalMemory: 32 * 2 ** 30, onBattery: false, lowPowerMode: false, memoryPressure: "normal" };
 
@@ -148,11 +148,11 @@ test("a recent pin queued for warming at launch stays closed when the user close
   assert.ok(queued.includes(pin) && queued.includes(warm));
   S().activate(pin);
   S().closeTab(pin);
-  assert.equal(S().tabs[pin].unloaded, true);
+  assert.equal(S().tabs[pin].page.kind, "asleep");
   t.mock.timers.tick(2000 * queued.length);
 
-  assert.equal(S().tabs[pin].unloaded, true, "the closed pin stays closed");
-  assert.equal(S().tabs[pin].navigation, null);
-  assert.ok(S().tabs[warm].navigation, "a pin left alone still warms up");
-  assert.equal(!!S().tabs[warm].unloaded, false);
+  assert.equal(S().tabs[pin].page.kind, "asleep", "the closed pin stays closed");
+  assert.equal(S().tabs[pin].page.nav, undefined);
+  assert.ok(S().tabs[warm].page.nav, "a pin left alone still warms up");
+  assert.notEqual(S().tabs[warm].page.kind, "asleep");
 });

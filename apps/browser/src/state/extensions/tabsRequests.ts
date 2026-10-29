@@ -2,6 +2,7 @@ import type { TabsRequest } from "../../platform/extensions";
 import { openWindow } from "../browser/actions";
 import { useBrowser } from "../browser/store";
 import { engineProfile } from "../browser/model";
+import { asAdoptId } from "../tabs/adoptIds";
 
 type Request<A extends TabsRequest["action"]> = Extract<TabsRequest, { action: A }>;
 
@@ -18,7 +19,9 @@ export function openRequestedTab(request: TabsRequest) {
   }
 }
 
-function adoptStrayTab({ adoptId, url, profile }: Request<"adopt">) {
+function adoptStrayTab(request: Request<"adopt">) {
+  const { url, profile } = request;
+  const adoptId = asAdoptId(request.adoptId);
   if (!url) return;
   const s = useBrowser.getState();
   const ofProfile = (id: string) => !!s.windows[id] && !s.windows[id]!.incognito && engineProfile(s, s.windows[id]!.profileId) === profile;
@@ -33,7 +36,9 @@ function adoptStrayTab({ adoptId, url, profile }: Request<"adopt">) {
   else openWindow({ url });
 }
 
-function openChromeMadeTab({ chromeWindow, adoptId, url, profile, active, focused }: Request<"adoptInto">) {
+function openChromeMadeTab(request: Request<"adoptInto">) {
+  const { chromeWindow, url, profile, active, focused } = request;
+  const adoptId = asAdoptId(request.adoptId);
   const s = useBrowser.getState();
   const made = Object.values(s.windows).find((w) => w.chromeWindow === chromeWindow);
   if (made) return void s.newTab(made.id, { url, adoptId, profileId: made.profileId, background: !active });

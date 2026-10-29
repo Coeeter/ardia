@@ -38,9 +38,9 @@ function settledProblems(s) {
   }
   for (const t of Object.values(s.tabs)) {
     if (!s.windows[t.windowId]?.tabIds.includes(t.id) && s.peeks[t.windowId]?.tabId !== t.id) problems.push(`${t.id} isn't in its window`);
-    if (t.pageIn) {
-      const h = s.tabs[t.pageIn];
-      if (!h || !hasPage(h) || h.pageIn || h.profileId !== t.profileId || model.pinKeyOf(h) !== model.pinKeyOf(t)) problems.push(`${t.id} is frozen on a holder that can't hold it`);
+    if (t.page.holderId) {
+      const h = s.tabs[t.page.holderId];
+      if (!h || !hasPage(h) || h.page.holderId || h.profileId !== t.profileId || model.pinKeyOf(h) !== model.pinKeyOf(t)) problems.push(`${t.id} is frozen on a holder that can't hold it`);
     }
     if (t.tileFolder && (!t.pinned || t.pinnedAsRow)) problems.push(`${t.id} has a folder but isn't a tile`);
     if (t.pinned && t.liveItem) problems.push(`${t.id} is pinned and still a live item`);

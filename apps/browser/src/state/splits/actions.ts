@@ -5,6 +5,7 @@ import { menuShortcut } from "../commands/commandShortcuts";
 import { storeAction, useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { MAX_SPLIT_PANES, slotsOf, splitOf, type OpenPaneOptions, type SplitSide } from "./splits";
+import type { AdoptId } from "../browser/types";
 
 const store = () => useBrowser.getState();
 
@@ -30,7 +31,7 @@ export function openInSplit(tabId: string, side: SplitSide = "right") {
   openSplitPane(tab.windowId, { tabId, anchorTabId: active, side });
 }
 
-export function openLinkInSplit(sourceTabId: string, url: string, adoptId?: string) {
+export function openLinkInSplit(sourceTabId: string, url: string, adoptId?: AdoptId) {
   const s = store();
   const source = s.tabs[sourceTabId];
   if (!source) return;

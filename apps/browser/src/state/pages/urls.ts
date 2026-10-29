@@ -3,6 +3,7 @@ import { focus } from "../browser/actions";
 import { useBrowser } from "../browser/store";
 import { activeTabId, resolveWindowId, viewTabIds } from "../browser/model";
 import type { Tab } from "../browser/types";
+import { navigationOf } from "../tabs/pageSession";
 
 export const INTERNAL_PAGES: Record<AppPageHost, { title: string }> = {
   history: { title: "History" },
@@ -26,9 +27,9 @@ export function internalQuery(url: string): string {
   }
 }
 
-export const tabDestination = (t: Pick<Tab, "url" | "navigation">) => t.navigation?.url ?? t.url;
+export const tabDestination = (t: Pick<Tab, "url" | "page">) => navigationOf(t)?.url ?? t.url;
 
-export const isInternalTab = (t: Pick<Tab, "url" | "navigation">) => internalPageOf(tabDestination(t)) !== null;
+export const isInternalTab = (t: Pick<Tab, "url" | "page">) => internalPageOf(tabDestination(t)) !== null;
 
 export function openInternalPage(page: AppPageHost, windowId?: string | null, options: { query?: string; background?: boolean } = {}) {
   const s = useBrowser.getState();

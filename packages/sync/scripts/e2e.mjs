@@ -98,7 +98,7 @@ async function state(name) {
       pinned: Object.values(s.tabs).filter((t) => t.pinned).map((t) => t.pinnedUrl || t.url).sort(),
       rows: Object.values(s.tabs).filter((t) => t.pinned && t.pinnedAsRow).map((t) => t.pinnedUrl || t.url).sort(),
       groups: Object.values(s.groups).filter((g) => g.pinned).map((g) => g.name + ": " + g.tabIds.map((id) => s.tabs[id].url).join(", ")).sort(),
-      unloadedPins: Object.values(s.tabs).filter((t) => t.pinned && t.unloaded).length,
+      unloadedPins: Object.values(s.tabs).filter((t) => t.pinned && t.page.kind === "asleep").length,
       passwords: (pw || []).map((p) => p.origin + " " + p.username + "=" + p.password).sort(),
       chromePasswords: ((list && list.passwords) || []).map((p) => p.origin + " " + p.username).sort(),
       devices: u.devices.map((d) => d.id),

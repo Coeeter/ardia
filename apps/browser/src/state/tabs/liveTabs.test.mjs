@@ -244,7 +244,7 @@ function anotherWindow(...urls) {
 function mountViews({ w, strip }) {
   for (const id of S().windows[w]?.tabIds ?? []) {
     const t = S().tabs[id];
-    if ((t.navigation || t.adoptId) && !chrome.find(id)) chrome.create(strip, id);
+    if ((t.page.nav || t.page.adopt) && !chrome.find(id)) chrome.create(strip, id);
   }
   for (const s of chrome.strips.values()) for (const t of [...s.tabs]) if (!S().tabs[t.key]) chrome.remove(t.key);
 }

@@ -6,6 +6,7 @@ import { pageKey, pinnedPages } from "../tabs/pageKeys";
 import type { BookmarkFolder, Bookmarks, TabGroup } from "../browser/types";
 import { isWebPageUrl } from "../../lib/url";
 import { pinnedGroupMembers } from "../browser/structure";
+import { ASLEEP } from "../tabs/pageSession";
 
 export type GroupDraft = { title: string; url?: string; customTitle?: string; id?: string; children?: GroupDraft[] };
 export type DraftGroups = { made: string[]; carried: Set<string>; skipped: number };
@@ -56,7 +57,7 @@ export function withDraftGroups(s: BrowserState, windowId: string, profileId: st
       }
       seen.add(pageKey(c.url));
       taken++;
-      const t = { ...makeTab(windowId, profileId, c.url, { title: c.title, customTitle: c.customTitle ?? null }), navigation: null, unloaded: true as const };
+      const t = { ...makeTab(windowId, profileId, c.url, { title: c.title, customTitle: c.customTitle ?? null }), page: ASLEEP };
       tabs[t.id] = t;
       live[t.id] = IDLE_LIVE;
       order.push(t.id);

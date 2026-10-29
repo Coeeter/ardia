@@ -109,7 +109,7 @@ try {
   assert.equal(strip.length, 6, `strip items ${JSON.stringify(strip)}`);
   const mid = (i) => Math.round((strip[i][0] + strip[i][1]) / 2);
 
-  const PREVIEW = `const preview = () => globalThis.expo.modules.ArdiaShell.devDragPreviewState();`;
+  const PREVIEW = `const preview = () => globalThis.expo.modules.ArdiaDev.devDragPreviewState();`;
   const watch = (w, path, ms) => run(`${PREVIEW}
     const seen = [];
     const iv = setInterval(() => preview().then((p) => seen.push(p)), 30);

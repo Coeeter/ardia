@@ -13,7 +13,7 @@ if (!(globalThis as { expo?: unknown }).expo) {
   } catch {}
 }
 const modules = (globalThis as { expo?: { modules?: Record<string, Record<string, (...a: unknown[]) => unknown>> } }).expo?.modules;
-const shell = modules?.ArdiaShell;
+const shell = modules?.ArdiaDocuments;
 
 const probeOptions = (() => {
   try {

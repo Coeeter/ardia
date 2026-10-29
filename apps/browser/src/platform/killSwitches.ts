@@ -1,4 +1,4 @@
-import { readDocument, writeDocument } from "@ardia/shell";
+import { readDocument, writeDocument } from "./documents";
 import { switchOverride } from "./launchConfig";
 
 type SwitchDef = {

@@ -1562,7 +1562,7 @@ try {
   // MARK: Tab lifecycle
 
   await check("restore-after-close", async () => {
-    const shell = "globalThis.expo.modules.ArdiaShell";
+    const shell = "globalThis.expo.modules.ArdiaDialogs";
     const s = (expr) => evalApp(`const s = ac.store.getState(); return ${expr}`);
     const toB = async (tabId, tag) => {
       await until(`A?${tag} loaded`, async () => (await s(`s.tabs["${tabId}"]?.title === "Page A" && !s.live["${tabId}"]?.isLoading && !!ac.webviews.get("${tabId}")`)) || null, 15000);
@@ -4404,7 +4404,7 @@ try {
   // MARK: Window lifetime
 
   const q = JSON.stringify;
-  const windowsNative = "globalThis.expo.modules.ArdiaShell";
+  const windowsNative = "globalThis.expo.modules.ArdiaAppWindows";
   const shellCall = (fn, ...args) => evalApp(`return ${windowsNative}.${fn}(${args.map((a) => q(a)).join(", ")})`);
   const nativeWindowIds = () => shellCall("windowIds");
   const storeWindow = (id) => evalApp(`return ac.store.getState().windows[${q(id)}] ?? null`);

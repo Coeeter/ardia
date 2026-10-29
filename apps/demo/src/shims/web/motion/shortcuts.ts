@@ -164,7 +164,7 @@ function onBlur() {
   emitAppEvent({ type: "switcherReleased" });
 }
 
-provideNativeModule("ArdiaShell", {
+provideNativeModule("ArdiaFocus", {
   setSwitcherCapture: async (active: boolean) => void (switcher.capturing = active),
 });
 

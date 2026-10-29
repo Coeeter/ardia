@@ -1,9 +1,4 @@
 export {
-  onAppEvent,
-  onOpenURLs,
-  replyToTerminate,
-  setAppearance,
-  isDarkAppearance,
   setThinScrollBars,
   backgroundInstance,
   isDefaultBrowser,
@@ -16,15 +11,24 @@ export {
   type AppIcon,
 } from "@ardia/shell";
 import { call } from "@ardia/ardiacore";
-import { nativeModule, type UpdateChannel } from "@ardia/shell";
+import { nativeModule, type AppEvent, type AppearanceMode, type UpdateChannel } from "@ardia/shell";
+
+export { replyToTerminate } from "./windows";
 
 export { WIDEVINE_COMPONENT_ID } from "@ardia/ardiacore";
 
 export const engineInfo = () => call("engine.info");
 export const listComponents = () => call("engine.components");
 
+const Shell = nativeModule("ArdiaShell");
 const App = nativeModule("ArdiaApp");
 const Updater = nativeModule("ArdiaUpdater");
+
+export const setAppearance = (mode: AppearanceMode) => Shell.setAppearance(mode);
+export const isDarkAppearance = () => Shell.isDarkAppearance();
+export const onAppEvent = (listener: (e: AppEvent) => void) => Shell.addListener("onAppEvent", listener);
+export const onOpenURLs = (listener: (urls: string[], pointer?: [number, number]) => void) =>
+  Shell.addListener("onOpenURLs", ({ urls, pointer }) => listener(urls, pointer));
 
 export const systemInfo = () => App.systemInfo();
 export const crashReports = (since: number) => App.crashReports(since);

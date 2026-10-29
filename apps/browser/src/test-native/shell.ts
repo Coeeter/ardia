@@ -52,41 +52,16 @@ export const emitOpenURLs = (urls: string[], pointer?: [number, number]) => shel
 
 const shell: Modules["ArdiaShell"] = {
   addListener: shellEvents.addListener,
-  showMenu: () => Promise.resolve(null),
   copyText: () => {},
   readText: () => Promise.resolve(""),
-  setSwitcherCapture: () => Promise.resolve(),
-  setDragEscapeCapture: () => Promise.resolve(),
-  saveKeyResponder: () => Promise.resolve(0),
-  restoreKeyResponder: () => Promise.resolve(false),
-  discardKeyResponder: () => Promise.resolve(),
-  switcherPointerMoved: () => true,
-  pickFolder: () => Promise.resolve(null),
-  animateWindowClose: () => Promise.resolve(),
-  restoreFullScreen: () => Promise.resolve(),
-  watchLeftEdge: () => Promise.resolve(),
-  dragPreviewBegin: () => Promise.resolve(),
-  dragPreviewPage: () => Promise.resolve(),
-  dragPreviewUpdate: () => Promise.resolve(),
-  dragPreviewCancel: () => Promise.resolve(),
-  dragPreviewPlaceholder: () => Promise.resolve(),
-  dragPreviewEnd: () => Promise.resolve(),
-  raiseView: () => Promise.resolve(),
-  windowFrame: () => Promise.resolve(null),
-  cancelFocusMove: () => Promise.resolve(),
-  claimFocus: () => Promise.resolve(),
   startDictation: () => {},
-  pickFiles: () => Promise.resolve([]),
-  readDocument: (name) => docs.get(name) ?? null,
-  writeDocument: (name, contents) => void docs.set(name, contents),
-  saveDocument: (name, contents) =>
-    new Promise((resolve) => {
-      const land = () => (docs.set(name, contents), resolve());
-      if (heldSaves.on) heldSaves.queue.push(land);
-      else land();
-    }),
-  removeDocument: (name) => void docs.delete(name),
   fetchBangList: (etag) => (bangListServer.reply ? bangListServer.reply(etag) : unfaked("ArdiaShell", "fetchBangList")),
+  setAppearance: () => Promise.resolve(),
+  isDarkAppearance: () => Promise.resolve(false),
+};
+
+const windowsModule: Modules["ArdiaAppWindows"] = {
+  addListener: shellEvents.addListener,
   openWindow: (id, options) => {
     windows.open.set(id, { ...options });
     if (options.focus !== false) windows.focused = id;
@@ -102,6 +77,8 @@ const shell: Modules["ArdiaShell"] = {
     windows.focused = id;
     return Promise.resolve();
   },
+  animateWindowClose: () => Promise.resolve(),
+  restoreFullScreen: () => Promise.resolve(),
   setTrafficLightsCenter: (id, center) => {
     const window = windows.open.get(id);
     if (window) window.trafficLightsCenter = center;
@@ -113,13 +90,56 @@ const shell: Modules["ArdiaShell"] = {
     return Promise.resolve();
   },
   windowIds: () => Promise.resolve([...windows.open.keys()]),
-  setAppearance: () => Promise.resolve(),
-  isDarkAppearance: () => Promise.resolve(false),
+  watchLeftEdge: () => Promise.resolve(),
+  dragPreviewBegin: () => Promise.resolve(),
+  dragPreviewPage: () => Promise.resolve(),
+  dragPreviewUpdate: () => Promise.resolve(),
+  dragPreviewCancel: () => Promise.resolve(),
+  dragPreviewPlaceholder: () => Promise.resolve(),
+  dragPreviewEnd: () => Promise.resolve(),
+  raiseView: () => Promise.resolve(),
+  windowFrame: () => Promise.resolve(null),
+  replyToTerminate: () => Promise.resolve(),
+};
+
+const focus: Modules["ArdiaFocus"] = {
+  setSwitcherCapture: () => Promise.resolve(),
+  setDragEscapeCapture: () => Promise.resolve(),
+  saveKeyResponder: () => Promise.resolve(0),
+  restoreKeyResponder: () => Promise.resolve(false),
+  discardKeyResponder: () => Promise.resolve(),
+  switcherPointerMoved: () => true,
+  cancelFocusMove: () => Promise.resolve(),
+  claimFocus: () => Promise.resolve(),
+};
+
+const menus: Modules["ArdiaMenus"] = {
+  addListener: shellEvents.addListener,
+  showMenu: () => Promise.resolve(null),
   setMenuState: () => Promise.resolve(),
   setMenuBookmarks: () => Promise.resolve(),
-  replyToTerminate: () => Promise.resolve(),
+  menuShortcuts: () => Promise.resolve([]),
+  recordShortcut: () => Promise.resolve(null),
+  cancelRecording: () => Promise.resolve(),
+};
+
+const dialogs: Modules["ArdiaDialogs"] = {
   confirm: () => Promise.resolve({ confirmed: false, suppressed: false }),
   prompt: () => Promise.resolve(null),
+  pickFiles: () => Promise.resolve([]),
+  pickFolder: () => Promise.resolve(null),
+};
+
+const documents: Modules["ArdiaDocuments"] = {
+  readDocument: (name) => docs.get(name) ?? null,
+  writeDocument: (name, contents) => void docs.set(name, contents),
+  saveDocument: (name, contents) =>
+    new Promise((resolve) => {
+      const land = () => (docs.set(name, contents), resolve());
+      if (heldSaves.on) heldSaves.queue.push(land);
+      else land();
+    }),
+  removeDocument: (name) => void docs.delete(name),
 };
 
 const app: Modules["ArdiaApp"] = {
@@ -179,6 +199,7 @@ const dev: Modules["ArdiaDev"] = {
   devTypeKeys: () => Promise.resolve([]),
   devKeyEquivalent: () => Promise.resolve({ handledBy: "none" }),
   devClick: () => Promise.resolve({}),
+  devShortcutRecording: () => Promise.resolve(false),
 };
 
 const system: Modules["ArdiaSystem"] = {
@@ -191,11 +212,8 @@ const system: Modules["ArdiaSystem"] = {
   revealFile: () => Promise.resolve(false),
   moveToTrash: () => Promise.resolve(false),
   fileIcon: () => Promise.resolve(null),
-  appIcon: () => Promise.resolve(null),
+  runningAppIcon: () => Promise.resolve(null),
   hapticTick: () => {},
-  menuShortcuts: () => Promise.resolve([]),
-  recordShortcut: () => Promise.resolve(null),
-  cancelRecording: () => Promise.resolve(),
   setThinScrollBars: () => Promise.resolve(),
 };
 
@@ -258,6 +276,11 @@ const userScripts: Modules["ArdiaUserScripts"] = {
 
 export const shellNativeModules: Modules = {
   ArdiaShell: shell,
+  ArdiaAppWindows: windowsModule,
+  ArdiaFocus: focus,
+  ArdiaMenus: menus,
+  ArdiaDialogs: dialogs,
+  ArdiaDocuments: documents,
   ArdiaApp: app,
   ArdiaUpdater: updater,
   ArdiaNotifications: notifications,

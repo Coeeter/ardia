@@ -2,17 +2,22 @@ import AppKit
 import ExpoModulesCore
 
 public class NotificationsModule: Module {
+  private let lifetime = ModuleLifetime()
+
   public func definition() -> ModuleDefinition {
     Name("ArdiaNotifications")
     Events(ShellEvents.Channel.notificationResponse.rawValue)
 
     OnCreate {
-      DispatchQueue.main.async { NotificationHub.shared.install() }
+      self.lifetime.onMain { NotificationHub.shared.install() }
     }
 
-    OnStartObserving(ShellEvents.Channel.notificationResponse.rawValue) { ShellEvents.attach(.notificationResponse, to: self) }
+    OnStartObserving(ShellEvents.Channel.notificationResponse.rawValue) { ShellEvents.attach(.notificationResponse, to: self, while: self.lifetime) }
 
-    OnDestroy { ShellEvents.detach(self) }
+    OnDestroy {
+      self.lifetime.end()
+      ShellEvents.detach(self)
+    }
 
     AsyncFunction("notificationPermission") { (promise: Promise) in
       NotificationHub.shared.permission { promise.resolve($0) }

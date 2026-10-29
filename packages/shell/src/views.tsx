@@ -11,7 +11,7 @@ export const WindowProfile = requireNativeViewManager<WindowProfileProps>("Ardia
 
 export const WindowDragRegion = requireNativeViewManager<
   ViewProps & { titleBarDoubleClick?: boolean; onRegionDoubleClick?: () => void; clickable?: boolean; onRegionClick?: () => void }
->("ArdiaShell");
+>("ArdiaAppWindows");
 
 export const OutsidePressArea = requireNativeViewManager<ViewProps & { onOutsidePress?: (event: { nativeEvent: { timestamp?: number } }) => void }>("ArdiaOutsidePressArea");
 

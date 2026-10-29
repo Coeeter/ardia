@@ -92,7 +92,7 @@ public class SystemModule: Module {
       return icon.pngDataURL(points: CGFloat(size), scale: 2)
     }.runOnQueue(.main)
 
-    AsyncFunction("appIcon") { (pid: Int, size: Double) -> String? in
+    AsyncFunction("runningAppIcon") { (pid: Int, size: Double) -> String? in
       NSRunningApplication(processIdentifier: pid_t(pid))?.icon?.pngDataURL(points: CGFloat(size), scale: 2)
     }.runOnQueue(.main)
 
@@ -102,11 +102,6 @@ public class SystemModule: Module {
         HapticLog.note("alignment")
       }
     }
-
-    AsyncFunction("menuShortcuts") { () -> [[String: Any]] in MainMenu.shortcutList() }.runOnQueue(.main)
-
-    AsyncFunction("recordShortcut") { (promise: Promise) in ShortcutRecorder.shared.record(promise) }.runOnQueue(.main)
-    AsyncFunction("cancelRecording") { ShortcutRecorder.shared.finish(nil) }.runOnQueue(.main)
 
     AsyncFunction("setThinScrollBars") { (thin: Bool) in ThinScrollBars.set(thin) }.runOnQueue(.main)
   }

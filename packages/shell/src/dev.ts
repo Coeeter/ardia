@@ -40,4 +40,5 @@ export type DevNative = {
   devTypeKeys(windowId: string, text: string, interval: number): Promise<KeyTiming[]>;
   devKeyEquivalent(windowId: string, press: KeyPress): Promise<KeyPressResult>;
   devClick(windowId: string, click: Click): Promise<ClickResult>;
+  devShortcutRecording(): Promise<boolean>;
 };

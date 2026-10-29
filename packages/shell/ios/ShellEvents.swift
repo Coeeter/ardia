@@ -20,14 +20,16 @@ enum ShellEvents {
 
   private static var sinks: [Channel: Sink] = [:]
 
-  static func attach(_ channel: Channel, to module: Module) {
+  static func attach(_ channel: Channel, to module: Module, while lifetime: ModuleLifetime) {
     DispatchQueue.main.async { [weak module] in
       guard let module else { return }
-      sinks[channel] = Sink(owner: ObjectIdentifier(module), module: module)
-      switch channel {
-      case .openURLs: OpenURLInbox.flush()
-      case .notificationResponse: NotificationHub.shared.flushPending()
-      default: break
+      lifetime.run {
+        sinks[channel] = Sink(owner: ObjectIdentifier(module), module: module)
+        switch channel {
+        case .openURLs: OpenURLInbox.flush()
+        case .notificationResponse: NotificationHub.shared.flushPending()
+        default: break
+        }
       }
     }
   }

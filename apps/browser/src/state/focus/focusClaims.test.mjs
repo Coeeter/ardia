@@ -4,7 +4,7 @@ import { cancelAbandonedFocus, claimFocusTag, commandBarFocus, expectFocus, find
 import { shellNativeModules } from "../../test-native/shell.ts";
 
 function setFocusSenders(claim, cancel) {
-  const shell = shellNativeModules.ArdiaShell;
+  const shell = shellNativeModules.ArdiaFocus;
   shell.claimFocus = (generation, tag) => Promise.resolve(claim(generation, tag));
   shell.cancelFocusMove = (generation, restoring) => Promise.resolve(cancel(generation, restoring));
 }

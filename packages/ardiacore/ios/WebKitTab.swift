@@ -31,10 +31,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     get { webView?.playingFrames ?? [] }
     set { webView?.playingFrames = newValue }
   }
-  private var nowPlayingFrame: String? {
-    get { webView?.nowPlayingFrame }
-    set { webView?.nowPlayingFrame = newValue }
-  }
   private var muted = false
   private var errorURL: URL?
   private var showingError = false
@@ -374,7 +370,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   func mediaCommand(_ action: String, seconds: Double) {
-    let frame = nowPlayingFrame.flatMap { mediaFrames[$0] }
+    let frame = webView?.nowPlaying.frame.flatMap { mediaFrames[$0] }
     runInWorld("window.__ardia && window.__ardia.media(\(Self.jsString(action)), \(seconds.isFinite ? seconds : 0))", frame: frame?.isMainFrame == true ? nil : frame)
   }
 
@@ -423,14 +419,9 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       if dict["playing"] as? Bool == true { playingFrames.insert(frame) } else { playingFrames.remove(frame) }
       emit("media", ["playing": !playingFrames.isEmpty, "muted": muted])
     case "nowPlaying":
-      if let dict, !dict.isEmpty {
-        mediaFrames[frame] = frameInfo
-        nowPlayingFrame = frame
-        emit("nowPlaying", ["state": dict])
-      } else if nowPlayingFrame == frame || nowPlayingFrame == nil {
-        nowPlayingFrame = nil
-        emit("nowPlaying", ["state": NSNull()])
-      }
+      guard let view = webView else { return }
+      if let dict, !dict.isEmpty { mediaFrames[frame] = frameInfo }
+      emit("nowPlaying", ["state": view.nowPlaying.noteFrame(frame, page: data, main: main) ?? NSNull()])
     case "pip":
       emit("pictureInPicture", ["kind": "video", "active": dict?["active"] as? Bool ?? false])
     case "status":
@@ -494,7 +485,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if !showingError { errorURL = nil }
     playingFrames.removeAll()
     mediaFrames.removeAll()
-    nowPlayingFrame = nil
+    resetNowPlaying()
     self.webView?.captureOrigins.removeAll()
     if !host.isEmpty {
       let zoom = WebKitHub.shared.stores.zoom(profile: profile, host: host)
@@ -551,7 +542,13 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
   }
 
   func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+    mediaFrames.removeAll()
+    resetNowPlaying()
     emit("crashed", ["status": 0, "reason": "crashed", "code": 0])
+  }
+
+  private func resetNowPlaying() {
+    if webView?.nowPlaying.reset() == true { emit("nowPlaying", ["state": NSNull()]) }
   }
 
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction,

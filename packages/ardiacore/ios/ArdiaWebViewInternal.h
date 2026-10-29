@@ -1,5 +1,6 @@
 #import "ArdiaInternal.h"
 #import "ArdiaWebView.h"
+#import "ArdiaNowPlaying.h"
 
 enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 
@@ -53,8 +54,7 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
   double _sentProgress;
   BOOL _progressQueued;
   CFTimeInterval _linkDropAt;
-  NSMutableDictionary<NSString *, NSDictionary *> *_nowPlaying;
-  NSString *_nowPlayingFrame;
+  ArdiaNowPlaying *_nowPlaying;
   NSMutableDictionary<NSString *, NSString *> *_notificationFrames;
   NSMutableDictionary<NSString *, NSDictionary *> *_displayRequests;
   double _pinchScale;

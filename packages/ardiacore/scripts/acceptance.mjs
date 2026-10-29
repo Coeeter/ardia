@@ -69,7 +69,7 @@ const usesPageA = [
   "move-tab-closed-while-parked", "move-tab-to-window", "title-bar-close", "last-used-profile",
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
   "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
-  "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer",
+  "webkit-clearing-keeps-zoom", "webkit-private-session-ends-mid-transfer", "webkit-now-playing-frames",
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
@@ -333,6 +333,8 @@ const server = createServer((req, res) => {
     </script>`));
   if (url.pathname === "/media") return res.end(page("Media", `<audio id="tone" src="/tone.wav" loop></audio>`));
   if (url.pathname === "/fresh") return res.end(page("Fresh", "fresh"));
+  if (url.pathname === "/np-frames") return res.end(page("NP frames", `<audio id="tone" src="/tone.wav" loop></audio><iframe src="/np-child"></iframe>`));
+  if (url.pathname === "/np-child") return res.end(page("NP child", `<audio id="tone" src="/tone.wav" loop></audio>`));
   if (url.pathname === "/tall") return res.end(page("Tall", `<div style="height: 8000px; background: linear-gradient(#fff, #ccc)">tall</div>`));
   if (url.pathname === "/form")
     return res.end(page("Form", `<form action="/form" method="get" autocomplete="on"><input id="c" name="city" autocomplete="on" style="font-size: 20px; margin: 80px; width: 300px"><button id="b">go</button></form>`));
@@ -4598,13 +4600,68 @@ try {
     }
   });
 
+  await check("webkit-now-playing-frames", async () => {
+    const id = await webkitTab("/np-frames", "NP frames");
+    const child = (expr) => pageValue(id, `(() => { const d = document.querySelector("iframe").contentDocument; return ${expr}; })()`);
+    try {
+      await evalApp(`return ac.webviews.get(${q(id)}).setMuted(true)`);
+      await until("the child frame", async () => (await child(`!!d.getElementById("tone")`)) === true, 8000);
+      await inPage(id, `document.getElementById("tone").play()`);
+      await until("the main frame playing", async () => (await pageValue(id, `document.getElementById("tone").currentTime > 0`)) === true, 8000);
+      await inPage(id, `document.getElementById("tone").pause()`);
+      await until("the main frame's paused session", async () => (await session(id))?.playbackState === "paused" || null, 8000);
+      await inPage(id, `const f = document.querySelector("iframe").contentWindow;
+        f.navigator.mediaSession.metadata = new f.MediaMetadata({ title: "C".repeat(5000), artist: "Frame" });
+        f.navigator.mediaSession.playbackState = "playing";
+        f.navigator.mediaSession.setActionHandler("pause", () => { f.document.documentElement.dataset.paused = "by-handler"; f.document.getElementById("tone").pause(); });
+        f.document.getElementById("tone").addEventListener("seeked", (e) => { f.document.documentElement.dataset.seeked = String(Math.round(e.target.currentTime * 100)); });
+        f.document.getElementById("tone").play();`);
+      const picked = await until("the child frame's session", async () => {
+        const s = await session(id);
+        return s?.artist === "Frame" ? s : null;
+      }, 10000).catch(async (e) => {
+        const s = await session(id);
+        throw new Error(`${e.message}; session ${q(s && { title: s.title?.slice(0, 20), artist: s.artist, state: s.playbackState, controllable: s.controllable })}`);
+      });
+      if (picked.title.length > 1024) throw new Error(`an oversized title came through: ${picked.title.length} characters`);
+      await inPage(id, `const f = document.querySelector("iframe").contentWindow;
+        f.document.dispatchEvent(new f.CustomEvent("ardia:media-session", { detail: JSON.stringify({ actions: ["pause", 5, "x".repeat(200)], position: { position: "x" } }) }));`);
+      await sleep(400);
+      const forged = await session(id);
+      if (!forged || forged.actions.some((a) => typeof a !== "string" || a.length > 64)) throw new Error(`forged actions came through: ${q(forged?.actions)}`);
+      const seeked = (at) => until(`the child's own seek to ${at}`, async () => (await child(`d.documentElement.dataset.seeked ?? null`)) === String(Math.round(at * 100)) || null, 8000)
+        .catch(async (e) => {
+          const s = await session(id);
+          throw new Error(`${e.message}; child seeked ${await child(`d.documentElement.dataset.seeked ?? null`)}; session ${q(s && { artist: s.artist, state: s.playbackState })}`);
+        });
+      await evalApp(`return ac.webviews.get(${q(id)}).mediaCommand("seekTo", 0.25)`);
+      await seeked(0.25);
+      const windowId = await evalApp(`return ac.store.getState().moveTabsToWindow([${q(id)}], null)`);
+      await until("the tab in its new window", () => evalApp(`return !!ac.webviews.get(${q(id)}) && ac.store.getState().tabs[${q(id)}]?.windowId === ${q(windowId)}`), 10000);
+      await sleep(800);
+      await evalApp(`return ac.webviews.get(${q(id)}).mediaCommand("seekTo", 0.5)`);
+      await seeked(0.5);
+      await evalApp(`return ac.webviews.get(${q(id)}).mediaCommand("pause")`);
+      await until("the pause routed to the child's own handler", async () =>
+        (await child(`d.documentElement.dataset.paused ?? null`)) === "by-handler" && (await child(`d.getElementById("tone").paused`)) === true, 8000);
+      return { title: picked.title.length, actions: forged.actions };
+    } finally {
+      await closeWindowOf(id).catch(() => null);
+      await closeTab(id).catch(() => null);
+      await backToMain();
+    }
+  });
+
   await check("webkit-scroll", async () => {
     const id = await webkitTab("/tall", "Tall");
     const down = () => evalApp(`return !!ac.toolbarAutoHide.useToolbarAutoHide.getState().scrolledDown[${q(id)}]`);
     const scroll = (code) => inPage(id, `dispatchEvent(new WheelEvent("wheel", { deltaY: 1 })); ${code}`);
     try {
       await scroll("scrollBy(0, 600)");
-      await until("scrolled down", async () => (await down()) || null, 5000);
+      await until("scrolled down", async () => (await down()) || null, 5000).catch(async (e) => {
+        const frames = await evalApp(`return ac.webviews.get(${q(id)}).evaluate(${q(`requestAnimationFrame(() => post("result", "true")); setTimeout(() => post("result", "false"), 1500)`)})`);
+        throw new Error(`${e.message}; animation frames run: ${frames}; scrollY ${await pageValue(id, "scrollY")}`);
+      });
       await sleep(400);
       await scroll("scrollBy(0, -200)");
       await until("scrolled up", async () => !(await down()) || null, 5000);

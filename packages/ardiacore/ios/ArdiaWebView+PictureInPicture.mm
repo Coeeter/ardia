@@ -112,7 +112,7 @@ BOOL TracingPictureInPicture() {
 
 - (void)traceAutoPictureInPicture:(NSString *)what {
   if (!TracingPictureInPicture() || !_tab) return;
-  NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
+  NSDictionary *np = _nowPlaying.selected;
   [_tab tracePictureInPicture:[NSString stringWithFormat:@"%@ (%@): autoPictureInPicture=%d capturing=%d nowPlaying=%@ actions=%@",
                                                          what, _tab.url, _autoPictureInPicture, _capturing,
                                                          np[@"playbackState"] ?: @"none", JSONText(np[@"actions"] ?: @[])]
@@ -176,7 +176,7 @@ BOOL TracingPictureInPicture() {
 
 - (void)updateAutoPictureInPicture {
   if (!_tab) return;
-  NSDictionary *np = _nowPlaying[_nowPlayingFrame ?: @""];
+  NSDictionary *np = _nowPlaying.selected;
   const BOOL playing = [np[@"playbackState"] isEqual:@"playing"] || _capturing;
   if (!_seenByUser && _autoPictureInPicture && playing) {
     [self traceAutoPictureInPicture:@"app: auto PiP left to Chrome"];

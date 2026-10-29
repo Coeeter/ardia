@@ -16,35 +16,6 @@ using namespace ardia_runtime;
 
 namespace {
 
-NSDictionary *NowPlayingState(NSDictionary *d, BOOL main) {
-  NSString *state = Field<NSString>(d, @"playbackState");
-  if (![@[ @"none", @"paused", @"playing" ] containsObject:state]) state = @"none";
-  NSMutableArray *actions = [NSMutableArray array];
-  for (id action in Field<NSArray>(d, @"actions"))
-    if ([action isKindOfClass:NSString.class] && [action length] <= 64 && actions.count < 32) [actions addObject:action];
-  double position = 0, duration = 0, rate = 1, timestamp = 0;
-  Finite(d, @"position", &position);
-  const bool hasDuration = Finite(d, @"duration", &duration) && duration >= 0;
-  Finite(d, @"playbackRate", &rate);
-  Finite(d, @"timestamp", &timestamp);
-  return @{
-    @"frame" : Text(d, @"frame", 64) ?: @"",
-    @"title" : Text(d, @"title", 1024) ?: @"",
-    @"artist" : Text(d, @"artist", 1024) ?: @"",
-    @"album" : Text(d, @"album", 1024) ?: @"",
-    @"artwork" : Text(d, @"artwork", 1 << 20) ?: NSNull.null,
-    @"playbackState" : state,
-    @"position" : @(MAX(position, 0)),
-    @"duration" : hasDuration ? @(duration) : NSNull.null,
-    @"playbackRate" : @(rate),
-    @"timestamp" : @(timestamp),
-    @"hasVideo" : @(Flag(d, @"hasVideo")),
-    @"actions" : actions,
-    @"controllable" : @(Flag(d, @"controllable")),
-    @"main" : @(main),
-  };
-}
-
 NSDictionary *SelectionState(NSDictionary *d) {
   NSString *text = Text(d, @"text", 4000);
   NSDictionary *rect = Field<NSDictionary>(d, @"rect");
@@ -195,19 +166,8 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
   } else if ([kind isEqualToString:@"drm"] && dict) {
     [self emit:@"protectedMedia" payload:@{@"keySystem" : Text(dict, @"keySystem", 64) ?: @"", @"main" : @(main)}];
   } else if ([kind isEqualToString:@"nowPlaying"]) {
-    if (!_nowPlaying) _nowPlaying = [NSMutableDictionary dictionary];
-    if (dict) _nowPlaying[frameId] = NowPlayingState(dict, main);
-    else [_nowPlaying removeObjectForKey:frameId];
-    _nowPlayingFrame = dict ? frameId : _nowPlaying.allKeys.firstObject;
-    NSDictionary<NSString *, NSDictionary *> *frames = _nowPlaying;
-    NSInteger (^rank)(NSString *) = ^NSInteger(NSString *f) {
-      NSDictionary *np = f ? frames[f] : nil;
-      return ([np[@"controllable"] boolValue] ? 4 : 0) + ([np[@"playbackState"] isEqual:@"playing"] ? 2 : 0) + ([np[@"main"] boolValue] ? 1 : 0);
-    };
-    for (NSString *f in _nowPlaying)
-      if (rank(f) > rank(_nowPlayingFrame)) _nowPlayingFrame = f;
-    NSMutableDictionary *state = [_nowPlaying[_nowPlayingFrame ?: @""] mutableCopy];
-    [state removeObjectsForKeys:@[ @"frame", @"main" ]];
+    if (!_nowPlaying) _nowPlaying = [ArdiaNowPlaying new];
+    NSDictionary *state = [_nowPlaying noteFrame:frameId page:dict main:main];
     [self emit:@"nowPlaying" payload:@{@"state" : state ?: NSNull.null}];
   } else if ([kind isEqualToString:@"theme"]) {
     if (!main || !dict) return;
@@ -299,10 +259,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
 }
 
 - (void)resetPageMedia {
-  const BOOL hadNowPlaying = _nowPlaying.count > 0;
-  [_nowPlaying removeAllObjects];
-  _nowPlayingFrame = nil;
-  if (hadNowPlaying) [self emit:@"nowPlaying" payload:@{@"state" : NSNull.null}];
+  if ([_nowPlaying reset]) [self emit:@"nowPlaying" payload:@{@"state" : NSNull.null}];
 }
 
 - (void)resolveDisplayMedia:(NSString *)requestId sourceId:(NSString *)sourceId audio:(BOOL)shareAudio {

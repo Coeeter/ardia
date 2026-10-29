@@ -2,26 +2,26 @@ import { holds } from "../app/transientUi";
 import { cardReach, pointInRect, type Point, type Rect } from "./hoverAim";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./sidebarUi";
 
-const SHOW_DELAY_MS = 500;
-const HIDE_DELAY_MS = 160;
-const AIM_MS = 200;
-let showTimer: ReturnType<typeof setTimeout> | undefined;
-let hideTimer: ReturnType<typeof setTimeout> | undefined;
-let aimTimer: ReturnType<typeof setTimeout> | undefined;
+export type HoverPointerEvent = { nativeEvent?: { screenX?: unknown; screenY?: unknown } } | undefined;
+type Row = { windowId: string; id: string };
+type Waiting = { windowId: string; target: Target | null; arrive: () => void };
+type Card = { frame: Rect | null; pointerOn: boolean; exit: Point | null; waiting: Waiting | null; held: boolean };
+
+const DELAY_MS = { show: 500, hide: 160, aim: 200 };
+const timers: Record<keyof typeof DELAY_MS, ReturnType<typeof setTimeout> | undefined> = { show: undefined, hide: undefined, aim: undefined };
+const card: Card = { frame: null, pointerOn: false, exit: null, waiting: null, held: false };
+const contentHeights = new Map<string, number>();
+let owner: Row | null = null;
+let underPointer: string | null = null;
 let suppressed = false;
 let ticket = 0;
-let underPointer: string | null = null;
-let owner: string | null = null;
-let ownerWindow: string | null = null;
 
-export type HoverPointerEvent = { nativeEvent?: { screenX?: unknown; screenY?: unknown } } | undefined;
-type Waiting = { windowId: string; target: Target | null; arrive: () => void };
-const contentHeights = new Map<string, number>();
-let cardFrame: Rect | null = null;
-let onCard = false;
-let exitPoint: Point | null = null;
-let waiting: Waiting | null = null;
-let held = false;
+const stop = (...kinds: (keyof typeof timers)[]) => kinds.forEach((kind) => clearTimeout(timers[kind]));
+const start = (kind: keyof typeof timers, run: () => void) => void (timers[kind] = setTimeout(run, DELAY_MS[kind]));
+const isShown = (windowId: string, id: string | undefined) => {
+  const hover = sidebarUi().hover;
+  return !!hover && hover.windowId === windowId && hover.id === id;
+};
 
 export const setHoverSpace = (windowId: string, height: number) => void contentHeights.set(windowId, height);
 
@@ -34,20 +34,17 @@ function pointerIn(windowId: string, event: HoverPointerEvent): Point | null {
 }
 
 function hideCard() {
-  held = false;
-  onCard = false;
-  exitPoint = null;
-  waiting = null;
-  clearTimeout(aimTimer);
+  Object.assign(card, { held: false, pointerOn: false, exit: null, waiting: null });
+  stop("aim");
   setSidebarUi({ hover: null });
 }
 
 function cardHeldFor(windowId: string, target: Target | null, event: HoverPointerEvent) {
   const hover = sidebarUi().hover;
-  if (!hover || hover.windowId !== windowId || !cardFrame || (target && hover.id === target.id)) return null;
+  if (!hover || hover.windowId !== windowId || !card.frame || (target && hover.id === target.id)) return null;
   const at = pointerIn(windowId, event);
   if (!at) return null;
-  const reach = cardReach(cardFrame, exitPoint, at);
+  const reach = cardReach(card.frame, card.exit, at);
   return reach === "away" ? null : reach;
 }
 
@@ -56,36 +53,40 @@ function arrive(next: Waiting | null) {
   next.arrive();
 }
 
-function holdFor(next: Waiting) {
-  waiting = next;
-  clearTimeout(hideTimer);
-  clearTimeout(aimTimer);
-  aimTimer = setTimeout(() => {
-    if (onCard) return;
-    const pending = waiting;
-    waiting = null;
-    arrive(pending);
-  }, AIM_MS);
+function takeWaiting() {
+  const next = card.waiting;
+  card.waiting = null;
+  return next;
 }
+
+function holdFor(next: Waiting) {
+  card.waiting = next;
+  stop("hide", "aim");
+  start("aim", () => {
+    if (!card.pointerOn) arrive(takeWaiting());
+  });
+}
+
+const forgetWaiting = (windowId: string, id: string | undefined) => {
+  if (card.waiting?.windowId === windowId && card.waiting.target?.id === id) card.waiting = null;
+};
 
 export function cardEntered() {
   if (!sidebarUi().hover) return;
-  onCard = true;
-  clearTimeout(aimTimer);
+  card.pointerOn = true;
+  stop("aim");
   keepHover();
 }
 
 export function cardLeft() {
-  onCard = false;
-  const pending = waiting;
-  waiting = null;
-  arrive(pending);
+  card.pointerOn = false;
+  arrive(takeWaiting());
 }
 
-export const cardLaidOut = (frame: Rect) => void (cardFrame = frame);
+export const cardLaidOut = (frame: Rect) => void (card.frame = frame);
 
 export const pointerOnRow = (id: string) => underPointer === id;
-export const pointerOnCard = () => onCard;
+export const pointerOnCard = () => card.pointerOn;
 
 const covered = new Set<string>();
 const pointedRows = new Map<string, Set<() => void>>();
@@ -115,76 +116,65 @@ export function suppressHover(value: boolean) {
 async function show(windowId: string, target: Target, mine: number) {
   const anchor = await measureRow(windowId, target.id);
   if (mine !== ticket || suppressed || !anchor || holds("hoverCard", windowId)) return;
-  if (onCard && sidebarUi().hover) return;
-  exitPoint = null;
+  if (card.pointerOn && sidebarUi().hover) return;
+  card.exit = null;
   setSidebarUi({ hover: { windowId, ...target, anchor } });
 }
 
 export function hoverEnter(windowId: string, target: Target) {
   if (suppressed || holds("hoverStart", windowId)) return;
-  clearTimeout(showTimer);
-  clearTimeout(hideTimer);
-  clearTimeout(aimTimer);
-  waiting = null;
+  stop("show", "hide", "aim");
+  card.waiting = null;
   const current = sidebarUi().hover;
-  owner = target.id;
-  ownerWindow = windowId;
+  owner = { windowId, id: target.id };
   if (current?.id === target.id) return;
   const mine = ++ticket;
   if (current) void show(windowId, target, mine);
-  else showTimer = setTimeout(() => void show(windowId, target, mine), SHOW_DELAY_MS);
+  else start("show", () => void show(windowId, target, mine));
 }
 
 export function hoverLeave(from?: unknown) {
-  if (held || (typeof from === "string" && from !== owner)) return;
+  if (card.held || (typeof from === "string" && from !== owner?.id)) return;
   owner = null;
   ticket++;
-  clearTimeout(showTimer);
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(hideCard, HIDE_DELAY_MS);
+  stop("show", "hide");
+  start("hide", hideCard);
 }
 
-export const keepHover = () => {
-  clearTimeout(hideTimer);
-  clearTimeout(aimTimer);
-};
+export const keepHover = () => stop("hide", "aim");
 
 export function holdHover(on: boolean) {
-  if (on === held) return;
-  held = on;
+  if (on === card.held) return;
+  card.held = on;
   if (on) return keepHover();
   const hover = sidebarUi().hover;
-  if (!hover || onCard) return;
+  if (!hover || card.pointerOn) return;
   if (underPointer !== hover.id) return hoverLeave();
-  owner = hover.id;
-  ownerWindow = hover.windowId;
+  owner = { windowId: hover.windowId, id: hover.id };
 }
 
 export function dismissHover() {
-  held = false;
+  card.held = false;
   owner = null;
-  ownerWindow = null;
   ticket++;
-  clearTimeout(showTimer);
-  clearTimeout(hideTimer);
+  stop("show", "hide");
   if (sidebarUi().hover) hideCard();
 }
 
 export function dismissHoverIn(windowId: string) {
-  if (ownerWindow === windowId || sidebarUi().hover?.windowId === windowId) dismissHover();
+  if (owner?.windowId === windowId || sidebarUi().hover?.windowId === windowId) dismissHover();
 }
 
 export function releaseAnchor(windowId: string, id: string) {
   if (underPointer === id) underPointer = null;
-  if (waiting?.windowId === windowId && waiting.target?.id === id) waiting = null;
-  if (owner === id && ownerWindow === windowId) return dismissHover();
-  const hover = sidebarUi().hover;
-  if (hover?.windowId === windowId && hover.id === id) hideCard();
+  forgetWaiting(windowId, id);
+  if (owner?.id === id && owner.windowId === windowId) return dismissHover();
+  if (isShown(windowId, id)) hideCard();
 }
 
 export function rowEntered(windowId: string, target: Target | null, event: HoverPointerEvent, enter: () => void, aiming: () => void) {
   const at = pointerIn(windowId, event);
-  if (onCard && at && cardFrame && !pointInRect(cardFrame, at)) onCard = false;
+  if (card.pointerOn && at && card.frame && !pointInRect(card.frame, at)) card.pointerOn = false;
   const reach = cardHeldFor(windowId, target, event);
   if (!reach) return enter();
   if (reach === "aiming") aiming();
@@ -197,10 +187,9 @@ export function rowShown(windowId: string, target: Target | null) {
 }
 
 export function rowLeft(windowId: string, target: Target | null, event: HoverPointerEvent, onPage: boolean) {
-  if (waiting && waiting.windowId === windowId && waiting.target?.id === target?.id) waiting = null;
+  forgetWaiting(windowId, target?.id);
   if (underPointer === target?.id) underPointer = null;
-  const hover = sidebarUi().hover;
-  if (target && hover?.windowId === windowId && hover.id === target.id) exitPoint = pointerIn(windowId, event);
+  if (target && isShown(windowId, target.id)) card.exit = pointerIn(windowId, event);
   if (target && onPage) hoverLeave(target.id);
 }
 

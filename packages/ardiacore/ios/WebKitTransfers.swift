@@ -10,7 +10,7 @@ final class WebKitTransfers {
   private var owners: [ObjectIdentifier: WeakTab] = [:]
   private var liveByKey: [String: WeakTab] = [:]
   private let ledger = ArdiaTransferLedger()
-  private var parked: [String: (view: WKWebView, generation: Int)] = [:]
+  private var parked: [String: WKWebView] = [:]
   private var offered: [String: WKWebView] = [:]
   private var lastOffer = 0
   private static let reloadHoldSeconds = 30.0
@@ -24,7 +24,7 @@ final class WebKitTransfers {
 
   var liveTabs: [WebKitTab] { owners.values.compactMap(\.tab) }
 
-  var views: [WKWebView] { liveTabs.compactMap(\.webView) + parked.values.map(\.view) + Array(offered.values) }
+  var views: [WKWebView] { liveTabs.compactMap(\.webView) + Array(parked.values) + Array(offered.values) }
 
   func register(_ webView: WKWebView, tab: WebKitTab) { owners[ObjectIdentifier(webView)] = WeakTab(tab) }
 
@@ -46,25 +46,26 @@ final class WebKitTransfers {
 
   func release(_ key: String) {
     let generation = ledger.drop(key)
-    DispatchQueue.main.async { self.closeParked(key, generation: generation) }
+    DispatchQueue.main.async { self.retireParked(key, generation: generation) }
   }
 
   func isPrepared(_ key: String) -> Bool { ledger.isPrepared(key) }
 
-  func park(_ webView: WKWebView, key: String) {
-    if let old = parked[key], old.view !== webView { WebKitHub.close(old.view) }
-    parked[key] = (webView, ledger.preparedGeneration(key))
+  func park(_ webView: WKWebView, key: String) -> Bool {
+    guard ledger.park(key) != 0 else { return false }
+    if let old = parked[key], old !== webView { WebKitHub.close(old) }
+    parked[key] = webView
+    return true
   }
 
   func claimParked(_ key: String) -> WKWebView? {
-    _ = ledger.drop(key)
-    return parked.removeValue(forKey: key)?.view
+    ledger.claim(key)
+    return parked.removeValue(forKey: key)
   }
 
-  private func closeParked(_ key: String, generation: Int) {
-    guard let held = parked[key], held.generation == generation else { return }
-    parked.removeValue(forKey: key)
-    WebKitHub.close(held.view)
+  private func retireParked(_ key: String, generation: Int) {
+    guard ledger.retireParked(key, generation: generation), let view = parked.removeValue(forKey: key) else { return }
+    WebKitHub.close(view)
   }
 
   func offer(_ webView: WKWebView) -> String {
@@ -84,9 +85,10 @@ final class WebKitTransfers {
   func closeViews(using store: WKWebsiteDataStore) {
     let uses = { (view: WKWebView) in view.configuration.websiteDataStore === store }
     for tab in liveTabs where tab.webView.map(uses) == true { tab.close() }
-    for (key, held) in parked where uses(held.view) {
+    for (key, view) in parked where uses(view) {
+      ledger.unpark(key)
       parked.removeValue(forKey: key)
-      WebKitHub.close(held.view)
+      WebKitHub.close(view)
     }
     for (id, view) in offered where uses(view) {
       offered.removeValue(forKey: id)
@@ -99,7 +101,7 @@ final class WebKitTransfers {
     DispatchQueue.main.asyncAfter(deadline: .now() + Self.reloadHoldSeconds) { [weak self] in
       guard let self else { return }
       for (key, generation) in holds where self.ledger.expireReloadHold(key, generation: generation) {
-        self.closeParked(key, generation: generation)
+        self.retireParked(key, generation: generation)
       }
     }
   }

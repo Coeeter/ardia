@@ -156,8 +156,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       view.navigationDelegate = nil
       view.uiDelegate = nil
       view.removeFromSuperview()
-      WebKitHub.shared.transfers.park(view, key: key)
-      return
+      if WebKitHub.shared.transfers.park(view, key: key) { return }
     }
     WebKitHub.close(view)
   }

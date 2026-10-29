@@ -68,6 +68,7 @@ const usesPageA = [
   "permission-prompt", "popup-blocked", "move-tab-slow-mount", "move-last-tab-slow-mount",
   "move-tab-closed-while-parked", "move-tab-to-window", "title-bar-close", "last-used-profile",
   "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
+  "window-close-before-reveal", "window-close-during-exit", "window-close-while-full-screen-restore-waits",
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
@@ -4397,9 +4398,76 @@ try {
     return { windowId, kept, strip: holding.strip, window: holding.window };
   });
 
-  // MARK: WebKit tabs
+  // MARK: Window lifetime
 
   const q = JSON.stringify;
+  const windowsNative = "globalThis.expo.modules.ArdiaShell";
+  const shellCall = (fn, ...args) => evalApp(`return ${windowsNative}.${fn}(${args.map((a) => q(a)).join(", ")})`);
+  const nativeWindowIds = () => shellCall("windowIds");
+  const storeWindow = (id) => evalApp(`return ac.store.getState().windows[${q(id)}] ?? null`);
+  const newWindow = () => evalApp(`return ac.store.getState().createWindow({})`);
+  const shownWindow = async () => {
+    const id = await newWindow();
+    await until("the new window on screen", async () => (await nativeWindowIds()).includes(id) || null, 10000);
+    await sleep(1200);
+    return id;
+  };
+  const dropWindow = (id) => evalApp(`if (ac.store.getState().windows[${q(id)}]) ac.store.getState().closeWindow(${q(id)}); return true`);
+  const backToMain = () => evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+
+  await check("window-close-before-reveal", async () => {
+    const id = await evalApp(`const s = ac.store.getState(); const id = s.createWindow({});
+      setTimeout(() => ${windowsNative}.closeWindow(id), 30); return id`);
+    try {
+      await sleep(2500);
+      const ids = await nativeWindowIds();
+      if (ids.includes(id)) throw new Error(`a window closed before its content showed came back: ${q(ids)}`);
+      const s = await state();
+      if (!s.windowId) throw new Error("the main window went with it");
+      return { closed: id, windows: ids.length };
+    } finally {
+      await dropWindow(id);
+      await backToMain();
+    }
+  });
+
+  await check("window-close-during-exit", async () => {
+    const id = await shownWindow();
+    try {
+      const outcome = await evalApp(`const m = ${windowsNative};
+        const done = m.animateWindowClose(${q(id)}, null).then(() => "done");
+        setTimeout(() => m.closeWindow(${q(id)}), 40);
+        return Promise.race([done, new Promise((r) => setTimeout(() => r("hung"), 3000))])`);
+      if (outcome !== "done") throw new Error(`the exit animation's caller never heard back: ${outcome}`);
+      await sleep(500);
+      if ((await nativeWindowIds()).includes(id)) throw new Error("the window outlived its close");
+      return { outcome };
+    } finally {
+      await dropWindow(id);
+      await backToMain();
+    }
+  });
+
+  await check("window-close-while-full-screen-restore-waits", async () => {
+    const waited = await evalApp(`const s = ac.store.getState(); const id = s.createWindow({}); const m = ${windowsNative};
+      m.restoreFullScreen([id], null); setTimeout(() => m.closeWindow(id), 30); return id`);
+    let next = null;
+    try {
+      await sleep(2500);
+      if ((await nativeWindowIds()).includes(waited)) throw new Error("the window full screen restore waited on came back");
+      next = await shownWindow();
+      await shellCall("restoreFullScreen", [next], null);
+      const entered = await until("the next window in full screen", async () => (await storeWindow(next))?.fullScreen || null, 8000);
+      return { waited, next, entered: !!entered };
+    } finally {
+      await dropWindow(waited);
+      if (next) await dropWindow(next);
+      await backToMain();
+    }
+  });
+
+  // MARK: WebKit tabs
+
   const useWebKit = () =>
     evalApp(`const s = ac.store.getState(); s.updateSettings({ websiteEngines: { ...s.settings.websiteEngines, ${q(webkitBase)}: "webkit" } }); return true`);
   const pageValue = (id, expr) =>

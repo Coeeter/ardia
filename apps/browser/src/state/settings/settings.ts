@@ -195,7 +195,7 @@ export function choose(s: Pick<BrowserState, "settings" | "settingsMeta">, patch
 }
 
 export function sessionWithSettingsMeta(doc: SavedObject): SavedObject {
-  if (!isFields(doc.settings)) return doc;
+  if (!isFields(doc.settings) || (isFields(doc.settingsMeta) && !("chosen" in doc.settings) && !("inferred" in doc.settings))) return doc;
   const raw = withNewTabButtonPosition(withoutBatterySaver(doc.settings as Partial<Settings & SettingsMeta> & { batterySaver?: unknown }))!;
   const legacy = !raw.chosen ? Object.keys(raw) : null;
   const { chosen, inferred, ...settings } = raw;

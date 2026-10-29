@@ -7,11 +7,12 @@ import type { AdoptId, ParkedPins, SplitSlot, SplitView, Tab, TabPage, TabPin, T
 
 type SavedPage = Extract<TabPage, { kind: "idle" | "asleep" }>;
 const isRestoreId = (v: unknown): v is AdoptId => isString(v) && isAdoptKind(v, "restore");
+const LEGACY_PAGE_FIELDS = ["navigation", "adoptId", "pageIn", "unloaded", "wakeAdoptId"];
 export const sessionWithTabPages = (doc: SavedObject): SavedObject => ({
   ...doc,
   tabs: Array.isArray(doc.tabs)
     ? doc.tabs.map((t: unknown) => {
-        if (!isFields(t)) return t;
+        if (!isFields(t) || (isFields(t.page) && !LEGACY_PAGE_FIELDS.some((k) => k in t))) return t;
         const { navigation: _n, adoptId: _a, pageIn: _p, unloaded, wakeAdoptId, ...tab } = t;
         return { ...tab, page: { kind: unloaded === true ? "asleep" : "idle", ...(isRestoreId(wakeAdoptId) ? { wake: wakeAdoptId } : {}) } };
       })
@@ -20,7 +21,7 @@ export const sessionWithTabPages = (doc: SavedObject): SavedObject => ({
 const folderOf = (v: unknown): TileFolder | undefined =>
   isFields(v) && isString(v.id) && isString(v.name) ? { id: v.id, name: v.name, ...(typeof v.renamedAt === "number" ? { renamedAt: v.renamedAt } : {}) } : undefined;
 const withPin = (t: unknown): unknown => {
-  if (!isFields(t)) return t;
+  if (!isFields(t) || ("pin" in t && !("pinned" in t) && !("pinnedAsRow" in t) && !("tileFolder" in t))) return t;
   const { pinned, pinnedAsRow, tileFolder, ...tab } = t;
   const folder = folderOf(tileFolder);
   return { ...tab, pin: pinned !== true ? null : pinnedAsRow === true ? { as: "row" } : folder ? { as: "tile", folder } : { as: "tile" } };

@@ -10,6 +10,28 @@
 
 using namespace ardia_runtime;
 
+@interface ArdiaSecretReply : NSObject
+- (instancetype)initWithCompletion:(void (^)(NSDictionary *))completion;
+- (void)settle:(NSDictionary *)reply;
+@end
+
+@implementation ArdiaSecretReply {
+  void (^_completion)(NSDictionary *);
+}
+
+- (instancetype)initWithCompletion:(void (^)(NSDictionary *))completion {
+  if ((self = [super init])) _completion = [completion copy];
+  return self;
+}
+
+- (void)settle:(NSDictionary *)reply {
+  void (^completion)(NSDictionary *) = _completion;
+  _completion = nil;
+  if (completion) completion(reply);
+}
+
+@end
+
 namespace {
 
 bool gForwarding = false;
@@ -31,6 +53,15 @@ void *Symbol(const char *name) {
 void Replied(void *context, const char *json) {
   void (^completion)(NSString *) = (__bridge_transfer void (^)(NSString *))context;
   completion(json ? @(json) : JSONText(@{@"error" : @"bad reply from the engine"}));
+}
+
+void RepliedSecret(void *context, const char *json) {
+  ArdiaSecretReply *reply = (__bridge_transfer ArdiaSecretReply *)context;
+  if (!json) return [reply settle:nil];
+  NSMutableData *bytes = [NSMutableData dataWithBytes:json length:strlen(json)];
+  id parsed = [NSJSONSerialization JSONObjectWithData:bytes options:0 error:nil];
+  WipeSecret(bytes);
+  [reply settle:[parsed isKindOfClass:NSDictionary.class] ? parsed : nil];
 }
 
 NSString *RealPath(NSString *path) {
@@ -136,6 +167,22 @@ void InstallSink() {
     }
     call(p.path.UTF8String, (const char *)secret.mutableBytes, Replied, (__bridge_retained void *)done);
     wipe();
+  });
+}
+
++ (void)callForSecretReply:(NSString *)name
+                   profile:(NSString *)profile
+                   timeout:(NSTimeInterval)timeout
+                completion:(void (^)(NSDictionary<NSString *, id> *))completion {
+  ArdiaSecretReply *reply = [[ArdiaSecretReply alloc] initWithCompletion:completion];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [reply settle:nil];
+  });
+  auto call = (ac_engine_call_t)Symbol(name.UTF8String);
+  if (!call || ardia_host::IsPrivateProfile(profile)) return [reply settle:nil];
+  ardia_host::WithProfile(profile ?: @"", ^(ArdiaCoreProfile *p) {
+    if (!p || !ArdiaHost.isStarted || p.offTheRecord) return [reply settle:nil];
+    call(p.path.UTF8String, "{}", RepliedSecret, (__bridge_retained void *)reply);
   });
 }
 

@@ -383,6 +383,7 @@ Plain Chromium code over Chrome's services (`engine/chromium/src/chrome/browser/
 |---|---|
 | `ac_engine_abi_version`, `ac_engine_set_event_sink` | `engineCall`, `onEngineEvent` |
 | `ac_passwords_*` (list, unlock, reveal, add, update, remove, exceptions, allow, export) | the password functions |
+| `ac_passwords_logins` | none: native only. `ArdiaSync.readPasswords` reads every saved login with its password (both stores, blocklisted and empty ones left out, one per realm and username) through `ArdiaEngineBridge.callForSecretReply`, which parses the reply from bytes it then wipes and settles once (the reply, or nil at its deadline); the engine builds the JSON in one reserved buffer and cleanses it after the reply. Any store error, Chrome skipping undecryptable passwords (`SkipUndecryptablePasswords`) or the process-bound backing answers an error, so sync never sees part of a list |
 | `ac_autofill_*` | the address and card functions |
 | `ac_extensions_*`, `ac_search_engines_list` | `ArdiaExtensions` |
 | `ac_zoom_list`, `ac_zoom_set` | `getZoomLevels`, `setZoom` |

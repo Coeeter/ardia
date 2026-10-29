@@ -329,10 +329,16 @@ What Chrome Sync does for extensions, through our folder (`packages/sync/src/ext
 
 Saved passwords are Chrome's (its password manager).
 - **Reading.** Chrome's own API (`passwordsPrivate`) reveals a password only after device
-  authentication, so sync reads the profile's `Login Data` with the importer's reader
-  (`ChromiumSecrets`, `packages/import`). Chrome's key is its "Ardia Safe Storage" item, or
-  the mock keychain's where ArdiaHost uses that (test instances, ad hoc builds). No Touch ID prompt is needed each cycle, and no
-  Chromium change.
+  authentication, so sync asks the engine instead: `ac_passwords_logins` reads both of the profile's password stores
+  through Chrome's `PasswordStoreInterface::GetAllLogins`, with no Touch ID prompt. The reply is built in one buffer
+  that is wiped after it is sent, the bridge parses it from bytes it then wipes, and every `PasswordString` Chrome
+  made for the read is zeroed when it goes (`chromium-password-string-erase.patch`). The strings Foundation parses
+  can't be wiped; they live until the seal.
+- **All or nothing.** A list reaches the adapter only when the engine answered with one. On the Mac one password that
+  doesn't decrypt fails Chrome's whole read (`SkipUndecryptablePasswords` is off there, and nothing is deleted:
+  Chrome never clears undecryptable passwords when `--user-data-dir` is set, which ArdiaHost always sets), and the
+  engine refuses to read at all with that feature on. A store error, the profile going away mid-read, no reply within
+  30 s or a malformed entry all give `null`, so the cycle skips passwords and nothing is tombstoned.
 - **Sealed for JS.** Plain passwords never reach JS (#241). The native read gives JS each login's
   origin, username, creation time and the password sealed with the sync key (AES-256-GCM, its
   own HKDF key, bound to origin and username). The nonce is an HMAC of the login and password,

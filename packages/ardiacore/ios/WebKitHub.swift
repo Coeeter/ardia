@@ -65,6 +65,33 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   private var resumeHosts: [String: WKWebView] = [:]
   private var deletedProfileStores: [String: WKWebsiteDataStore] = [:]
   private var storesHeldForTest: [String: WKWebsiteDataStore] = [:]
+  private var reloadHolds: [String: Int] = [:]
+  private var lastReload = 0
+  private static let reloadHoldSeconds = 30.0
+
+  override init() {
+    super.init()
+    NotificationCenter.default.addObserver(forName: Notification.Name("RCTBridgeWillReloadNotification"), object: nil, queue: nil) { _ in
+      if Thread.isMainThread { WebKitHub.shared.holdAcrossReload() } else { DispatchQueue.main.async { WebKitHub.shared.holdAcrossReload() } }
+    }
+  }
+
+  private func holdAcrossReload() {
+    lastReload += 1
+    let reload = lastReload
+    let keys = owners.values.compactMap(\.tab).filter { $0.webView != nil }.compactMap(\.transferKey).filter { !$0.isEmpty }
+    for key in keys {
+      prepareTransfer(key)
+      reloadHolds[key] = reload
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.reloadHoldSeconds) { [weak self] in
+      guard let self else { return }
+      for key in keys where self.reloadHolds[key] == reload {
+        self.reloadHolds.removeValue(forKey: key)
+        self.releaseTransfer(key)
+      }
+    }
+  }
 
   func nextBrowserId() -> Int32 {
     lastBrowserId -= 1
@@ -236,6 +263,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   func prepareTransfer(_ key: String) {
+    reloadHolds.removeValue(forKey: key)
     transferLock.lock()
     prepared.insert(key)
     transferLock.unlock()
@@ -262,6 +290,7 @@ final class WebKitHub: NSObject, WKScriptMessageHandler {
   }
 
   func claimParked(_ key: String) -> WKWebView? {
+    reloadHolds.removeValue(forKey: key)
     transferLock.lock()
     prepared.remove(key)
     transferLock.unlock()

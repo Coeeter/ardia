@@ -67,6 +67,7 @@ const usesPageA = [
   "fullscreen-pip", "autofill-suggestions", "images", "extension-surfaces", "frozen", "discard",
   "permission-prompt", "popup-blocked", "move-tab-slow-mount", "move-last-tab-slow-mount",
   "move-tab-closed-while-parked", "move-tab-to-window", "title-bar-close", "last-used-profile",
+  "webkit-tab", "webkit-move-tab", "webkit-zoom", "webkit-now-playing", "webkit-scroll", "webkit-js-reload",
 ];
 const needs = {
   ...Object.fromEntries([...usesPageA, "task-manager", "internal-pages-not-history", "second-profile"].map((name) => [name, ["open-url"]])),
@@ -279,7 +280,7 @@ const server = createServer((req, res) => {
     res.writeHead(200, { "content-type": "audio/wav", "content-length": String(wav.length) });
     return res.end(wav);
   }
-  res.writeHead(200, { "content-type": "text/html" });
+  res.writeHead(200, { "content-type": "text/html", ...(url.pathname === "/fresh" ? { "cache-control": "no-store" } : {}) });
   if (url.pathname === "/cam")
     return res.end(page("Cam", "cam", `<script>
       window.__asks = []; window.__streams = [];
@@ -330,6 +331,8 @@ const server = createServer((req, res) => {
       };
     </script>`));
   if (url.pathname === "/media") return res.end(page("Media", `<audio id="tone" src="/tone.wav" loop></audio>`));
+  if (url.pathname === "/fresh") return res.end(page("Fresh", "fresh"));
+  if (url.pathname === "/tall") return res.end(page("Tall", `<div style="height: 8000px; background: linear-gradient(#fff, #ccc)">tall</div>`));
   if (url.pathname === "/form")
     return res.end(page("Form", `<form action="/form" method="get" autocomplete="on"><input id="c" name="city" autocomplete="on" style="font-size: 20px; margin: 80px; width: 300px"><button id="b">go</button></form>`));
   if (url.pathname === "/video")
@@ -413,6 +416,9 @@ const tlsCert = readFileSync(join(tlsDir, "cert.pem"));
 const tlsServer = createHttpsServer({ key: readFileSync(join(tlsDir, "key.pem")), cert: tlsCert }, (req, res) => server.emit("request", req, res));
 await listen(tlsServer, kept?.meta.https ?? 0);
 const secureBase = `https://127.0.0.1:${tlsServer.address().port}`;
+const webkitServer = createServer((req, res) => server.emit("request", req, res));
+await listen(webkitServer, kept?.meta.webkit ?? 0);
+const webkitBase = `http://127.0.0.1:${webkitServer.address().port}`;
 const tlsSpki = createHash("sha256").update(new X509Certificate(tlsCert).publicKey.export({ type: "spki", format: "der" })).digest("base64");
 
 // MARK: The app
@@ -433,7 +439,7 @@ async function launch(logName = "app.out.log", test = {}, args = [], opts = {}) 
     test: { reauth: "granted", mediaRouteProvider: true, bluetoothChooser: true, externalProtocolNoLaunch: true, ...test },
     trace: [...new Set(["trafficLights", ...runner.trace.filter((area) => ["visibility", "pip"].includes(area))])],
     switches: `--auto-select-tab-capture-source-by-title=Capture Target ${chromeSwitches} ${opts.switches ?? ""}`.trim(),
-    meta: { http: server.address().port, https: tlsServer.address().port },
+    meta: { http: server.address().port, https: tlsServer.address().port, webkit: webkitServer.address().port },
   });
   adopt(instance);
   const output = await settledAudioOutput(pid);
@@ -4389,6 +4395,185 @@ try {
     return { windowId, kept, strip: holding.strip, window: holding.window };
   });
 
+  // MARK: WebKit tabs
+
+  const q = JSON.stringify;
+  const useWebKit = () =>
+    evalApp(`const s = ac.store.getState(); s.updateSettings({ websiteEngines: { ...s.settings.websiteEngines, ${q(webkitBase)}: "webkit" } }); return true`);
+  const pageValue = (id, expr) =>
+    evalApp(`return ac.webviews.get(${q(id)})?.evaluate(${q(`post("result", JSON.stringify(${expr}))`)}) ?? null`);
+  const inPage = (id, code) => evalApp(`ac.webviews.get(${q(id)})?.executeJavaScript(${q(code)}); return true`);
+  const chromiumBrowser = (id) => engine("tabs.devBrowserId", { tabId: id }).catch(() => null);
+  const loadedAs = (id, title) =>
+    evalApp(`const s = ac.store.getState(); return s.tabs[${q(id)}]?.title === ${q(title)} && !s.live[${q(id)}]?.isLoading ? true : null`);
+  const webkitTab = async (path, title, windowId = mainWindow) => {
+    await useWebKit();
+    const id = await evalApp(`return ac.store.getState().newTab(${q(windowId)}, { url: ${q(webkitBase + path)} })`);
+    await shownAndMounted(id);
+    await until(`${path} in WebKit`, () => loadedAs(id, title), 15000);
+    if ((await chromiumBrowser(id)) || (await targets()).some((t) => t.url.startsWith(webkitBase + path))) throw new Error(`${path} opened in Chromium`);
+    return id;
+  };
+  const markPage = async (id, mark) => {
+    await inPage(id, `document.documentElement.dataset.mark = ${q(mark)}`);
+    await until("the page mark", async () => (await pageValue(id, "document.documentElement.dataset.mark ?? null")) === mark, 5000);
+  };
+  const pageMark = (id) => pageValue(id, `document.documentElement.dataset.mark ?? "gone"`);
+
+  await check("webkit-tab", async () => {
+    const id = await webkitTab("/a?wk", "Page A");
+    try {
+      await until("its favicon", async () => (await state()).tabs.find((t) => t.id === id)?.favicon || null, 10000);
+      await evalApp(`ac.store.getState().navigate(${q(id)}, "${webkitBase}/b?wk", { userInitiated: true }); return true`);
+      await until("B in WebKit", async () => (await loadedAs(id, "Page B")) && (await live(id))?.canGoBack, 15000);
+      await evalApp(`return ac.webviews.get(${q(id)}).goBack()`);
+      await until("back to A", async () => (await loadedAs(id, "Page A")) && (await live(id))?.canGoForward, 15000);
+      await markPage(id, "before-reload");
+      await evalApp(`return ac.webviews.get(${q(id)}).reload()`);
+      await until("the reload", async () => (await pageMark(id)) === "gone", 10000);
+      const before = (await state()).tabs.find((t) => t.id === id);
+      await evalApp(`return ac.webviews.get(${q(id)}).zoomStep(1)`);
+      const zoom = await until("a zoom step", () => evalApp(`const z = ac.store.getState().tabs[${q(id)}]?.zoom; return z > 1 ? z : null`), 5000);
+      await evalApp(`return ac.webviews.get(${q(id)}).zoomStep(0)`);
+      await until("zoom reset", () => evalApp(`return ac.store.getState().tabs[${q(id)}]?.zoom === 1 || null`), 5000);
+      const entries = await evalApp(`return ac.webviews.get(${q(id)}).navigationEntries()`);
+      return { favicon: !!before.favicon, zoom, entries: entries?.length };
+    } finally {
+      await closeTab(id);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-move-tab", async () => {
+    const id = await webkitTab("/c?wk-move", "Page C");
+    try {
+      await markPage(id, "moved");
+      const windowId = await evalApp(`return ac.store.getState().moveTabsToWindow([${q(id)}], null)`);
+      await until("the tab's view in the new window", () => evalApp(`return !!ac.webviews.get(${q(id)}) && ac.store.getState().tabs[${q(id)}]?.windowId === ${q(windowId)}`), 10000);
+      await sleep(800);
+      const mark = await pageMark(id);
+      if (mark !== "moved") throw new Error(`the WebKit page reloaded or went on the move: ${mark}`);
+      return { windowId, mark };
+    } finally {
+      await closeWindowOf(id).catch(() => null);
+      await closeTab(id).catch(() => null);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-zoom", async () => {
+    const a = await webkitTab("/a?wk-zoom", "Page A");
+    let b = null;
+    try {
+      await evalApp(`return ac.webviews.get(${q(a)}).zoomStep(1)`);
+      const zoom = await until("A zoomed", () => evalApp(`const z = ac.store.getState().tabs[${q(a)}]?.zoom; return z > 1 ? z : null`), 5000);
+      b = await webkitTab("/b?wk-zoom", "Page B");
+      const shared = await until("B on the same host takes it", () => evalApp(`const z = ac.store.getState().tabs[${q(b)}]?.zoom; return z === ${zoom} ? z : null`), 5000);
+      await evalApp(`return ac.webviews.get(${q(b)}).zoomStep(0)`);
+      await until("zoom reset", () => evalApp(`return ac.store.getState().tabs[${q(b)}]?.zoom === 1 || null`), 5000);
+      return { zoom, shared };
+    } finally {
+      await closeTab(a);
+      if (b) await closeTab(b);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-site-permissions", async () => {
+    const origin = webkitBase;
+    const read = () => engine("sites.settings", { engine: "webkit", profile: "", origin });
+    const fresh = await read();
+    if (fresh.camera?.value !== "ask" || !fresh.camera?.isDefault) throw new Error(`a fresh origin isn't Ask: ${q(fresh)}`);
+    await engine("sites.setSetting", { engine: "webkit", profile: "", origin, type: "camera", value: "allow" });
+    await engine("sites.setSetting", { engine: "webkit", profile: "", origin, type: "microphone", value: "block" });
+    const set = await read();
+    if (set.camera?.value !== "allow" || set.microphone?.value !== "block") throw new Error(`not remembered: ${q(set)}`);
+    await engine("sites.clearData", { engine: "webkit", profile: "", origin: `${origin}/` }).catch(() => null);
+    const afterSiteClear = await read();
+    await engine("profiles.clearBrowsingData", { profile: "", types: ["siteData"], since: Date.now() - 30000 });
+    const afterBroadClear = await read();
+    await engine("sites.setSetting", { engine: "webkit", profile: "", origin, type: "camera", value: "ask" });
+    await engine("sites.setSetting", { engine: "webkit", profile: "", origin, type: "microphone", value: "ask" });
+    if (afterSiteClear.camera?.value !== "allow") throw new Error(`clearing one site's data dropped its permissions: ${q(afterSiteClear)}`);
+    if (afterBroadClear.camera?.value !== "ask") throw new Error(`clearing all site data kept its permissions: ${q(afterBroadClear)}`);
+    return { set, afterSiteClear: afterSiteClear.camera.value, afterBroadClear: afterBroadClear.camera.value };
+  });
+
+  const session = (id) => evalApp(`return ac.media.getState().sessions[${q(id)}] ?? null`);
+
+  await check("webkit-now-playing", async () => {
+    const id = await webkitTab("/media?wk", "Media");
+    try {
+      await evalApp(`return ac.webviews.get(${q(id)}).setMuted(true)`);
+      await inPage(id, "navigator.mediaSession.metadata = new MediaMetadata({ title: 'NN Tone', artist: 'Acceptance' }); document.getElementById('tone').play()");
+      const playing = await until("now playing", async () => {
+        const s = await session(id);
+        return s?.title === "NN Tone" && s.playbackState === "playing" ? s : null;
+      }, 10000);
+      await evalApp(`return ac.webviews.get(${q(id)}).mediaCommand("pause")`);
+      await until("paused by the app", async () => (await pageValue(id, "document.getElementById('tone').paused")) === true, 8000);
+      await evalApp(`return ac.webviews.get(${q(id)}).mediaCommand("seekTo", 0.5)`);
+      const at = await until("the seek", async () => {
+        const t = await pageValue(id, "document.getElementById('tone').currentTime");
+        return Math.abs(t - 0.5) < 0.05 ? t : null;
+      }, 5000);
+      await evalApp(`ac.store.getState().navigate(${q(id)}, "${webkitBase}/b?wk-np", { userInitiated: true }); return true`);
+      await until("B", () => loadedAs(id, "Page B"), 10000);
+      await until("the session gone with the page", async () => !(await session(id)), 8000);
+      return { title: playing.title, artist: playing.artist, seekedTo: at };
+    } finally {
+      await closeTab(id);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-scroll", async () => {
+    const id = await webkitTab("/tall", "Tall");
+    const down = () => evalApp(`return !!ac.toolbarAutoHide.useToolbarAutoHide.getState().scrolledDown[${q(id)}]`);
+    const scroll = (code) => inPage(id, `dispatchEvent(new WheelEvent("wheel", { deltaY: 1 })); ${code}`);
+    try {
+      await scroll("scrollBy(0, 600)");
+      await until("scrolled down", async () => (await down()) || null, 5000);
+      await sleep(400);
+      await scroll("scrollBy(0, -200)");
+      await until("scrolled up", async () => !(await down()) || null, 5000);
+      await scroll("scrollBy(0, 600)");
+      await until("down again", async () => (await down()) || null, 5000);
+      await scroll("scrollTo(0, 0)");
+      await until("at the top", async () => !(await down()) || null, 5000);
+      return { ok: true };
+    } finally {
+      await closeTab(id);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    }
+  });
+
+  await check("webkit-js-reload", async () => {
+    const id = await webkitTab("/d?wk-reload", "Page D");
+    try {
+      await markPage(id, "before-js-reload");
+      await until("the tab saved", () => existsSync(join(data, "session.json")) && readFileSync(join(data, "session.json"), "utf8").includes(id), 10000);
+      await evalApp(`setTimeout(() => { try { globalThis.nativeModuleProxy.DevSettings.reload(); } catch {} }, 50); return true`);
+      await sleep(1500);
+      await until("the reloaded app", async () => {
+        try {
+          return await evalApp(`return Object.keys(ac.store.getState().windows).length > 0 && !!ac.webviews.get(${q(id)})`, 3000);
+        } catch (e) {
+          if (exited) throw e;
+          return null;
+        }
+      }, 60000);
+      await sleep(1000);
+      const mark = await pageMark(id);
+      if (mark !== "before-js-reload") throw new Error(`the WebKit page reloaded or went with JS: ${mark}`);
+      return { mark };
+    } finally {
+      mainWindow = (await state()).windowId ?? mainWindow;
+      await closeTab(id).catch(() => null);
+      await evalApp(`ac.actions.switchToTab("${first.id}"); return true`).catch(() => null);
+    }
+  });
+
   // MARK: Startup and engine
 
   await check("title-bar-close", async () => {
@@ -4739,6 +4924,26 @@ try {
     const afterReady = adsServedFor(again);
     if (afterReady.length) throw new Error(`ads went out once uBlock Origin was ready: ${JSON.stringify(afterReady)}`);
     return { restored: tab.url, loadedAfterMs, racedAtLaunch, nextDocuments: documents };
+  });
+
+  await check("launch-tab-relaunch", async () => {
+    const windowId = await appUp("app-launch-tab.out.log");
+    const path = `/fresh?launch-tab-${Date.now()}`;
+    const id = await evalApp(`const s = ac.store.getState(); const id = s.newTab(${JSON.stringify(windowId)}, { url: "${base}${path}" }); ac.store.getState().activate(id); return id`);
+    await until("the launch tab's page", async () => (await state()).tabs.find((t) => t.id === id && t.title === "Fresh" && !t.loading), 15000);
+    await until("it saved as the launch tab", async () => JSON.parse(savedSession() || "{}").launchTab?.id === id || null, 10000);
+    await sleep(1000);
+    await pressQuit(windowId);
+    await until("the quit", async () => exited, 30000);
+    const layout = JSON.parse(readFileSync(join(data, "launch-layout.json"), "utf8"));
+    if (layout.version !== 3 || !layout.windows?.[windowId]) throw new Error(`no launch layout for the window: ${JSON.stringify(Object.keys(layout.windows ?? {}))}`);
+    const before = served.get(path) ?? 0;
+    await appUp("app-launch-tab-2.out.log");
+    const tab = await until("the launch tab restored", async () => (await state()).tabs.find((t) => t.id === id && t.title === "Fresh" && !t.loading), 20000);
+    await sleep(1500);
+    const loads = (served.get(path) ?? 0) - before;
+    if (loads !== 1) throw new Error(`the launch tab's page loaded ${loads} times after the relaunch`);
+    return { tab: tab.id, loads, layoutWindows: Object.keys(layout.windows).length };
   });
 
   await check("closed-tabs-own-lists", async () => {

@@ -73,7 +73,7 @@ try {
         const toolbars = wt.fibers("Toolbar").map((f) => ({ tabId: f.memoizedProps.tabId, bare: !!f.memoizedProps.bare, pane: wt.inPane(f) }));
         const auto = wt.fibers("AutoHideToolbar").map((f) => ({ tabId: f.memoizedProps.tabId, mode: f.memoizedProps.mode, pane: wt.inPane(f) }));
         const backdrops = [...wt.fibers("AutoHideBackdrop"), ...wt.fibers("ToolbarBackdrop")].map((f) => ({ tabId: f.memoizedProps.tabId, pane: wt.inPane(f) }));
-        const hosts = wt.fibers("UrlField").map((f) => f.memoizedProps.tab?.url);
+        const hosts = wt.fibers("ToolbarUrlField").map((f) => f.memoizedProps.tab?.url);
         const w = ac.store.getState().windows.w1;
         return { active: w.activeTabIds[w.profileId], toolbars, auto, backdrops, hosts };
       },

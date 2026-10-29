@@ -242,9 +242,9 @@ test("an icon: arrives, changes, follows its page and its icon URL, its light/da
   const page = "https://icons.example/a";
   const i = icon(page, null);
   assert.equal(i.value.resolved, null, "none yet");
-  setIcons((x) => ({ ...x, pages: { ...x.pages, [withoutFragment(page)]: { uri: "file:///one.png", rev: 1 } } }));
+  setIcons((x) => ({ ...x, pages: { ...x.pages, [withoutFragment(page)]: "file:///one.png" } }));
   assert.equal(i.value.resolved?.uri, "file:///one.png", "arrives");
-  setIcons((x) => ({ ...x, pages: { ...x.pages, [withoutFragment(page)]: { uri: "file:///two.png", rev: 2 } } }));
+  setIcons((x) => ({ ...x, pages: { ...x.pages, [withoutFragment(page)]: "file:///two.png" } }));
   assert.equal(i.value.resolved?.uri, "file:///two.png", "changes");
   useFavicons.setState((f) => ({ ...f, themes: { ...f.themes, "file:///two.png": { kind: "template", stroke: true } } }));
   assert.equal(i.value.theme?.kind, "template", "its shape theme");

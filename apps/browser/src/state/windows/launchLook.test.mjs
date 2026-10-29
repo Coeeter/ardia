@@ -21,7 +21,7 @@ test("the launch favicons stay under 1 MiB serialized, each image stored once", 
   for (let i = 0; i < 66; i++) {
     const page = `https://site${i}.test/`;
     const src = `https://site${i}.test/favicon.ico`;
-    pages[page] = { uri: image(i), rev: 0 };
+    pages[page] = image(i);
     srcs[src] = image(i);
     themes[image(i)] = { kind: "template", fill: "#000000", stroke: "#ffffff" };
     tabs.push({ url: page, favicon: src, profileId: "default" });

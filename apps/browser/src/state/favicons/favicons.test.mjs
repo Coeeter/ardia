@@ -98,7 +98,7 @@ test("an icon stays when the tab finishes loading another page on the icon's sit
 const empty = () => Promise.resolve({ pages: new Map(), icons: new Map() });
 const answering = (icons) => (profile, pages) => Promise.resolve({ pages: new Map(pages.flatMap((p) => (icons[p] ? [[p, { uri: icons[p] }]] : []))), icons: new Map() });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 40));
-const cached = (page) => useFavicons.getState().profiles[engineProfile(useBrowser.getState(), "default")]?.pages[page]?.uri;
+const cached = (page) => useFavicons.getState().profiles[engineProfile(useBrowser.getState(), "default")]?.pages[page];
 
 test("a lookup that failed is asked again the next time the page is shown", async () => {
   useBrowser.getState().hydrate({});
@@ -222,5 +222,69 @@ test("a page that changes its icon right after the appearance flips keeps both, 
   } finally {
     setDark(false);
     stop();
+  }
+});
+
+const heldLookups = () => {
+  const held = [];
+  globalThis.faviconsForTest = (profile, pages) => new Promise((resolve) => held.push({ pages, answer: (icons = {}) => resolve({ pages: new Map(pages.flatMap((p) => (icons[p] ? [[p, { uri: icons[p] }]] : []))), icons: new Map() }) }));
+  return held;
+};
+
+const pruneRaces = {
+  "the older lookup answers first, with no icon": (before, after, page) => [() => before.answer(), () => after.answer({ [page]: "data:image/png;base64,FRESH" })],
+  "the older lookup answers first, with a stale icon": (before, after, page) => [() => before.answer({ [page]: "data:image/png;base64,STALE" }), () => after.answer({ [page]: "data:image/png;base64,FRESH" })],
+  "the newer lookup answers first": (before, after, page) => [() => after.answer({ [page]: "data:image/png;base64,FRESH" }), () => before.answer({ [page]: "data:image/png;base64,STALE" })],
+};
+
+for (const [n, [order, answersFor]] of Object.entries(pruneRaces).entries())
+  test(`after a prune, the lookup a new row starts wins over the one from before the prune (${order})`, async () => {
+    useBrowser.getState().hydrate({});
+    const page = `https://pruned-race-${n}.test/`;
+    const held = heldLookups();
+    try {
+      const first = mount(() => useFavicon(page, null, "default"));
+      await waitFor(() => held.length === 1);
+      pruneProfileFavicons("default");
+      first.unmount();
+      const second = mount(() => useFavicon(page, null, "default"));
+      await waitFor(() => held.length === 2);
+      const [before, after] = held;
+      for (const answer of answersFor(before, after, page)) {
+        answer();
+        await settle();
+      }
+      assert.equal(resolveFavicon(page, null, "default")?.uri, "data:image/png;base64,FRESH");
+      second.unmount();
+    } finally {
+      delete globalThis.faviconsForTest;
+    }
+  });
+
+test("an icon the page reported during a lookup still wins after the cache starts over and drops it", async () => {
+  const S = () => useBrowser.getState();
+  S().hydrate({});
+  const page = "https://evicted-race.test/";
+  const windowId = S().createWindow({ url: page });
+  const tabId = S().windows[windowId].tabIds[0];
+  S().updateTab(tabId, { url: page });
+  const key = engineProfile(S(), "default");
+  seedFavicons({ images: ["data:image/png;base64,NEW"], profiles: { [key]: { pages: {}, srcs: { "https://evicted-race.test/new.png": 0 } } }, themes: {} });
+  const held = heldLookups();
+  globalThis.storedFavicons = [];
+  try {
+    const row = mount(() => useFavicon(page, null, "default"));
+    await waitFor(() => held.some((l) => l.pages.includes(page)));
+    noteFavicon(tabId, "https://evicted-race.test/new.png");
+    await settle();
+    assert.equal(cached(page), "data:image/png;base64,NEW");
+    adoptFavicons("default", Array.from({ length: 3000 }, (_, i) => ({ page: `https://evict${i}.test/`, icon: "i", png: `E${i}` })));
+    assert.equal(cached(page), undefined);
+    for (const l of held) l.answer({ [page]: "data:image/png;base64,OLD" });
+    await settle();
+    assert.notEqual(cached(page), "data:image/png;base64,OLD");
+    row.unmount();
+  } finally {
+    delete globalThis.faviconsForTest;
   }
 });

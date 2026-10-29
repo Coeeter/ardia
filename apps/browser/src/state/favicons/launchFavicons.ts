@@ -1,5 +1,5 @@
 import { isIncognitoProfile } from "../browser/model";
-import { cacheKey, EMPTY_ICONS, pageIcon, useFavicons, type Favicons } from "./favicons";
+import { cacheKey, EMPTY_ICONS, useFavicons, type Favicons } from "./favicons";
 import { withoutFragment } from "../../lib/url";
 
 export type LaunchFavicons = {
@@ -25,7 +25,7 @@ export function launchFavicons(tabs: { url: string; favicon: string | null; prof
     const key = cacheKey(t.profileId);
     const icons = profiles[key];
     const page = withoutFragment(t.url);
-    const uri = icons?.pages[page]?.uri;
+    const uri = icons?.pages[page];
     if (!icons || !uri || uri.length > LAUNCH_URI_LIMIT || look.profiles[key]?.pages[page] !== undefined) continue;
     const fromSrc = t.favicon ? icons.srcs[t.favicon] : undefined;
     const src = t.favicon && fromSrc && fromSrc.length <= LAUNCH_URI_LIMIT ? fromSrc : undefined;
@@ -67,7 +67,7 @@ export function seedFavicons(seed: LaunchFavicons) {
     for (const [key, saved] of seeded) {
       const icons = profiles[key] ?? EMPTY_ICONS;
       profiles[key] = {
-        pages: { ...Object.fromEntries(Object.entries(imagesOf(saved?.pages, images)).map(([page, uri]) => [page, pageIcon(uri)])), ...icons.pages },
+        pages: { ...imagesOf(saved?.pages, images), ...icons.pages },
         srcs: { ...imagesOf(saved?.srcs, images), ...icons.srcs },
         appearances: icons.appearances,
       };

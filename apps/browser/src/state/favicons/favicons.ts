@@ -9,10 +9,8 @@ import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
 import { webviews } from "../../platform/webviews";
 
-type PageIcon = { uri: string | null; rev: number };
-
 type Icons = {
-  pages: Record<string, PageIcon>;
+  pages: Record<string, string | null>;
   srcs: Record<string, string>;
   appearances: Record<string, [string, string]>;
 };
@@ -23,8 +21,6 @@ const MAX_ICONS = 3000;
 const LOOKUP_DELAY_MS = 16;
 const LOOKUP_BATCH = 200;
 let appearanceChangedAt = -Infinity;
-let revision = 0;
-export const pageIcon = (uri: string | null): PageIcon => ({ uri, rev: ++revision });
 
 export type Favicons = {
   profiles: Record<string, Icons>;
@@ -71,6 +67,12 @@ const capped = <T,>(map: Record<string, T>, key: string, value: T): Record<strin
 let watching = false;
 
 const queued = new Map<string, Set<string>>();
+let writeSeq = 0;
+const inFlight = new Map<string, { lookups: number; wrote?: number }>();
+const wrote = (key: string, page: string) => {
+  const pending = inFlight.get(`${key}|${page}`);
+  if (pending) pending.wrote = ++writeSeq;
+};
 const asked = new Set<string>();
 let lookupTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -93,19 +95,23 @@ function lookUp() {
 }
 
 function lookUpPages(key: string, list: string[]) {
-  const seen = useFavicons.getState().profiles[key]?.pages;
-  const started = list.map((page) => seen?.[page]?.rev);
+  const pending = list.map((page) => {
+    const id = `${key}|${page}`;
+    const entry = inFlight.get(id) ?? { lookups: 0 };
+    entry.lookups++;
+    inFlight.set(id, entry);
+    return { id, entry, started: entry.wrote };
+  });
   void faviconsFor(key, list)
     .then((found) =>
       update(key, (icons) => {
-        let next: Record<string, PageIcon> | undefined;
+        let next: Record<string, string | null> | undefined;
         for (const [i, page] of list.entries()) {
-          const now = icons.pages[page];
-          if (now && now.rev !== started[i]) continue;
+          if (pending[i]!.entry.wrote !== pending[i]!.started) continue;
           const uri = found.pages.get(page)?.uri ?? null;
-          if (now?.uri === uri) continue;
+          if (icons.pages[page] === uri) continue;
           next ??= { ...icons.pages };
-          next[page] = pageIcon(uri);
+          next[page] = uri;
         }
         return next ? { ...icons, pages: next } : icons;
       }, true),
@@ -113,6 +119,9 @@ function lookUpPages(key: string, list: string[]) {
     .catch((error) => {
       for (const page of list) asked.delete(`${key}|${page}`);
       console.warn("[favicons] lookup failed", error);
+    })
+    .finally(() => {
+      for (const { id, entry } of pending) if (--entry.lookups === 0) inFlight.delete(id);
     });
 }
 
@@ -142,16 +151,17 @@ export function noteFavicon(tabId: string, src: string) {
 
 function remember(key: string, page: string, src: string, uri: string) {
   const icons = changes.length ? undefined : useFavicons.getState().profiles[key];
-  if (icons && icons.pages[page]?.uri === uri && icons.srcs[src] === uri) return;
+  if (icons && icons.pages[page] === uri && icons.srcs[src] === uri) return;
   const dark = useBrowser.getState().ui.appDark;
   const swapped = Date.now() - appearanceChangedAt < APPEARANCE_SWAP_MS;
+  wrote(key, page);
   update(key, (icons) => {
-    const previous = icons.pages[page]?.uri;
+    const previous = icons.pages[page];
     if (previous === uri && icons.srcs[src] === uri) return icons;
     let appearances = icons.appearances;
     if (swapped && previous && previous !== uri) appearances = { ...appearances, [page]: dark ? [previous, uri] : [uri, previous] };
     const startsOver = Object.keys(icons.pages).length >= MAX_ICONS;
-    const pages = startsOver ? { [page]: pageIcon(uri) } : { ...icons.pages, [page]: pageIcon(uri) };
+    const pages = startsOver ? { [page]: uri } : { ...icons.pages, [page]: uri };
     return { pages, srcs: icons.srcs[src] === uri ? icons.srcs : capped(icons.srcs, src, uri), appearances };
   });
 }
@@ -164,12 +174,13 @@ export function adoptFavicons(profileId: string, known: KnownFavicon[]) {
   if (isIncognitoProfile(profileId) || !known.length) return;
   const key = cacheKey(profileId);
   const found = new Map(known.map((f) => [withoutFragment(f.page), f]));
+  for (const page of found.keys()) wrote(key, page);
   update(key, (icons) => {
-    const fresh = [...found].filter(([page]) => !icons.pages[page]?.uri);
+    const fresh = [...found].filter(([page]) => !icons.pages[page]);
     if (!fresh.length) return icons;
     const startsOver = Object.keys(icons.pages).length + fresh.length > MAX_ICONS;
-    const pages: Record<string, PageIcon> = startsOver ? {} : { ...icons.pages };
-    for (const [page, f] of fresh) pages[page] = pageIcon(`${PNG_DATA_URI}${f.png}`);
+    const pages: Record<string, string | null> = startsOver ? {} : { ...icons.pages };
+    for (const [page, f] of fresh) pages[page] = `${PNG_DATA_URI}${f.png}`;
     return { ...icons, pages };
   }, true);
   void (async () => {
@@ -200,9 +211,9 @@ function fetchMissing(profileId: string, url: string, src: string) {
 
 export function faviconFailed(profileId: string, uri: string) {
   update(cacheKey(profileId), (icons) => {
-    if (!Object.values(icons.pages).some((p) => p.uri === uri) && !Object.values(icons.srcs).includes(uri)) return icons;
+    if (!Object.values(icons.pages).includes(uri) && !Object.values(icons.srcs).includes(uri)) return icons;
     return {
-      pages: Object.fromEntries(Object.entries(icons.pages).map(([page, p]) => [page, p.uri === uri ? { ...p, uri: null } : p])),
+      pages: Object.fromEntries(Object.entries(icons.pages).map(([page, u]) => [page, u === uri ? null : u])),
       srcs: Object.fromEntries(Object.entries(icons.srcs).filter(([, u]) => u !== uri)),
       appearances: icons.appearances,
     };
@@ -217,7 +228,7 @@ function lookupIn(key: string, url: string, src: string | null | undefined): str
   const page = withoutFragment(url);
   const pair = icons.appearances[page];
   if (pair) return pair[useBrowser.getState().ui.appDark ? 1 : 0];
-  return (src ? icons.srcs[src] : undefined) ?? icons.pages[page]?.uri ?? undefined;
+  return (src ? icons.srcs[src] : undefined) ?? icons.pages[page] ?? undefined;
 }
 
 function lookupOrder(profileId?: string): string[] {
@@ -308,6 +319,7 @@ export function useFaviconTheme(url: string, src?: string | null, profileId?: st
 
 function forget(key: string) {
   for (const id of [...asked]) if (id.startsWith(`${key}|`)) asked.delete(id);
+  for (const [id, pending] of inFlight) if (id.startsWith(`${key}|`)) pending.wrote = ++writeSeq;
   update(key, () => EMPTY_ICONS, true);
 }
 

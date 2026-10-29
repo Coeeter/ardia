@@ -9,13 +9,10 @@ final class WebKitTransfers {
 
   private var owners: [ObjectIdentifier: WeakTab] = [:]
   private var liveByKey: [String: WeakTab] = [:]
-  private let preparedLock = NSLock()
-  private var prepared = Set<String>()
-  private var parked: [String: WKWebView] = [:]
+  private let ledger = ArdiaTransferLedger()
+  private var parked: [String: (view: WKWebView, generation: Int)] = [:]
   private var offered: [String: WKWebView] = [:]
   private var lastOffer = 0
-  private var reloadHolds: [String: Int] = [:]
-  private var lastReload = 0
   private static let reloadHoldSeconds = 30.0
   private static let offerSeconds = 60.0
 
@@ -27,7 +24,7 @@ final class WebKitTransfers {
 
   var liveTabs: [WebKitTab] { owners.values.compactMap(\.tab) }
 
-  var views: [WKWebView] { liveTabs.compactMap(\.webView) + Array(parked.values) + Array(offered.values) }
+  var views: [WKWebView] { liveTabs.compactMap(\.webView) + parked.values.map(\.view) + Array(offered.values) }
 
   func register(_ webView: WKWebView, tab: WebKitTab) { owners[ObjectIdentifier(webView)] = WeakTab(tab) }
 
@@ -44,38 +41,30 @@ final class WebKitTransfers {
   func liveTab(_ key: String) -> WebKitTab? { liveByKey[key]?.tab }
 
   func prepare(_ key: String) {
-    reloadHolds.removeValue(forKey: key)
-    preparedLock.lock()
-    prepared.insert(key)
-    preparedLock.unlock()
+    _ = ledger.prepare(key)
   }
 
   func release(_ key: String) {
-    preparedLock.lock()
-    prepared.remove(key)
-    preparedLock.unlock()
-    DispatchQueue.main.async {
-      if let webView = self.parked.removeValue(forKey: key) { WebKitHub.close(webView) }
-    }
+    let generation = ledger.drop(key)
+    DispatchQueue.main.async { self.closeParked(key, generation: generation) }
   }
 
-  func isPrepared(_ key: String) -> Bool {
-    preparedLock.lock()
-    defer { preparedLock.unlock() }
-    return prepared.contains(key)
-  }
+  func isPrepared(_ key: String) -> Bool { ledger.isPrepared(key) }
 
   func park(_ webView: WKWebView, key: String) {
-    if let old = parked[key], old !== webView { WebKitHub.close(old) }
-    parked[key] = webView
+    if let old = parked[key], old.view !== webView { WebKitHub.close(old.view) }
+    parked[key] = (webView, ledger.preparedGeneration(key))
   }
 
   func claimParked(_ key: String) -> WKWebView? {
-    reloadHolds.removeValue(forKey: key)
-    preparedLock.lock()
-    prepared.remove(key)
-    preparedLock.unlock()
-    return parked.removeValue(forKey: key)
+    _ = ledger.drop(key)
+    return parked.removeValue(forKey: key)?.view
+  }
+
+  private func closeParked(_ key: String, generation: Int) {
+    guard let held = parked[key], held.generation == generation else { return }
+    parked.removeValue(forKey: key)
+    WebKitHub.close(held.view)
   }
 
   func offer(_ webView: WKWebView) -> String {
@@ -95,9 +84,9 @@ final class WebKitTransfers {
   func closeViews(using store: WKWebsiteDataStore) {
     let uses = { (view: WKWebView) in view.configuration.websiteDataStore === store }
     for tab in liveTabs where tab.webView.map(uses) == true { tab.close() }
-    for (key, view) in parked where uses(view) {
+    for (key, held) in parked where uses(held.view) {
       parked.removeValue(forKey: key)
-      WebKitHub.close(view)
+      WebKitHub.close(held.view)
     }
     for (id, view) in offered where uses(view) {
       offered.removeValue(forKey: id)
@@ -106,18 +95,11 @@ final class WebKitTransfers {
   }
 
   private func holdAcrossReload() {
-    lastReload += 1
-    let reload = lastReload
-    let keys = liveTabs.filter { $0.webView != nil }.compactMap(\.transferKey).filter { !$0.isEmpty }
-    for key in keys {
-      prepare(key)
-      reloadHolds[key] = reload
-    }
+    let holds = liveTabs.filter { $0.webView != nil }.compactMap(\.transferKey).filter { !$0.isEmpty }.map { ($0, ledger.hold(forReload: $0)) }
     DispatchQueue.main.asyncAfter(deadline: .now() + Self.reloadHoldSeconds) { [weak self] in
       guard let self else { return }
-      for key in keys where self.reloadHolds[key] == reload {
-        self.reloadHolds.removeValue(forKey: key)
-        self.release(key)
+      for (key, generation) in holds where self.ledger.expireReloadHold(key, generation: generation) {
+        self.closeParked(key, generation: generation)
       }
     }
   }

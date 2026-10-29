@@ -55,8 +55,14 @@ function SplitPart({ tabId, first, ink }: { tabId: string; first: boolean; ink: 
   if (!tab) return null;
   return (
     <Animated.View ref={drag.ref} {...drag.panHandlers} style={{ flex: 1, flexDirection: "row", alignItems: "center", opacity: drag.style.opacity }}>
-      {!first && <View style={{ width: StyleSheet.hairlineWidth, height: 16, marginHorizontal: 6, backgroundColor: ink?.divider ?? theme.textTertiary }} />}
-      <TabPressArea windowId={windowId} tab={tab} style={PART_ROW} pressStyle={PART_ROW} tooltip={tabTooltip(tab)}>
+      <TabPressArea
+        windowId={windowId}
+        tab={tab}
+        style={PART_ROW}
+        pressStyle={PART_ROW}
+        tooltip={tabTooltip(tab)}
+        leading={first ? null : <View style={{ width: StyleSheet.hairlineWidth, height: 16, marginHorizontal: 6, backgroundColor: ink?.divider ?? theme.textTertiary }} />}
+      >
         <View pointerEvents="none">
           <TabIcon url={tab.url} favicon={tab.favicon} icon={tab.customIcon} size={14} profileId={tab.profileId} />
         </View>

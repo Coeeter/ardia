@@ -14,6 +14,7 @@ export function TabPressArea({
   style,
   pressStyle,
   tooltip,
+  leading,
   children,
 }: {
   windowId: string;
@@ -21,6 +22,7 @@ export function TabPressArea({
   style?: StyleProp<ViewStyle>;
   pressStyle?: StyleProp<ViewStyle>;
   tooltip?: string;
+  leading?: ReactNode;
   children: ReactNode | ((state: { pressed: boolean }) => ReactNode);
 }) {
   return (
@@ -32,6 +34,7 @@ export function TabPressArea({
         }}
         style={style}
       >
+        {leading}
         <Pressable
           onPress={(e) => {
             dismissHover();

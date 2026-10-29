@@ -23,11 +23,13 @@ export function SplitDividers({ split, dividers, width, height }: { split: Split
   );
 }
 
+const sizesOf = (split: SplitView) => ({ sizes: split.slots.map((slot) => slot.size), stack: split.slots.find((slot) => "stack" in slot)?.stackSizes });
+
 function DividerHandle({ split, divider, width, height }: { split: SplitView; divider: Divider; width: number; height: number }) {
   const theme = useTheme();
   const [hovered, setHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const start = useRef<{ sizes: number[]; stack?: [number, number] }>({ sizes: split.sizes });
+  const start = useRef<{ sizes: number[]; stack?: [number, number] }>(sizesOf(split));
   const latest = useRef({ split, divider, width, height });
   latest.current = { split, divider, width, height };
 
@@ -37,7 +39,7 @@ function DividerHandle({ split, divider, width, height }: { split: SplitView; di
         onStartShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
           const { split: v } = latest.current;
-          start.current = { sizes: v.sizes, stack: v.stack?.sizes };
+          start.current = sizesOf(v);
           setDragging(true);
         },
         onPanResponderMove: (_, g) => {

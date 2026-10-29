@@ -4,6 +4,7 @@ import { pagerFor } from "../../state/windows/profilePager";
 import { useTabDrag } from "../../state/drag/tabDrag";
 import type { SplitView } from "../../state/browser/types";
 import { splitGeometry, type Rect } from "./geometry";
+import { splitTabIds } from "../../state/splits/splits";
 
 const NEW_TAB_LINGER_MS = 400;
 
@@ -15,7 +16,7 @@ export function usePaneLayout(windowId: string, activeId: string | undefined, sp
   const { panes, dividers } = useMemo(() => {
     const full: Rect = { x: 0, y: 0, width: size.width, height: size.height };
     if (fullscreenTab) {
-      const under = split?.tabIds.includes(fullscreenTab) ? splitGeometry(split, size.width, size.height).panes : {};
+      const under = split && splitTabIds(split).includes(fullscreenTab) ? splitGeometry(split, size.width, size.height).panes : {};
       return { panes: { ...under, [fullscreenTab]: full }, dividers: [] };
     }
     if (split) return splitGeometry(split, size.width, size.height);

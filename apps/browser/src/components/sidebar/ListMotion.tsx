@@ -12,6 +12,7 @@ import { ghostEntry, snapshotEntry, type EntrySnapshot } from "./GhostEntry";
 import { curve } from "../ui/motion";
 import { SIDEBAR_MOTION } from "./tokens";
 import { entryId, entryKey, parseEntry } from "../../state/sidebar/entryKey";
+import { splitTabIdsOf } from "../../state/splits/splits";
 
 export const SLIDE_MS = SIDEBAR_MOTION.listSlide;
 export const FADE_MS = SIDEBAR_MOTION.listFade;
@@ -39,7 +40,7 @@ let ghostIds = 0;
 const tabsOf = (s: BrowserState, entry: string): string[] => {
   const { kind, id } = parseEntry(entry);
   if (kind === "group") return s.groups[id]?.tabIds ?? [];
-  if (kind === "split") return s.splits[id]?.tabIds ?? [];
+  if (kind === "split") return splitTabIdsOf(s.splits[id]) ?? [];
   return [id];
 };
 

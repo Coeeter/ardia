@@ -220,7 +220,7 @@ try {
   await check("tab: Open as Split on another tab splits it with the shown one, Remove from Split View on its pane", async () => {
     await run(`st().activate("a"); return settle(400);`);
     await choose("t:c", "split");
-    const split = await run(`const s = Object.values(st().splits).find((s) => s.tabIds.includes("c")); return s && { id: s.id, tabIds: s.tabIds };`);
+    const split = await run(`const s = Object.values(st().splits).find((s) => s.slots.flatMap((x) => x.stack ?? [x.tabId]).includes("c")); return s && { id: s.id, tabIds: s.slots.flatMap((x) => x.stack ?? [x.tabId]) };`);
     assert.deepEqual(split?.tabIds, ["a", "c"]);
     const menu = await choose(`s:${split.id}#1`, "unsplit");
     assert.ok(itemsOf(menu, "unsplit") && !itemsOf(menu, "split"), "the pane offers Remove from Split View");

@@ -942,7 +942,7 @@ const windowsWhole = (d) =>
       for (const id of w.tabIds) assert.equal(s.tabs[id]?.windowId, w.id, `${id} belongs to ${w.id}`);
       for (const [p, id] of Object.entries(w.activeTabIds)) assert.equal(s.tabs[id]?.windowId, w.id, `${w.id}'s active ${p} tab is in it`);
     }
-    for (const v of Object.values(s.splits)) for (const id of v.tabIds) assert.equal(s.tabs[id]?.windowId, v.windowId, `split ${v.id} keeps ${id} in its window`);
+    for (const v of Object.values(s.splits)) for (const id of splitTabIdsOf(v)) assert.equal(s.tabs[id]?.windowId, v.windowId, `split ${v.id} keeps ${id} in its window`);
     for (const g of Object.values(s.groups)) for (const id of g.tabIds) assert.equal(s.tabs[id]?.windowId, g.windowId, `group ${g.name} keeps ${id} in its window`);
   });
 
@@ -1993,6 +1993,7 @@ test("settings received while this Mac ran a version that didn't sync them take 
 });
 
 const nightlyFour = await import("./fixtures/profileData-v0.2.43-nightly.4.ts");
+const { splitTabIdsOf } = await import("../splits/splits.ts");
 
 class NightlyFourMac extends Device {
   constructor(id, folder) {

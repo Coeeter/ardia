@@ -11,6 +11,7 @@ import { groupEntries } from "../sidebar/entries";
 import { renameFolder } from "../sidebar/tileFolderUi";
 import { chooseFromMenu, type ChoiceItem } from "../app/menuChoice";
 import { entryKey, parseEntry } from "../sidebar/entryKey";
+import { splitTabIds, splitTabIdsOf } from "../splits/splits";
 
 export function tuckTarget(s: BrowserState, windowId: string, profileId: string, groupId: string): string | undefined {
   const members = new Set(s.groups[groupId]?.tabIds ?? []);
@@ -115,7 +116,7 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
     }
     const split = splits.get(id)?.[0];
     if (split) {
-      if (!seen.has(split.id)) out.push(`split:${split.id}:${split.tabIds.join(",")}:${group?.id ?? ""}`);
+      if (!seen.has(split.id)) out.push(`split:${split.id}:${splitTabIds(split).join(",")}:${group?.id ?? ""}`);
       seen.add(split.id);
       continue;
     }
@@ -145,7 +146,7 @@ export function folderMenuItems(s: BrowserState, groupId: string, activeId: stri
       const g = s.groups[id];
       return g ? [{ id: entry, title: groupLabel(s, g), symbol: "folder", children: folderMenuItems(s, id, activeId) }] : [];
     }
-    const tabIds = kind === "split" ? (s.splits[id]?.tabIds ?? []) : [id];
+    const tabIds = kind === "split" ? (splitTabIdsOf(s.splits[id]) ?? []) : [id];
     return tabIds.flatMap((t): FolderMenuItem[] => (s.tabs[t] ? [{ value: { tabId: t }, title: tabLabel(s.tabs[t]!), checked: t === activeId }] : []));
   });
 }

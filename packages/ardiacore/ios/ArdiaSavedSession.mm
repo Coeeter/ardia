@@ -20,7 +20,7 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 @implementation ArdiaSavedSession
 
 + (NSInteger)version {
-  return 6;
+  return 7;
 }
 
 + (instancetype)readFrom:(NSString *)directory {
@@ -62,6 +62,21 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 
 - (id)pinOfTab:(NSDictionary *)tab {
   return _fileVersion < 6 ? tab[@"pinned"] : tab[@"pin"];
+}
+
+- (NSArray<NSString *> *)tabIdsOfSplit:(NSDictionary *)split {
+  NSMutableArray<NSString *> *ids = [NSMutableArray array];
+  if (_fileVersion < 7) {
+    for (id tabId in Typed<NSArray>(split[@"tabIds"]) ?: @[])
+      if ([tabId isKindOfClass:NSString.class]) [ids addObject:tabId];
+    return ids;
+  }
+  for (NSDictionary *slot in Dictionaries(split[@"slots"])) {
+    if (NSString *tabId = Typed<NSString>(slot[@"tabId"])) [ids addObject:tabId];
+    for (id tabId in Typed<NSArray>(slot[@"stack"]) ?: @[])
+      if ([tabId isKindOfClass:NSString.class]) [ids addObject:tabId];
+  }
+  return ids;
 }
 
 - (NSDictionary *)windowWithId:(NSString *)windowId {

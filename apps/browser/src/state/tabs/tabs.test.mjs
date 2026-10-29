@@ -5,6 +5,7 @@ const model = await import("../browser/model.ts");
 const organize = await import("../pins/tabCleanup.ts");
 const { controllingSearchExtension, defaultSearchEngine, searchUrlPrefix } = await import("../settings/settings.ts");
 const media = await import("../media/media.ts");
+const { splitTabIdsOf } = await import("../splits/splits.ts");
 
 const S = () => useBrowser.getState();
 const view = (w) => model.viewTabIds(S(), w).map((id) => S().tabs[id].url);
@@ -155,8 +156,8 @@ test("hydrate drops broken splits", () => {
     windowOrder: S().windowOrder,
     tabs: S().tabs,
     splits: {
-      ok: { id: "ok", windowId: w, tabIds: [a, b], orientation: "horizontal", sizes: [0.5, 0.5] },
-      stale: { id: "stale", windowId: w, tabIds: [a, "gone"], orientation: "horizontal", sizes: [0.5, 0.5] },
+      ok: { id: "ok", windowId: w, orientation: "horizontal", slots: [{ size: 0.5, tabId: a }, { size: 0.5, tabId: b }] },
+      stale: { id: "stale", windowId: w, orientation: "horizontal", slots: [{ size: 0.5, tabId: a }, { size: 0.5, tabId: "gone" }] },
     },
   });
   assert.deepEqual(Object.keys(S().splits), ["ok"]);
@@ -406,7 +407,7 @@ test("Clear keeps the selected tab's split and tabs playing media, and does noth
   assert.deepEqual(cleared.entries.map((x) => short(x.tab.url)), ["c", "e"]);
   assert.deepEqual(hosts(w), ["a", "b", "d"]);
   assert.equal(shown(w), "a");
-  assert.ok(Object.values(S().splits).some((v) => v.tabIds.includes(a) && v.tabIds.includes(b)), "the split stays whole");
+  assert.ok(Object.values(S().splits).some((v) => splitTabIdsOf(v).includes(a) && splitTabIdsOf(v).includes(b)), "the split stays whole");
   assert.equal(S().clearUnpinnedTabs(w), null, "nothing left to clear");
   S().undoClearTabs(cleared);
   assert.deepEqual(hosts(w), before);

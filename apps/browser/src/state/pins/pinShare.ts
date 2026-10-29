@@ -2,7 +2,7 @@ import type { BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { familyKeyOf, inPinnedContainer, isIncognitoProfile, pinKeyOf } from "../browser/model";
 import { asleepFrom, frozenOn, hasPage, holderOfPage, needsPage, withNavigationAt, wokenPage } from "../tabs/pageSession";
-import { splitOf } from "../splits/splits";
+import { splitOf, splitTabIds } from "../splits/splits";
 import { sharedListTab } from "../tabs/tabShare";
 import type { BrowserWindow, Tab, TabGroup, TabLive } from "../browser/types";
 import { isRegularWindow } from "../windows/small";
@@ -160,8 +160,8 @@ const shownIn = (s: BrowserState, t: Tab) => s.windows[t.windowId]?.activeTabIds
 
 function splitLeavers(s: BrowserState, prev: BrowserState): string[] {
   if (s.splits === prev.splits) return [];
-  const now = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
-  return Object.values(prev.splits).flatMap((v) => v.tabIds).filter((id) => !now.has(id));
+  const now = new Set(Object.values(s.splits).flatMap((v) => splitTabIds(v)));
+  return Object.values(prev.splits).flatMap((v) => splitTabIds(v)).filter((id) => !now.has(id));
 }
 
 function oneOwnerPerPin(s: BrowserState, prev: BrowserState): BrowserState {

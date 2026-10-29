@@ -5,7 +5,7 @@ import type { LiveFolder } from "../live/types";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { pinnedAreaKeys } from "../pins/pinnedArea";
 import { findLast, isPinnedRow, pinKeyOf } from "../browser/model";
-import { splitRowPanes } from "../splits/splits";
+import { splitRowPanes, splitTabIdsOf } from "../splits/splits";
 import { mainWindowFor } from "../windows/small";
 import { sidebarEntries } from "../sidebar/entries";
 import { entryId, entryKey, parseEntry } from "./entryKey";
@@ -13,7 +13,7 @@ import { entryId, entryKey, parseEntry } from "./entryKey";
 export function anchorKey(s: Pick<BrowserState, "tabs" | "groups" | "splits" | "windows">, entry: string): string {
   const { kind, id } = parseEntry(entry);
   if (kind === "split") {
-    const panes = s.splits[id]?.tabIds ?? [];
+    const panes = splitTabIdsOf(s.splits[id]) ?? [];
     const last = findLast(s.windows[s.splits[id]?.windowId ?? ""]?.tabIds ?? [], (t) => panes.includes(t));
     return entryKey("tab", last && s.tabs[last] ? pinKeyOf(s.tabs[last]!) : id);
   }

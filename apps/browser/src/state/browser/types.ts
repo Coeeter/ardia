@@ -102,13 +102,13 @@ export type TabGroup = {
   parentId?: string;
 };
 
+export type SplitSlot = { size: number; tabId: string } | { size: number; stack: [string, string]; stackSizes: [number, number] };
+
 export type SplitView = {
   id: string;
   windowId: string;
-  tabIds: string[];
   orientation: "horizontal" | "vertical";
-  sizes: number[];
-  stack?: { index: number; sizes: [number, number] };
+  slots: SplitSlot[];
 };
 
 export type HistoryEntry = {
@@ -163,7 +163,7 @@ export type ClosedWindow = {
 export type ParkedPins = {
   tabs: (TabSnapshot & { id: string; groupId: string | null; restoreFrom?: string })[];
   groups: (Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed"> & { parentId?: string })[];
-  splits?: (Pick<SplitView, "orientation" | "sizes" | "stack"> & { ids: string[] })[];
+  splits?: Pick<SplitView, "orientation" | "slots">[];
 };
 
 export type NestedGroupSnapshot = Pick<TabGroup, "id" | "name" | "icon" | "color" | "collapsed"> & { parentId: string; tabIndexes: number[] };

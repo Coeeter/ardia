@@ -1,7 +1,7 @@
 import type { BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { peekTabId } from "../peek/peek";
-import { splitOf } from "../splits/splits";
+import { splitOf, splitTabIdsOf } from "../splits/splits";
 import { holderOfPage } from "./pageSession";
 
 export function shownTabIds(s: BrowserState): Set<string> {
@@ -14,7 +14,7 @@ export function shownTabIds(s: BrowserState): Set<string> {
     if (peek) shown.add(peek);
     const held = holderOfPage(s.tabs[id]);
     if (held) shown.add(held);
-    for (const pane of splitOf(s, id)?.tabIds ?? []) shown.add(pane);
+    for (const pane of splitTabIdsOf(splitOf(s, id)) ?? []) shown.add(pane);
   }
   return shown;
 }

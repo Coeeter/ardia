@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (nullable NSDictionary *)windowWithId:(NSString *)windowId;
 - (nullable id)pinOfTab:(NSDictionary *)tab;
+- (NSArray<NSString *> *)tabIdsOfSplit:(NSDictionary *)split;
 
 @end
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
+const { splitTabIdsOf } = await import("../splits/splits.ts");
 const { pinKeyOf } = model;
 
 const S = () => useBrowser.getState();
@@ -166,7 +167,7 @@ test("making a split from a shared tab live in another window brings its page in
   assert.ok(S().tabs[a1], "the live tab is still there");
   assert.equal(loaded(a1), true, "with its page");
   assert.equal(S().tabs[a1].windowId, b, "in B");
-  assert.ok(Object.values(S().splits).some((v) => v.windowId === b && v.tabIds.includes(a1) && v.tabIds.includes(b1)), "as a pane of the split");
+  assert.ok(Object.values(S().splits).some((v) => v.windowId === b && splitTabIdsOf(v).includes(a1) && splitTabIdsOf(v).includes(b1)), "as a pane of the split");
   assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
   assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
   assert.equal(pages("https://a1.com").length, 1);
@@ -204,7 +205,7 @@ for (const how of ["openSplitPane", "replaceSplitPane"]) {
     }
     assert.ok(S().tabs[a1], "the live tab is still there");
     assert.equal(S().tabs[a1].windowId, b, "in B");
-    assert.ok(Object.values(S().splits).some((v) => v.windowId === b && v.tabIds.includes(a1) && v.tabIds.includes(b1)), "as a pane of the split");
+    assert.ok(Object.values(S().splits).some((v) => v.windowId === b && splitTabIdsOf(v).includes(a1) && splitTabIdsOf(v).includes(b1)), "as a pane of the split");
     assert.equal(shown(b), a1, "shown there");
     assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
     assert.equal(rowOf(a, "https://a1.com"), undefined, "A's list follows B's");
@@ -232,7 +233,7 @@ for (const where of ["pinned split", "split in a pinned group"]) {
       else S().replaceSplitPane(b3, copy);
       assert.ok(S().tabs[a1], "the live tab is still there");
       assert.equal(S().tabs[a1].windowId, b, "in B");
-      assert.ok(S().splits[splitId].tabIds.includes(a1), "as a pane of the split");
+      assert.ok(splitTabIdsOf(S().splits[splitId]).includes(a1), "as a pane of the split");
       assert.equal(model.inPinnedContainer(S(), a1), true, "pinned with the split");
       assert.equal(S().tabs[copy], undefined, "in place of the frozen copy");
       assert.equal(pages("https://a1.com").length, 1, "no second page loaded");
@@ -261,7 +262,7 @@ for (const where of ["pinned split", "split in a pinned group"]) {
     assert.equal(S().tabs[copy].page.holderId, x);
     S().replaceSplitPane(z, copy);
     assert.equal(S().tabs[x].windowId, b, "the page went to B's split");
-    assert.ok(S().splits[splitId].tabIds.includes(x));
+    assert.ok(splitTabIdsOf(S().splits[splitId]).includes(x));
     const showing = shown(a);
     assert.ok(showing && S().tabs[showing]?.windowId === a, "A still shows one of its own tabs");
     assert.equal(S().windows[a].tabIds.includes(showing), true);

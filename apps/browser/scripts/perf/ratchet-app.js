@@ -17,7 +17,7 @@ const extra = {
         const id = w.activeTabIds?.[w.profileId];
         if (!id) continue;
         ids.add(id);
-        for (const split of Object.values(s.splits ?? {})) if (split.tabIds?.includes(id)) for (const pane of split.tabIds) ids.add(pane);
+        for (const split of Object.values(s.splits ?? {})) if (split.slots.flatMap((x) => x.stack ?? [x.tabId]).includes(id)) for (const pane of split.slots.flatMap((x) => x.stack ?? [x.tabId])) ids.add(pane);
       }
       return ids;
     };

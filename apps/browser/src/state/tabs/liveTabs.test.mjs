@@ -216,6 +216,7 @@ globalThis.acTestTabStrip = chrome;
 const { useBrowser } = await import("../browser/store.ts");
 const model = await import("../browser/model.ts");
 const { startChromeTabs } = await import("./chromeTabs.ts");
+const { splitTabIdsOf } = await import("../splits/splits.ts");
 startChromeTabs();
 
 const S = () => useBrowser.getState();
@@ -441,7 +442,7 @@ test("as in Dia: an extension pinning one pane of a split leaves the split; coll
   chrome.pin(b, true);
   await settle(win);
   assert.equal(!!S().tabs[b].pin, false, "the pane isn't pinned");
-  assert.ok(Object.values(S().splits).some((v) => v.tabIds.includes(a) && v.tabIds.includes(b)), "the split stays");
+  assert.ok(Object.values(S().splits).some((v) => splitTabIdsOf(v).includes(a) && splitTabIdsOf(v).includes(b)), "the split stays");
   assert.equal(chrome.find(b).tab.pinned, false, "Chrome is put back");
   S().activate(c);
   const g = S().groupTabs([c], { pinned: false, name: "C" });

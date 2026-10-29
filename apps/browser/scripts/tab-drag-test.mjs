@@ -295,7 +295,7 @@ try {
       return act("w1", "drag:${x},21;${x},120;${width - 260},380;${width - 255},390;${width - 250},400;${width - 250},402").then(() => settle(1700)).then(() => { clearInterval(iv); return seen; });`);
     assert.ok(state.some((s) => s.lifted && s.onPage), "lifted onto the page");
     assert.ok(state.some((s) => s.target?.side === "right"), `right target ${JSON.stringify(state.slice(-6))}`);
-    const splits = await run(`return Object.values(st().splits).map((v) => v.tabIds);`);
+    const splits = await run(`return Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]));`);
     assert.equal(splits.length, 1);
     assert.equal(splits[0].at(-1), "t3", `split ${JSON.stringify(splits)}`);
   });
@@ -306,7 +306,7 @@ try {
     const windows = await run(`return Object.keys(st().windows).length;`);
     const width = await run(`return st().windows.w1.frame[2];`);
     const x = Math.round((now.at(-1)[0] + now.at(-1)[1]) / 2);
-    const splits = await run(`return Object.values(st().splits).map((v) => v.tabIds);`);
+    const splits = await run(`return Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]));`);
     const seen = await watch("w1", `${x},21;${x},200;${Math.round(width / 4)},560;${Math.round(width / 4)},740`, 1400);
     const shapes = seen.at(-1).shapes;
     assert.deepEqual(shapes.slice(0, 2), ["pill", "card"], `pill, then card: ${shapes}`);
@@ -316,7 +316,7 @@ try {
     const after = await run(`return Object.keys(st().windows).map(loose);`);
     assert.equal(after.length, windows + 1, JSON.stringify(after));
     assert.ok(after.some((ids) => ids.length === 1 && ids[0] === id), JSON.stringify(after));
-    assert.deepEqual(await run(`return Object.values(st().splits).map((v) => v.tabIds);`), splits);
+    assert.deepEqual(await run(`return Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]));`), splits);
   });
 
   await check("a tab dragged out of the window shows its picture there and tears off into a new one", async () => {
@@ -348,7 +348,7 @@ try {
     const moved = await run(`return items("w1");`);
     const pane = Math.round(moved[3][0] + (moved[3][1] - moved[3][0]) * 0.75);
     await drag("w1", [[pane, y], [pane, -40], [pane + 40, -90]]);
-    const state = await run(`return { windows: Object.keys(st().windows).map(loose), splits: Object.values(st().splits).map((v) => v.tabIds) };`);
+    const state = await run(`return { windows: Object.keys(st().windows).map(loose), splits: Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId])) };`);
     assert.ok(state.windows.some((w) => w.length === 1 && w[0] === "t3"), JSON.stringify(state));
     assert.ok(!state.splits.some((v) => v.includes("t3")), JSON.stringify(state));
   });
@@ -390,7 +390,7 @@ try {
       const iv = setInterval(() => { const d = globalThis.acTabDrag.getState(); seen.push(d.target); }, 60);
       return act("w1", "drag:${sx},${sy};${sx + 40},${sy + 20};${left},380;${left + 4},390;${left + 6},396;${left + 6},398").then(() => settle(1700)).then(() => { clearInterval(iv); return seen; });`);
     assert.ok(state.some((t) => t?.side === "left"), `left target ${JSON.stringify(state.slice(-5))}`);
-    const splits = await run(`return Object.values(st().splits).map((v) => v.tabIds);`);
+    const splits = await run(`return Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]));`);
     assert.ok(splits.some((ids) => ids[0] === row.id), JSON.stringify(splits));
   });
   await check("sidebar: nothing moves as a drag starts or ends (the pin target takes no room)", async () => {
@@ -449,7 +449,7 @@ try {
       const before = await order("w1");
       const seen = await run(`const seen = []; const iv = setInterval(() => { const d = globalThis.acTabDrag.getState(); if (d.phase === "tab") seen.push([d.onPage, d.target]); }, 40);
         return act("w1", "drag:${sx},${sy};${sx},${sy + 10};${sx},${to};${sx},${to}").then(() => settle(1600)).then(() => { clearInterval(iv); return seen; });`);
-      assert.deepEqual(await run(`return Object.values(st().splits).map((v) => v.tabIds);`), [], "no split");
+      assert.deepEqual(await run(`return Object.values(st().splits).map((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]));`), [], "no split");
       assert.ok(seen.every(([onPage, target]) => !onPage && !target), `no page target under the sidebar: ${JSON.stringify(seen.slice(-3))}`);
       const after = await order("w1");
       assert.ok(after.indexOf(a.id) > after.indexOf(c.id), `${a.id} moved below ${c.id}: ${before} -> ${after}`);

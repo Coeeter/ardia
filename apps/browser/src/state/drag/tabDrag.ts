@@ -7,7 +7,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import type { Frame } from "../browser/types";
 import { tabTitle } from "../browser/model";
-import { splitOf, type SplitSide } from "../splits/splits";
+import { splitOf, type SplitSide, splitTabIdsOf } from "../splits/splits";
 import { dropTabIntoSplit } from "../splits/actions";
 import { dropTabsOutside, screenPoint, windowUnder } from "./windowDrop";
 import { dropTabsOnBar, followTabDragOnBar } from "../bookmarks/barDrag";
@@ -155,7 +155,7 @@ function takePicture({ session, windowId, tabId }: TabDragging, { chip, grab }: 
   const w = s.windows[windowId];
   const active = w?.activeTabIds[w.profileId];
   const shown = tabId ?? active;
-  const onScreen = !!shown && (shown === active || !!splitOf(s, active)?.tabIds.includes(shown));
+  const onScreen = !!shown && (shown === active || !!splitTabIdsOf(splitOf(s, active))?.includes(shown));
   const live = (onScreen && webviews.get(shown)?.capturePicture(0.35).catch(() => null)) || Promise.resolve(null);
   void live.then((page) => {
     if (tabDragState()?.session !== session) return;

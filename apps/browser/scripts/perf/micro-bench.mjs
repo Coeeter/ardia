@@ -50,7 +50,7 @@ function bigSession(count, bigGroup = 0) {
     groups[`g${g}`] = { id: `g${g}`, windowId: "w", profileId: "default", name: "", icon: null, color: null, collapsed: g % 2 === 0, pinned: false, tabIds: ids.slice(at, at + 20), createdAt: t0 };
   }
   const splits = {};
-  for (let i = 0; i + 1 < count; i += 10) splits[`s${i}`] = { id: `s${i}`, windowId: "w", tabIds: [ids[i], ids[i + 1]], orientation: "horizontal", sizes: [0.5, 0.5] };
+  for (let i = 0; i + 1 < count; i += 10) splits[`s${i}`] = { id: `s${i}`, windowId: "w", orientation: "horizontal", slots: [{ size: 0.5, tabId: ids[i] }, { size: 0.5, tabId: ids[i + 1] }] };
   S().hydrate({
     profiles: { default: { id: "default", name: "Personal", color: "plum", icon: null, createdAt: 0 } },
     profileOrder: ["default"],

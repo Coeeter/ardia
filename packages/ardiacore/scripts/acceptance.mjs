@@ -5458,7 +5458,8 @@ try {
     const groupsBefore = await evalApp(`return Object.keys(ac.store.getState().groups)`);
     const result = () => evalApp(`const s = ac.store.getState(), before = new Set(${JSON.stringify(tabsBefore)}), groupsBefore = new Set(${JSON.stringify(groupsBefore)});
       const opened = Object.values(s.tabs).filter((t) => !before.has(t.id)).map((t) => ({ id: t.id, url: t.url, windowId: t.windowId }));
-      const split = Object.values(s.splits).find((v) => v.tabIds.includes(${JSON.stringify(tab.id)})) ?? null;
+      const found = Object.values(s.splits).find((v) => v.slots.flatMap((x) => x.stack ?? [x.tabId]).includes(${JSON.stringify(tab.id)}));
+      const split = found ? { tabIds: found.slots.flatMap((x) => x.stack ?? [x.tabId]) } : null;
       return { opened, split, newGroups: Object.keys(s.groups).filter((g) => !groupsBefore.has(g)) }`);
     const openInSplit = async (path) => {
       const box = JSON.parse((await cdp(t, "Runtime.evaluate", { expression: `(() => { const a = document.getElementById('next'); a.setAttribute('href', ${JSON.stringify(path)}); return JSON.stringify(a.getBoundingClientRect()); })()`, returnByValue: true })).result.value);

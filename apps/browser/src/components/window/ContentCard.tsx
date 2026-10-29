@@ -26,6 +26,7 @@ import { usePaneLayout } from "./usePaneLayout";
 import { cardChrome } from "./paneChrome";
 import { TabPane } from "./TabPane";
 import { BesidePeekPopovers, PeekPage } from "./PageOverlays";
+import { splitTabIdsOf } from "../../state/splits/splits";
 
 export function ContentCard() {
   const windowId = useWindowId();
@@ -127,7 +128,7 @@ export function ContentCard() {
               fullWidth={size.width}
               fullHeight={size.height}
               focused={tabId === activeId}
-              inActiveSplit={!!split?.tabIds.includes(tabId)}
+              inActiveSplit={!!splitTabIdsOf(split)?.includes(tabId)}
               fullscreen={tabId === fullscreenTab}
               covered={!!fullscreenTab && tabId !== fullscreenTab}
               geometry={geometryFor(rect)}

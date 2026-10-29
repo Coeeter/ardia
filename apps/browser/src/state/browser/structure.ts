@@ -1,4 +1,5 @@
 import type { SplitView, TabGroup } from "./types";
+import { splitTabIds } from "../splits/splits";
 
 const groupIndexes = new WeakMap<Record<string, TabGroup>, Map<string, TabGroup>>();
 const splitIndexes = new WeakMap<Record<string, SplitView>, Map<string, SplitView[]>>();
@@ -29,7 +30,7 @@ export function splitIndex(splits: Record<string, SplitView>): Map<string, Split
   if (!index) {
     index = new Map();
     for (const v of Object.values(splits)) {
-      for (const id of v.tabIds) {
+      for (const id of splitTabIds(v)) {
         const list = index.get(id);
         if (!list) index.set(id, [v]);
         else if (!list.includes(v)) list.push(v);

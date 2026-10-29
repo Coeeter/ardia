@@ -9,7 +9,7 @@ import { groupOf, withGroup } from "../pins/tabGrouping";
 import { placing } from "../pins/placing";
 import { isPeekTab, withoutPeek } from "../peek/peek";
 import { settleMovedPins } from "../pins/pinMirror";
-import { splitOf } from "../splits/splits";
+import { splitOf, splitTabIdsOf } from "../splits/splits";
 import { activated, apply, removeTabs } from "./tabs";
 import { isAdoptKind } from "./adoptIds";
 import { adoptOf } from "./pageSession";
@@ -231,15 +231,15 @@ function placeLike(
 ): BrowserState {
   const w = s.windows[s.tabs[key]!.windowId];
   if (!w) return s;
-  const panes = splitOf(s, key)?.tabIds ?? [key];
+  const panes = splitTabIdsOf(splitOf(s, key)) ?? [key];
   const moving = w.tabIds.filter((id) => panes.includes(id));
   const i = strip.findIndex((t) => t.key === key);
   const other = (t: Keyed) => !!s.tabs[t.key] && !panes.includes(t.key) && s.tabs[t.key]!.windowId === w.id;
   const next = strip.slice(i + 1).find((t) => other(t) && settled.has(t.key))?.key;
   const prior = strip.slice(0, i).reverse().find((t) => other(t) && kept.has(t.key))?.key;
-  const rowStart = (id: string) => w.tabIds.find((t) => splitOf(s, id)?.tabIds.includes(t)) ?? id;
+  const rowStart = (id: string) => w.tabIds.find((t) => splitTabIdsOf(splitOf(s, id))?.includes(t)) ?? id;
   const rowAfter = (id: string) => {
-    const row = splitOf(s, id)?.tabIds ?? [id];
+    const row = splitTabIdsOf(splitOf(s, id)) ?? [id];
     const last = Math.max(...row.map((t) => w.tabIds.indexOf(t)));
     return w.tabIds.slice(last + 1).find((t) => !moving.includes(t)) ?? null;
   };
@@ -279,7 +279,7 @@ function show(s: BrowserState, key: string): BrowserState {
   const w = s.windows[tab.windowId];
   if (!w || w.profileId !== tab.profileId) return s;
   const shown = w.activeTabIds[tab.profileId];
-  if (shown === key || (shown && splitOf(s, shown)?.tabIds.includes(key))) return s.peeks[w.id] ? withoutPeek(s, w.id) : s;
+  if (shown === key || (shown && splitTabIdsOf(splitOf(s, shown))?.includes(key))) return s.peeks[w.id] ? withoutPeek(s, w.id) : s;
   let next = apply(s, activated(s, key));
   if (shown && !switchKeepsOpeners(s, shown, key)) next = forgetOpeners(next, w.id);
   return next;

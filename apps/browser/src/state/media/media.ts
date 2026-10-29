@@ -8,7 +8,7 @@ import { useBrowser } from "../browser/store";
 import type { BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { peekTabId } from "../peek/peek";
-import { splitOf } from "../splits/splits";
+import { splitOf, splitTabIdsOf } from "../splits/splits";
 import { hostOf } from "@ardia/core";
 import { isSleeping } from "../tabs/sleepingTabs";
 
@@ -155,7 +155,7 @@ export function isTabShown(s: BrowserState, tabId: string, profileId?: string): 
   if (!windowId) return false;
   const active = activeTabId(s, windowId, profileId);
   if (!active) return false;
-  return active === tabId || peekTabId(s, windowId) === tabId || !!splitOf(s, active)?.tabIds.includes(tabId);
+  return active === tabId || peekTabId(s, windowId) === tabId || !!splitTabIdsOf(splitOf(s, active))?.includes(tabId);
 }
 
 export function hasPlayer(m: Pick<Store, "sessions" | "dismissed">, tabId: string): boolean {

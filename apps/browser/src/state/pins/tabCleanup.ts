@@ -2,7 +2,7 @@ import type { BrowserState } from "../browser/store";
 import { activeTabId, inPinnedContainer, pinSection, viewTabIds } from "../browser/model";
 import { hasPage } from "../tabs/pageSession";
 import { holderOf } from "./pinShare";
-import { splitOf } from "../splits/splits";
+import { splitOf, splitTabIds, splitTabIdsOf } from "../splits/splits";
 import { lastUsedOf, sharedLastUsed } from "../tabs/tabShare";
 import type { ClosedTab, Tab, TabGroup } from "../browser/types";
 import { withoutFragment } from "../../lib/url";
@@ -39,7 +39,7 @@ export function clearedTabIds(s: BrowserState, windowId: string): string[] {
   const ids = unpinnedTabIds(s, windowId);
   const active = activeTabId(s, windowId);
   const kept = new Set(ids.filter((id) => id === active || s.live[id]?.playingAudio));
-  for (const id of [...kept]) splitOf(s, id)?.tabIds.forEach((pane) => kept.add(pane));
+  for (const id of [...kept]) splitTabIdsOf(splitOf(s, id))?.forEach((pane) => kept.add(pane));
   return ids.filter((id) => !kept.has(id));
 }
 
@@ -59,8 +59,8 @@ function windowFingerprint(s: BrowserState, windowId: string): string {
     .map((g) => [g.id, g.parentId ?? "", g.pinned, g.tabIds.join(",")].join(" "))
     .sort();
   const splits = Object.values(s.splits)
-    .filter((v) => v.tabIds.some(inWindow))
-    .map((v) => v.tabIds.join(","))
+    .filter((v) => splitTabIds(v).some(inWindow))
+    .map((v) => splitTabIds(v).join(","))
     .sort();
   return [...tabs, "", ...groups, "", ...splits].join("\n");
 }
@@ -101,7 +101,7 @@ export function noteDeselectedTabs(s: BrowserState, ids: readonly string[], at =
 function inactivity(s: BrowserState, windowId: string) {
   const active = activeTabId(s, windowId);
   const grouped = new Set(Object.values(s.groups).flatMap((g) => g.tabIds));
-  const inSplit = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
+  const inSplit = new Set(Object.values(s.splits).flatMap((v) => splitTabIds(v)));
   const keep = (t: Tab) => t.id === active || inPinnedContainer(s, t.id) || s.live[t.id]?.playingAudio;
   const used = sharedLastUsed(s);
   return {

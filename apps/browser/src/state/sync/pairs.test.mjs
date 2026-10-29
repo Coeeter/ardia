@@ -9,6 +9,7 @@ const stub = await import("../../test-native/index.ts");
 const { flushPersistence, loadSession, startPersistence } = await import("../session/persist.ts");
 const shipped = await import("../../../../../packages/sync/src/fixtures/scope-v0.2.38.ts");
 const { pinnedAdapter: shippedPinnedAdapter } = await import("./fixtures/pinned-v0.2.38.ts");
+const { splitTabIdsOf } = await import("../splits/splits.ts");
 
 const S = () => useBrowser.getState();
 const PROFILES = ["default", "work"];
@@ -423,7 +424,7 @@ function structure(mac) {
         assert.deepEqual(ranks, [...ranks].sort(), `${mac.id}: tiles, then rows and pinned groups, then tabs in ${win.id}`);
       }
     }
-    for (const v of Object.values(s.splits)) for (const id of v.tabIds) assert.equal(s.tabs[id]?.windowId, v.windowId, `${mac.id}: split in its window`);
+    for (const v of Object.values(s.splits)) for (const id of splitTabIdsOf(v)) assert.equal(s.tabs[id]?.windowId, v.windowId, `${mac.id}: split in its window`);
     for (const g of Object.values(s.groups)) for (const id of g.tabIds) assert.equal(s.tabs[id]?.windowId, g.windowId, `${mac.id}: group ${g.name} keeps its members in its window`);
   });
 }

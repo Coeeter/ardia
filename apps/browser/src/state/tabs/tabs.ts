@@ -9,7 +9,7 @@ import { isPeekTab, withoutPeek } from "../peek/peek";
 import { resolveTyped } from "../settings/settings";
 import { leavesEmptyWindow } from "../omnibox/newTabBarPolicy";
 import { holderOf, withSharedFamily } from "../pins/pinShare";
-import { removeFromSplits, splitOf, withPinnedPanes } from "../splits/splits";
+import { removeFromSplits, splitOf, splitTabIdsOf, withPinnedPanes } from "../splits/splits";
 import { closedTabEntry, MAX_CLOSED_TABS } from "../pins/closedTabs";
 import { pendingRestore, restoreId } from "./adoptIds";
 import type { AdoptId, BrowserWindow, ClosedTab, Tab, TabSnapshot } from "../browser/types";
@@ -204,7 +204,7 @@ export function unloadPinnedTabs(s: BrowserState, requested: string[]): BrowserS
     tabs,
     live,
     find: without(s.find, gone),
-    splits: removeFromSplits(s.splits, new Set(pinned.filter((id) => !splitOf(s, id)?.tabIds.every((pane) => gone.has(pane))))),
+    splits: removeFromSplits(s.splits, new Set(pinned.filter((id) => !splitTabIdsOf(splitOf(s, id))?.every((pane) => gone.has(pane))))),
     selection: pruneSelection(s.selection, gone),
     closedTabs: closed.length ? [...s.closedTabs, ...closed].slice(-MAX_CLOSED_TABS) : s.closedTabs,
   };
@@ -234,7 +234,7 @@ function backToPin(s: BrowserState, t: Tab): Partial<Tab> {
 function lastRegularTab(s: BrowserState, w: BrowserWindow, id: string, closing: Set<string>): string | undefined {
   const profileId = s.tabs[id]!.profileId;
   const candidates = w.tabIds.filter((t) => !closing.has(t) && s.tabs[t]?.profileId === profileId && !inPinnedContainer(s, t));
-  const panes = splitOf(s, id)?.tabIds.filter((t) => candidates.includes(t)) ?? [];
+  const panes = splitTabIdsOf(splitOf(s, id))?.filter((t) => candidates.includes(t)) ?? [];
   const pool = panes.length ? panes : candidates;
   return pool.reduce<string | undefined>((best, t) => (!best || s.tabs[t]!.lastActiveAt > s.tabs[best]!.lastActiveAt ? t : best), undefined);
 }

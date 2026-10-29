@@ -8,6 +8,7 @@ import { removeTabs, withNewTab } from "./tabs";
 import type { Tab, TabGroup } from "../browser/types";
 import { pinnedGroupMembers } from "../browser/structure";
 import { isRegularWindow } from "../windows/small";
+import { splitTabIds, withPaneIds } from "../splits/splits";
 
 type Section = ReturnType<typeof sectionOf>;
 
@@ -22,7 +23,7 @@ export function sharedListTab(s: BrowserState, t: Tab): boolean {
 
 function listMember(s: BrowserState): (t: Tab) => boolean {
   const pinnedMembers = pinnedGroupMembers(s.groups);
-  const inSplit = new Set(Object.values(s.splits).flatMap((v) => v.tabIds));
+  const inSplit = new Set(Object.values(s.splits).flatMap((v) => splitTabIds(v)));
   return (t) => listable(t) && !pinnedMembers.has(t.id) && !inSplit.has(t.id) && s.peeks[t.windowId]?.tabId !== t.id;
 }
 
@@ -72,15 +73,20 @@ function swapPlaces(s: BrowserState, a: string, b: string): BrowserState {
   const tabs = { ...s.tabs };
   tabs[a] = { ...ta, ...slotOf(tb), ...keyField(a, key), ...(moved ? { page: withNavigationAt(ta) } : {}) };
   tabs[b] = { ...tb, ...slotOf(ta), ...keyField(b, key) };
-  return { ...s, tabs, windows, groups: swapAll(s.groups), splits: swapAll(s.splits) };
+  let splits = s.splits;
+  for (const [id, v] of Object.entries(s.splits)) {
+    const ids = swapIn(splitTabIds(v), a, b);
+    if (ids !== splitTabIds(v)) (splits === s.splits ? (splits = { ...s.splits }) : splits)[id] = withPaneIds(v, ids);
+  }
+  return { ...s, tabs, windows, groups: swapAll(s.groups), splits };
 }
 
 export function pagesIntoSplits(s: BrowserState, prev: BrowserState): BrowserState | null {
   if (!sharesTabs(s) || s.splits === prev.splits) return null;
-  const inSplit = (st: BrowserState, id: string) => Object.values(st.splits).some((v) => v.tabIds.includes(id));
+  const inSplit = (st: BrowserState, id: string) => Object.values(st.splits).some((v) => splitTabIds(v).includes(id));
   let next = s;
   for (const v of Object.values(s.splits)) {
-    for (const id of v.tabIds) {
+    for (const id of splitTabIds(v)) {
       const t = next.tabs[id];
       const was = prev.tabs[id];
       const holderId = holderOfPage(t);

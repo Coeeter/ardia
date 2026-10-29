@@ -4,7 +4,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { splitLinkModifierOf, type PeekModifier, type SplitLinkModifier } from "../settings/settings";
-import { MAX_SPLIT_PANES, splitOf } from "../splits/splits";
+import { MAX_SPLIT_PANES, splitOf, splitTabIdsOf } from "../splits/splits";
 import { openSplitPane } from "../splits/actions";
 import { showToast } from "../app/toasts";
 import { isPeekTab, otherSitePeekTabIds, shownPageId } from "./peek";
@@ -57,7 +57,7 @@ export function openPeekInSplit(windowId: string) {
   const s = store();
   const peek = s.peeks[windowId];
   if (!peek) return;
-  if ((splitOf(s, peek.sourceId)?.tabIds.length ?? 0) >= MAX_SPLIT_PANES) {
+  if ((splitTabIdsOf(splitOf(s, peek.sourceId))?.length ?? 0) >= MAX_SPLIT_PANES) {
     return showToast(windowId, "Cannot Add New Pane", `Split View can show up to ${MAX_SPLIT_PANES} tabs at once.`);
   }
   const id = s.peekToTab(windowId, { activate: false });

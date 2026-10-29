@@ -152,14 +152,15 @@ export const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 export function readDrag(c) {
   const marks = dragMarksOf(c.marks);
+  const d = c.session;
   return {
-    drop: c.drop,
-    gapKey: c.gapKey,
-    pitch: c.pitch,
-    into: c.into,
-    external: c.external,
-    gridGrowth: c.gridGrowth,
-    hold: c.holdKey && { key: c.holdKey, ready: c.holdReady },
+    drop: d?.drop ?? { type: "none" },
+    gapKey: d?.gapKey ?? null,
+    pitch: d?.pitch ?? 0,
+    into: d?.into ?? null,
+    external: d?.external ?? 0,
+    gridGrowth: d?.gridGrowth ?? 0,
+    hold: d?.hold.key ? { key: d.hold.key, ready: d.hold.ready } : null,
     marks: {
       dropInto: marks.dropInto,
       onto: marks.onto,

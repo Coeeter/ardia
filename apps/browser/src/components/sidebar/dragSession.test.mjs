@@ -126,7 +126,7 @@ test("landing: which drops slide the ghost to its spot and which drop it at once
     const p = to(m);
     c.move(p.x, p.y);
     c.move(p.x, p.y + 0.5);
-    const drop = name(c.drop);
+    const drop = name(D.readDrag(c).drop);
     animations.held = true;
     c.end(commit);
     await D.settle();
@@ -246,4 +246,24 @@ test("committed drops survive a relaunch: tab order, pins, groups, pinned anchor
     results.push({ label, steps: r.steps });
   }
   traces.check(t, "persistence", results);
+});
+
+test("a drag begun over one that never ended stops the old one's autoscroll and hold timers", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  const m = listScene();
+  const { c } = mount({ entries: m.L.entries, regions: m.regions, viewport: { x: 0, y: 150, w: 200, h: 400 } });
+  const b = frameOf(m, entryKey("tab", m.id.b));
+  await c.begin(entryKey("tab", m.id.b), b.x + 20, b.y + 10);
+  c.scrollY = 40;
+  c.move(60, 540);
+  const t2 = frameOf(m, entryKey("tab", m.id.t2));
+  const a = frameOf(m, entryKey("tab", m.id.a));
+  await c.begin(entryKey("tab", m.id.a), a.x + 20, a.y + 10);
+  const scrolled = c.scroll.scrolled.length;
+  t.mock.timers.tick(1000);
+  assert.equal(c.scroll.scrolled.length, scrolled, "the old drag's autoscroll is stopped");
+  c.move(t2.x + t2.w / 2, t2.y + t2.h / 2);
+  t.mock.timers.tick(1000);
+  c.end(false);
+  assert.equal(D.readDrag(c).gapKey, null);
 });

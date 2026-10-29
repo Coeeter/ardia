@@ -598,12 +598,12 @@ try {
     const FD = ac.shell.devFileDrag; const log = []; let during = null;
     const pts = ${JSON.stringify(points)};
     const before = new Set(Object.keys(st().tabs));
-    const step = (i) => i >= pts.length ? Promise.resolve() : (i === pts.length - 1 ? Promise.resolve(during = { gapKey: c.gapKey, pitch: c.pitch, external: c.external, pins: c.marks.getState().pins, dropInto: c.marks.getState().dropInto }) : Promise.resolve())
+    const step = (i) => i >= pts.length ? Promise.resolve() : (i === pts.length - 1 ? Promise.resolve(during = { gapKey: (c.session?.gapKey ?? null), pitch: (c.session?.pitch ?? 0), external: (c.session?.external ?? 0), pins: c.marks.getState().pins, dropInto: c.marks.getState().dropInto }) : Promise.resolve())
       .then(() => FD.drag("w1", i === pts.length - 1 ? "drop" : "move", pts[i][0], pts[i][1], i === 0 ? ${JSON.stringify(payload)} : undefined))
       .then((r) => { log.push(r); return settle(i === 0 ? 500 : 150); }).then(() => step(i + 1));
     return step(0).then(() => settle(900)).then(() => {
       const w = st().windows.w1;
-      return { log, during, active: w.activeTabIds[w.profileId], order: w.tabIds, after: c.external,
+      return { log, during, active: w.activeTabIds[w.profileId], order: w.tabIds, after: (c.session?.external ?? 0),
         added: w.tabIds.filter((id) => !before.has(id)).map((id) => ({ id, url: st().tabs[id].url, pinned: !!st().tabs[id].pin, group: Object.values(st().groups).find((g) => g.tabIds.includes(id))?.id ?? null })) };
     });`);
   const closeAdded = (out) => run(`st().closeTabs(${JSON.stringify(out.added.map((a) => a.id))}); return settle(700);`);
@@ -719,7 +719,7 @@ try {
     const x = Math.round(b.x + b.w / 2);
     const out = await run(`${SIDEBAR} const FD = ac.shell.devFileDrag; const before = st().windows.w1.tabIds.length;
       return FD.drag("w1", "move", ${x}, ${Math.round(b.y + 3)}, { files: [${JSON.stringify(pdf)}] }).then(() => settle(500))
-        .then(() => { const open = c.gapKey; return FD.drag("w1", "move", 700, 400).then((r) => settle(300).then(() => ({ open, r, gap: c.gapKey, external: c.external }))); })
+        .then(() => { const open = (c.session?.gapKey ?? null); return FD.drag("w1", "move", 700, 400).then((r) => settle(300).then(() => ({ open, r, gap: (c.session?.gapKey ?? null), external: (c.session?.external ?? 0) }))); })
         .then((o) => FD.drag("w1", "cancel", 700, 400).then(() => settle(300)).then(() => ({ ...o, opened: st().windows.w1.tabIds.length - before })));`);
     assert.equal(out.open, b.key, JSON.stringify(out));
     assert.equal(out.gap, null, JSON.stringify(out));
@@ -733,7 +733,7 @@ try {
     const x = Math.round(b.x + b.w / 2);
     const out = await run(`${SIDEBAR} const FD = ac.shell.devFileDrag;
       return FD.drag("w1", "move", ${x}, ${Math.round(b.y + 3)}, { files: [${JSON.stringify(pdf)}] }).then(() => settle(500))
-        .then(() => { const open = c.gapKey; return FD.drag("w1", "end", ${x}, ${Math.round(b.y + 3)}).then((r) => settle(400).then(() => ({ open, r, gap: c.gapKey, external: c.external, active: c.active }))); });`);
+        .then(() => { const open = (c.session?.gapKey ?? null); return FD.drag("w1", "end", ${x}, ${Math.round(b.y + 3)}).then((r) => settle(400).then(() => ({ open, r, gap: (c.session?.gapKey ?? null), external: (c.session?.external ?? 0), active: c.active }))); });`);
     assert.equal(out.open, b.key, JSON.stringify(out));
     assert.deepEqual([out.r, out.gap, out.external, out.active], ["ended", null, 0, false], JSON.stringify(out));
   });

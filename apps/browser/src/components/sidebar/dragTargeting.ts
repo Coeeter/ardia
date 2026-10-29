@@ -14,28 +14,34 @@ import { entryKey } from "../../state/sidebar/entryKey";
 
 export class DragTargeting extends DragGeometry {
   protected clearHold() {
-    clearTimeout(this.holdTimer);
-    this.holdTimer = undefined;
-    this.holdKey = null;
-    this.holdReady = null;
+    const hold = this.session?.hold;
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    hold.timer = undefined;
+    hold.key = null;
+    hold.ready = null;
   }
 
   protected holdOver(target: Item) {
-    if (this.holdKey === target.key) return;
+    const session = this.drag;
+    const { hold } = session;
+    if (hold.key === target.key) return;
     this.clearHold();
-    this.holdKey = target.key;
-    if (folderOf(target)) return void (this.holdReady = target.key);
-    this.holdTimer = setTimeout(() => {
-      if (this.holdKey !== target.key || !this.sources.length) return;
-      this.holdReady = target.key;
+    hold.key = target.key;
+    if (folderOf(target)) return void (hold.ready = target.key);
+    hold.timer = setTimeout(() => {
+      if (this.session !== session || hold.key !== target.key || !session.sources.length) return;
+      hold.ready = target.key;
       this.retarget();
     }, FOLDER_HOLD_MS);
   }
 
   protected retarget() {
-    const { x, y } = this.pointer;
-    const source = this.sources[0]!;
-    const sourceKeys = new Set(this.sources.map((s) => s.key));
+    const session = this.drag;
+    const { x, y } = session.pointer;
+    const { sources, external, regionFrames } = session;
+    const source = sources[0]!;
+    const sourceKeys = new Set(sources.map((s) => s.key));
     const subtree = source.kind === "group" ? new Set([source.groupId, ...descendantGroupIds(source.groupId)]) : null;
     const live = [...this.items.values()].filter(
       (i) => !sourceKeys.has(i.key) && i.frame && !(subtree && ((i.parentGroup && subtree.has(i.parentGroup)) || (i.kind === "group" && subtree.has(i.groupId)))),
@@ -45,13 +51,13 @@ export class DragTargeting extends DragGeometry {
       return f.y + Math.min(f.h, i.headerFrame?.h ?? f.h) / 2;
     };
     const byY = (a: Item, b: Item) => this.at(a.frame, this.still(a))!.y - this.at(b.frame, this.still(b))!.y || a.frame!.x - b.frame!.x;
-    const dragged = new Set(this.sources.flatMap((s) => s.tabIds));
+    const dragged = new Set(sources.flatMap((s) => s.tabIds));
     const firstTab = (i: Item | undefined) => i?.tabIds.find((id) => !dragged.has(id)) ?? null;
     const tabsDrag = source.kind === "row" || source.kind === "tile";
-    const count = this.external || (folderOf(source) ? 1 : dragged.size);
-    const rowPitch = (boxed(source) ? source.foldedHeight() : layout.rowHeight * (source.kind === "split" ? 1 : Math.max(1, this.ghost?.count ?? this.external ?? 1))) + ROW_GAP;
+    const count = external || (folderOf(source) ? 1 : dragged.size);
+    const rowPitch = (boxed(source) ? source.foldedHeight() : layout.rowHeight * (source.kind === "split" ? 1 : Math.max(1, session.ghost?.count ?? external ?? 1))) + ROW_GAP;
     const blocks = live.filter(pinnedBlock).sort(byY);
-    const moved = this.sources
+    const moved = sources
       .filter((s) => s.frame)
       .sort(byY)
       .flatMap((s) => (s.kind === "group" || s.kind === "live" || s.kind === "split" ? [s.key] : s.tabIds.map((id) => entryKey("tab", id))));
@@ -59,24 +65,25 @@ export class DragTargeting extends DragGeometry {
       kind: source.kind === "group" || source.kind === "split" || source.kind === "live" ? source.kind : "tab",
       groupId: source.kind === "group" ? source.groupId : undefined,
       folderId: folderOf(source),
-      external: !!this.external,
+      external: !!external,
     };
 
-    const sidebar = this.viewport ?? this.rootFrame;
-    const tiles = this.at(this.regionFrames.get("tiles") ?? null, this.tilesFixed);
+    const sidebar = session.viewport ?? this.rootFrame;
+    const tiles = this.at(regionFrames.get("tiles") ?? null, this.tilesFixed);
     const balanced = currentSettings().balancedTopApps;
     const away = x > sidebar.x + sidebar.w + 40 || x < sidebar.x - 40 || tabDragOutside();
     const cells = live.filter((i) => i.kind === "tile").sort(byY);
-    const overTiles = !away && tabsDrag && !!tiles && (this.gridBase ? overPins(y, this.pinFloor(live, tiles), this.pinning) : inside(tiles, x, y, 6));
-    if (this.gridBase)
-      this.gridGrowth = Math.min(pinGridHeight(cells.length + (overTiles ? count : 0), this.gridBase.w, layout.pinnedHeight, balanced), this.tilesFixed ? this.tilesRoom : Infinity) - this.gridBase.h;
-    const list = this.at(this.regionFrames.get("list") ?? null);
+    const { gridBase } = session;
+    const overTiles = !away && tabsDrag && !!tiles && (gridBase ? overPins(y, this.pinFloor(live, tiles), this.pinning) : inside(tiles, x, y, 6));
+    if (gridBase)
+      session.gridGrowth = Math.min(pinGridHeight(cells.length + (overTiles ? count : 0), gridBase.w, layout.pinnedHeight, balanced), this.tilesFixed ? this.tilesRoom : Infinity) - gridBase.h;
+    const list = this.at(regionFrames.get("list") ?? null);
     const panel = folderPanel();
-    const panelFrame = panel ? (this.regionFrames.get("folder") ?? null) : null;
+    const panelFrame = panel ? (regionFrames.get("folder") ?? null) : null;
     const wasAway = dragMarksOf(this.marks).folderAway;
-    const inPanel = !away && !wasAway && tabsDrag && !this.external && !!panelFrame && inside(panelFrame, x, y);
+    const inPanel = !away && !wasAway && tabsDrag && !external && !!panelFrame && inside(panelFrame, x, y);
     const folderAway = source.section === "folder" && !inPanel;
-    const canFolder = tabsDrag && !this.external && !folderOf(source);
+    const canFolder = tabsDrag && !external && !folderOf(source);
     const home = source.section === "tiles" && source.frame ? cells.filter((c) => byY(c, source) < 0).length : null;
     const spot = !away && tabsDrag && overTiles && tiles ? this.pointed(tiles, cells, count, home, x, y, canFolder) : null;
     const target = spot?.part === "centre" ? spot.cell : null;
@@ -92,21 +99,21 @@ export class DragTargeting extends DragGeometry {
       byY,
       firstTab,
       tabsDrag,
-      external: !!this.external,
+      external: !!external,
       blocks,
       moved,
       away,
       inPanel,
-      held: target && this.holdReady === target.key ? target : null,
+      held: target && session.hold.ready === target.key ? target : null,
       overTiles,
       tiles,
       spot,
       cells,
       count,
       balanced,
-      grid: !!this.gridBase,
+      grid: !!gridBase,
       inPinned: !!list && y < list.y,
-      kept: { gapKey: this.gapKey, pitch: this.pitch },
+      kept: { gapKey: session.gapKey, pitch: session.pitch },
       shown: (i) => this.shown(i),
       at: (f) => this.at(f),
       ontoTarget: (section) => this.ontoTarget(live, y, section),
@@ -125,21 +132,21 @@ export class DragTargeting extends DragGeometry {
 
     if (folderAway !== dragMarksOf(this.marks).folderAway) markDrag(this.marks, { folderAway });
     const key = JSON.stringify(drop);
-    if (key === this.dropKey && gapKey === this.gapKey) return;
-    if (this.dropKey && drop.type !== "none" && currentSettings().tabReorderHaptics) hapticTick();
-    this.dropKey = key;
-    this.drop = drop;
-    this.into = into;
+    if (key === session.dropKey && gapKey === session.gapKey) return;
+    if (session.dropKey && drop.type !== "none" && currentSettings().tabReorderHaptics) hapticTick();
+    session.dropKey = key;
+    session.drop = drop;
+    session.into = into;
     const pins = drop.type === "tabs" && drop.placement.pinned && !drop.placement.row;
     const held = drop.type === "folder" && !inPanel;
     markDrag(this.marks, { dropInto: into, onto, folderTarget, pins: pins || held, pinCount: pins || held ? count : 0, pinBefore: pins || held ? gapKey : null });
-    if (gapKey !== this.gapKey) {
-      const prev = this.gapKey && this.items.get(this.gapKey);
+    if (gapKey !== session.gapKey) {
+      const prev = session.gapKey && this.items.get(session.gapKey);
       if (prev && !this.inGrid(prev)) spring(prev.gap, 0).start();
       const next = gapKey && this.items.get(gapKey);
       if (next && !this.inGrid(next)) spring(next.gap, pitch).start();
-      this.gapKey = gapKey;
-      this.pitch = pitch;
+      session.gapKey = gapKey;
+      session.pitch = pitch;
     }
   }
 }

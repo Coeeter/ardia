@@ -208,7 +208,7 @@ export function restoringGroup(s: BrowserState, entry: ClosedGroup, requested?: 
   const [restored, ids] = restoreSnapshots(
     next,
     windowId,
-    entry.tabs.map((tab, i) => ({ tab: { ...tab, pinned: false }, tabId: entry.tabIds?.[i], index: index === undefined ? undefined : index + i })),
+    entry.tabs.map((tab, i) => ({ tab: { ...tab, pin: null }, tabId: entry.tabIds?.[i], index: index === undefined ? undefined : index + i })),
   );
   next = restored;
   const home = entry.group.parentId ? next.groups[entry.group.parentId] : undefined;

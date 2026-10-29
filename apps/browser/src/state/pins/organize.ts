@@ -211,7 +211,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const [restored, ids] = restoreSnapshots(
       s,
       w.id,
-      g.tabIds.map((id, i) => ({ tab: { ...snapshotTab(s.tabs[id]!), pinned: false }, index: after + i })),
+      g.tabIds.map((id, i) => ({ tab: { ...snapshotTab(s.tabs[id]!), pin: null }, index: after + i })),
     );
     let groupId2: string;
     [s, groupId2] = withGroup(restored, ids, { name: g.name, pinned: g.pinned, parentId: g.parentId ?? null });

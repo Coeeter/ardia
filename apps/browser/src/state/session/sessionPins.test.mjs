@@ -90,3 +90,18 @@ test("a pin of a kind this version doesn't know, or a broken folder, reads as un
   assert.deepEqual(S().tabs.folded.pin, TILE);
   assert.equal(S().tabs.row.pin, null);
 });
+
+test("a duplicated group and a reopened closed group make tabs with one pin field, nothing from the old shape", () => {
+  stub.docs.clear();
+  S().hydrate({});
+  const w = S().createWindow({ url: "https://a.com/" });
+  const b = S().newTab(w, { url: "https://b.com/", background: true });
+  const c = S().newTab(w, { url: "https://c.com/", background: true });
+  const g = S().groupTabs([b, c], { pinned: false, name: "G" });
+  const copy = S().duplicateGroup(g);
+  S().deleteGroup(g);
+  S().reopenClosedTab();
+  const made = Object.values(S().tabs).filter((t) => t.id !== b && t.id !== c && t.url !== "https://a.com/");
+  assert.ok(made.length >= 2 && S().groups[copy]);
+  for (const t of made) assert.equal("pinned" in t, false, `${t.url} has the old pinned field`);
+});

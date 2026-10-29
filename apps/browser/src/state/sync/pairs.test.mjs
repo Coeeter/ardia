@@ -122,7 +122,7 @@ function freshMac(id, folder, legacy = false) {
 }
 
 const keyOf = (t) => t.pinKey ?? t.id;
-const inContainer = (s, t) => t.pinned || Object.values(s.groups).some((g) => g.pinned && g.tabIds.includes(t.id));
+const inContainer = (s, t) => !!t.pin || Object.values(s.groups).some((g) => g.pinned && g.tabIds.includes(t.id));
 function tabFor(key, profileId) {
   const s = S();
   const all = Object.values(s.tabs).filter((t) => keyOf(t) === key && (!profileId || t.profileId === profileId));
@@ -193,19 +193,19 @@ const OPS = [
     name: "repinX",
     steps: [(k) => { const t = tabFor(k.X); if (t) (S().pinTabs([t.id], false), S().pinTabs([t.id], true, true), done(k, "repinX")); }],
     touches: ["X", "X.kind"],
-    final: (k) => assert.ok(tabFor(k.X)?.pinned && tabFor(k.X).pinnedAsRow, "X pinned again as a row"),
+    final: (k) => assert.ok(tabFor(k.X)?.pin && (tabFor(k.X).pin?.as === "row"), "X pinned again as a row"),
   },
   {
     name: "xTile",
-    steps: [(k) => { const t = tabFor(k.X); if (t?.pinned && t.pinnedAsRow) (S().placeTabs([t.id], { pinned: true, row: false }), done(k, "xTile")); }],
+    steps: [(k) => { const t = tabFor(k.X); if (t?.pin && (t.pin?.as === "row")) (S().placeTabs([t.id], { pinned: true, row: false }), done(k, "xTile")); }],
     touches: ["X.kind"],
-    final: (k) => { const t = tabFor(k.X); if (t?.pinned) assert.equal(!!t.pinnedAsRow, false, "X a tile"); },
+    final: (k) => { const t = tabFor(k.X); if (t?.pin) assert.equal(!!(t.pin?.as === "row"), false, "X a tile"); },
   },
   {
     name: "xRow",
-    steps: [(k) => { const t = tabFor(k.X); if (t?.pinned && !t.pinnedAsRow) (S().placeTabs([t.id], { pinned: true, row: true }), done(k, "xRow")); }],
+    steps: [(k) => { const t = tabFor(k.X); if (t?.pin && !(t.pin?.as === "row")) (S().placeTabs([t.id], { pinned: true, row: true }), done(k, "xRow")); }],
     touches: ["X.kind"],
-    final: (k) => { const t = tabFor(k.X); if (t?.pinned) assert.equal(!!t.pinnedAsRow, true, "X a row"); },
+    final: (k) => { const t = tabFor(k.X); if (t?.pin) assert.equal(!!(t.pin?.as === "row"), true, "X a row"); },
   },
   {
     name: "moveXIntoG",
@@ -330,17 +330,17 @@ const OPS = [
   {
     name: "workRoundTrip",
     steps: [
-      { run: (k) => { const t = tabFor(k.W1, "work"); if (t?.pinned) (S().moveTabToProfile(t.id, "default"), (k.moved = true), (k.w1Row = !!t.pinnedAsRow)); }, sync: ["default"] },
+      { run: (k) => { const t = tabFor(k.W1, "work"); if (t?.pin) (S().moveTabToProfile(t.id, "default"), (k.moved = true), (k.w1Row = !!(t.pin?.as === "row"))); }, sync: ["default"] },
       (k) => { const t = k.moved && tabFor(k.W1, "default"); if (t) (S().moveTabToProfile(t.id, "work"), done(k, "workRoundTrip")); },
     ],
     touches: ["W1", "W1.kind"],
-    final: (k) => assert.ok(tabFor(k.W1, "work")?.pinned && !!tabFor(k.W1, "work").pinnedAsRow === k.w1Row, "W1 back in Work as the kind it was"),
+    final: (k) => assert.ok(tabFor(k.W1, "work")?.pin && !!(tabFor(k.W1, "work").pin?.as === "row") === k.w1Row, "W1 back in Work as the kind it was"),
   },
   {
     name: "workTile",
-    steps: [(k) => { const t = tabFor(k.W1, "work"); if (t?.pinned && t.pinnedAsRow) (S().placeTabs([t.id], { pinned: true, row: false }), done(k, "workTile")); }],
+    steps: [(k) => { const t = tabFor(k.W1, "work"); if (t?.pin && (t.pin?.as === "row")) (S().placeTabs([t.id], { pinned: true, row: false }), done(k, "workTile")); }],
     touches: ["W1.kind"],
-    final: (k) => { const t = tabFor(k.W1, "work"); if (t?.pinned) assert.equal(!!t.pinnedAsRow, false, "W1 a tile"); },
+    final: (k) => { const t = tabFor(k.W1, "work"); if (t?.pin) assert.equal(!!(t.pin?.as === "row"), false, "W1 a tile"); },
   },
 ];
 
@@ -418,7 +418,7 @@ function structure(mac) {
       for (const id of Object.values(win.activeTabIds)) assert.equal(s.tabs[id]?.windowId, win.id, `${mac.id}: active tab in ${win.id}`);
       for (const p of PROFILES) {
         const pinnedMember = new Set(Object.values(s.groups).filter((g) => g.pinned).flatMap((g) => g.tabIds));
-        const rank = (id) => (s.tabs[id].pinned ? (s.tabs[id].pinnedAsRow ? 1 : 0) : pinnedMember.has(id) ? 1 : 2);
+        const rank = (id) => (!!s.tabs[id].pin ? ((s.tabs[id].pin?.as === "row") ? 1 : 0) : pinnedMember.has(id) ? 1 : 2);
         const ranks = win.tabIds.filter((id) => s.tabs[id]?.profileId === p).map(rank);
         assert.deepEqual(ranks, [...ranks].sort(), `${mac.id}: tiles, then rows and pinned groups, then tabs in ${win.id}`);
       }
@@ -432,16 +432,16 @@ function signature(mac, { rows = true } = {}) {
   return mac.with(() => {
     const s = S();
     const out = {};
-    const meta = (t) => `${keyOf(t)}|${t.customTitle ?? ""}|${t.customIcon ?? ""}|${t.pinned ? (t.pinnedUrl ?? "") : ""}`;
+    const meta = (t) => `${keyOf(t)}|${t.customTitle ?? ""}|${t.customIcon ?? ""}|${!!t.pin ? (t.pinnedUrl ?? "") : ""}`;
     const parked = (t) => `${t.id}|${t.customTitle ?? ""}|${t.customIcon ?? ""}|${t.groupId ? "" : (t.pinnedUrl ?? "")}`;
     for (const p of PROFILES) {
       const win = Object.values(s.windows).find((w) => w.profileId === p);
       const ids = win ? win.tabIds.filter((id) => s.tabs[id]?.profileId === p) : [];
       const park = s.parkedPins[p];
-      const isRow = (t) => rows && !!t.pinnedAsRow;
+      const isRow = (t) => rows && !!(t.pin?.as === "row");
       out[p] = {
-        tiles: ids.filter((id) => s.tabs[id].pinned && !isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && !isRow(t)).map(parked)),
-        rows: ids.filter((id) => s.tabs[id].pinned && isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && isRow(t)).map(parked)),
+        tiles: ids.filter((id) => !!s.tabs[id].pin && !isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && !isRow(t)).map(parked)),
+        rows: ids.filter((id) => !!s.tabs[id].pin && isRow(s.tabs[id])).map((id) => meta(s.tabs[id])).concat((park?.tabs ?? []).filter((t) => !t.groupId && isRow(t)).map(parked)),
         groups: Object.values(s.groups)
           .filter((g) => g.pinned && g.profileId === p && g.windowId === win?.id)
           .sort((x, z) => ids.indexOf(x.tabIds[0]) - ids.indexOf(z.tabIds[0]))
@@ -599,7 +599,7 @@ test("a pin waiting for a group that never arrives stands alone once the wait is
   b.relaunch();
   await b.sync();
   assert.equal(record(b, "default", "pin:t:wait").g, null, "and stays a standalone pin after a relaunch");
-  b.with(() => assert.ok(tabFor("wait")?.pinned, "shown as a pin"));
+  b.with(() => assert.ok(tabFor("wait")?.pin, "shown as a pin"));
 });
 
 const copyIn = (w, key) => Object.values(S().tabs).find((t) => t.windowId === w && keyOf(t) === key);
@@ -814,7 +814,7 @@ test("known conflict: a page change on a member while the other Mac unpins its g
     for (let i = 0; i < 6; i++) for (const n of order) await macs[n].sync();
     assert.deepEqual(signature(macs.a), signature(macs.b), `both Macs converge (${order[0]} syncs first)`);
     for (const m of [macs.a, macs.b]) m.with(() => assert.ok(tabFor(k.M), `${m.id}: M is kept`));
-    const pinnedM = macs.a.with(() => !!tabFor(k.M)?.pinned);
+    const pinnedM = macs.a.with(() => !!tabFor(k.M)?.pin);
     const regularG = macs.a.with(() => Object.values(S().groups).some((g) => !g.pinned && keyOf(g) === k.G));
     assert.ok(pinnedM !== regularG, "documented in docs/sync.md: either M follows the unpin and A keeps its group, or M stays pinned on its own and A's group, whose only tab it was, goes");
   }
@@ -841,7 +841,7 @@ async function pinThenUnpinWithFirstLogLate() {
   await a.sync();
   const second = [...folder.files.keys()].filter((id) => !beforeSecond.has(id));
   await b.sync();
-  const pinned = (mac) => mac.with(() => Object.values(S().tabs).some((t) => (t.pinKey ?? t.id) === key && t.pinned));
+  const pinned = (mac) => mac.with(() => Object.values(S().tabs).some((t) => (t.pinKey ?? t.id) === key && !!t.pin));
   return { folder, a, b, key, pinned, second };
 }
 

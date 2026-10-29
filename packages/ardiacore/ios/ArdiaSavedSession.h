@@ -5,6 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface ArdiaSavedSession : NSObject
 
 @property(class, readonly) NSInteger version;
+@property(readonly) NSInteger fileVersion;
 
 + (nullable instancetype)readFrom:(nullable NSString *)directory;
 + (nullable instancetype)atLaunch:(nullable NSString *)directory;
@@ -23,6 +24,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property(readonly) NSArray<NSDictionary *> *splits;
 
 - (nullable NSDictionary *)windowWithId:(NSString *)windowId;
+- (nullable id)pinOfTab:(NSDictionary *)tab;
 
 @end
 

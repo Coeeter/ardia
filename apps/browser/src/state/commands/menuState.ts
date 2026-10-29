@@ -87,7 +87,7 @@ export function menuState(s: BrowserState): MenuState {
   if (w && !w.sidebarOpen) checked.push("toggleSidebar");
 
   const titles: Record<string, string> = {};
-  if (tab?.pinned) titles.togglePin = togglePinTitle(tab);
+  if (tab?.pin) titles.togglePin = togglePinTitle(tab);
   if (isPinnedRow(tab)) titles["togglePin:tile"] = "Move to Top Apps";
   else disabled.push("togglePin:tile");
   if (page) titles.toggleMute = muteTitle(muteState(s, page));

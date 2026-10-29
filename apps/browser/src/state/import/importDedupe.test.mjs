@@ -19,7 +19,7 @@ test("re-importing an Arc space adds no pinned tab whose page is already pinned 
       { type: "url", title: "Left", url: "https://left.example/" },
     ],
   };
-  const pinnedCount = () => Object.values(S().tabs).filter((t) => t.pinned).length;
+  const pinnedCount = () => Object.values(S().tabs).filter((t) => !!t.pin).length;
   assert.equal(importArcSpace(P, space).tabs, 3);
   const after = pinnedCount();
   const tabCount = Object.keys(S().tabs).length;
@@ -113,7 +113,7 @@ test("Arc favorites land as tiles after the space's rows and folders came in", a
   const result = { tabs: [], spaces: [space], favorites, history: [], credentials: [], favicons: [], bookmarks: null, vaultToken: null };
   const counts = await applyResult(P, result, "Arc", []);
   assert.equal(counts.tabs, 2);
-  const tiles = Object.values(S().tabs).filter((t) => t.pinned && !t.pinnedAsRow).map((t) => t.url).sort();
+  const tiles = Object.values(S().tabs).filter((t) => !!t.pin && !(t.pin?.as === "row")).map((t) => t.url).sort();
   assert.deepEqual(tiles, ["https://row.example/", "https://www.youtube.com/"]);
 });
 

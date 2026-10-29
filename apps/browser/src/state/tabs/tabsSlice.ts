@@ -191,7 +191,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
     const [next, copy] = withNewTab(s, w.id, {
       url: source.url || undefined,
       profileId: source.profileId,
-      snapshot: { ...snapshotTab(source), pinned: false },
+      snapshot: { ...snapshotTab(source), pin: null },
       index: w.tabIds.indexOf(id) + 1,
       adoptId: source.url ? cloneId(id) : undefined,
     });
@@ -201,7 +201,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
 
   togglePin(id) {
     const tab = get().tabs[id];
-    if (tab) get().pinTabs([id], !tab.pinned);
+    if (tab) get().pinTabs([id], !tab.pin);
   },
 
   moveTab(id, toIndex) {

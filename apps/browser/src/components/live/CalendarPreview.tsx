@@ -15,7 +15,7 @@ import { liveType, useLiveColors } from "./tokens";
 import { UI_LOCALE } from "../../lib/uiLocale";
 
 export function useIsCalendarTab(tabId: string | null): boolean {
-  const pinnedCalendar = useTab(tabId ?? undefined, (t) => !!t?.pinned && isCalendarUrl(t.pinnedUrl ?? t.url));
+  const pinnedCalendar = useTab(tabId ?? undefined, (t) => !!t?.pin && isCalendarUrl(t.pinnedUrl ?? t.url));
   const on = useLive((s) => s.calendar.showPreview);
   return pinnedCalendar && on;
 }

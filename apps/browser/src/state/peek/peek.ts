@@ -29,7 +29,7 @@ export function otherSitePeekTabIds(s: Pick<BrowserState, "tabs" | "groups" | "s
   if (!s.settings.peekLinksToOtherSites) return [];
   const inPinnedGroup = pinnedGroupMembers(s.groups);
   return Object.keys(s.tabs)
-    .filter((id) => s.tabs[id]!.pinned || inPinnedGroup.has(id))
+    .filter((id) => s.tabs[id]!.pin || inPinnedGroup.has(id))
     .sort();
 }
 

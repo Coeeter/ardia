@@ -248,7 +248,7 @@ test("another window taking a shared pin's page closes the peek opened from it",
   const b = S().createWindow({ url: "https://b.example/" });
   const id = S().openPeek(mail, "https://peek.example/");
   assert.equal(peekTabId(S(), a), id);
-  const copy = viewTabIds(S(), b).find((t) => S().tabs[t].pinned);
+  const copy = viewTabIds(S(), b).find((t) => !!S().tabs[t].pin);
   S().activate(copy);
   assert.equal(S().tabs[mail].windowId, b);
   assert.equal(S().peeks[a], undefined);

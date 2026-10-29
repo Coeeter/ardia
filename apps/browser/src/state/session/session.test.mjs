@@ -42,8 +42,8 @@ test("hydrate repairs dangling references", () => {
       w2: { id: "w2", profileId: "default", incognito: false, tabIds: [], activeTabIds: {}, sidebarOpen: true, frame: null, createdAt: 0 },
     },
     tabs: {
-      t1: { id: "t1", windowId: "w1", profileId: "default", url: "https://a.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
-      t2: { id: "t2", windowId: "nowhere", profileId: "default", url: "https://b.com", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
+      t1: { id: "t1", windowId: "w1", profileId: "default", url: "https://a.com", title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
+      t2: { id: "t2", windowId: "nowhere", profileId: "default", url: "https://b.com", title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 },
     },
     groups: { g: { id: "g", windowId: "w1", profileId: "default", name: "", icon: null, color: null, collapsed: false, pinned: false, tabIds: ["missing"], createdAt: 0 } },
   });
@@ -196,7 +196,7 @@ test("⌘W on a pinned tab unloads its page; the tile stays with its title, icon
   S().closeTab(p);
   const tile = S().tabs[p];
   assert.ok(tile, "the pinned tab still exists");
-  assert.equal(tile.pinned, true);
+  assert.equal(!!tile.pin, true);
   assert.equal(tile.url, "https://mail.com");
   assert.equal(tile.title, "Inbox");
   assert.equal(tile.favicon, "data:mail");
@@ -288,7 +288,7 @@ test("quit and relaunch after the window closed: the next window has the pinned 
 
 test("a session.json with the right version but broken lists loads what is whole and drops the rest", () => {
   reset();
-  const tab = { id: "t1", windowId: "w1", profileId: "default", url: "https://kept.example/", title: "Kept", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: null, openerId: null, createdAt: 0, lastActiveAt: 0 };
+  const tab = { id: "t1", windowId: "w1", profileId: "default", url: "https://kept.example/", title: "Kept", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: null, openerId: null, createdAt: 0, lastActiveAt: 0 };
   const window = { id: "w1", profileId: "default", incognito: false, tabIds: ["t1"], activeTabIds: { default: "t1" }, sidebarOpen: true, frame: null, createdAt: 0 };
   for (const broken of [
     { windows: {}, tabs: {}, groups: "no", splits: 7, closedTabs: null },

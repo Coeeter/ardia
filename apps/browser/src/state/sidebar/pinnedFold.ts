@@ -1,6 +1,6 @@
 import type { MenuItem } from "../../platform/menus";
 import { useBrowser, type BrowserState } from "../browser/store";
-import { activeTabId, tabLayoutOf } from "../browser/model";
+import { activeTabId, isPinnedRow, tabLayoutOf } from "../browser/model";
 import { live } from "../live/store";
 import { updateProfile } from "../profiles/actions";
 import { keptEntry } from "./entries";
@@ -33,7 +33,7 @@ export const shownPinnedEntries = (s: BrowserState, windowId: string, profileId:
 function pinnedSectionTabs(s: Pick<BrowserState, "tabs" | "groups">, profileId: string): Set<string> {
   const ids = new Set<string>();
   for (const g of Object.values(s.groups)) if (g.pinned && g.profileId === profileId) for (const id of g.tabIds) ids.add(id);
-  for (const t of Object.values(s.tabs)) if (t.profileId === profileId && t.pinned && t.pinnedAsRow) ids.add(t.id);
+  for (const t of Object.values(s.tabs)) if (t.profileId === profileId && isPinnedRow(t)) ids.add(t.id);
   return ids;
 }
 

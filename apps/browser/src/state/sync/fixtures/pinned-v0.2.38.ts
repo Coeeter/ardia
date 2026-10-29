@@ -1,7 +1,7 @@
 import { assignPositions, type Adapter, type Extraction } from "@ardia/sync";
 import { useBrowser, type BrowserState } from "../../browser/store";
 import { orderSections, syncGroupOrder } from "../../groups/groups";
-import { makeTab, pinKeyOf, without } from "../../browser/model";
+import { makeTab, pinKeyOf, TILE_PIN, without } from "../../browser/model";
 import { adoptParkedPins, parkWindowPins } from "../../pins/parkedPins";
 import { removeTabs } from "../../tabs/tabs";
 import type { Tab, TabGroup } from "../../browser/types";
@@ -40,7 +40,7 @@ export function pinnedAdapter(profileId: string): Adapter {
           const t = s.tabs[id];
           if (!t || t.profileId !== profileId || seen.has(pinKeyOf(t))) continue;
           const g = pinnedGroupOf.get(id);
-          if (t.pinned) tiles.push({ ...t, id: pinKeyOf(t) });
+          if (t.pin) tiles.push({ ...t, id: pinKeyOf(t) });
           else if (g) {
             const key = pinKeyOf(g);
             if (!members.has(key)) {
@@ -107,7 +107,7 @@ export function pinnedAdapter(profileId: string): Adapter {
       });
       s = removeTabs(s, removable, false);
       const tabs = { ...s.tabs };
-      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinKey: undefined };
+      for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pin: null, pinnedUrl: null, pinKey: undefined };
       let groups = { ...s.groups };
       for (const k of changed) if (k.startsWith("pin:g:") && !visible.has(k) && scope.has(groups[gid(k.slice(6))]?.windowId ?? "")) delete groups[gid(k.slice(6))];
       const windows = { ...s.windows };
@@ -125,7 +125,7 @@ export function pinnedAdapter(profileId: string): Adapter {
         if (old) {
           tabs[id] = {
             ...old,
-            pinned: !group,
+            pin: group ? null : (old.pin ?? TILE_PIN),
             pinnedUrl: group ? null : v.u,
             customTitle: v.t,
             customIcon: v.i,
@@ -137,7 +137,7 @@ export function pinnedAdapter(profileId: string): Adapter {
         const w = windows[windowId];
         if (!w) continue;
         const tab: Tab = {
-          ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
+          ...makeTab(windowId, profileId, v.u, { title: v.ti, pin: group ? null : TILE_PIN, customTitle: v.t, customIcon: v.i }),
           id,
           pinnedUrl: group ? null : v.u,
           page: { kind: "asleep" },

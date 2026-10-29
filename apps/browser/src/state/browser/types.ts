@@ -42,14 +42,12 @@ export type Tab = {
   url: string;
   title: string;
   favicon: string | null;
-  pinned: boolean;
+  pin: TabPin | null;
   muted: boolean;
   zoom: number;
   customTitle: string | null;
   customIcon: string | null;
   pinnedUrl: string | null;
-  pinnedAsRow?: true;
-  tileFolder?: TileFolder;
   page: TabPage;
   openerId: string | null;
   liveItem?: { folderId: string; itemId: string };
@@ -70,6 +68,8 @@ export type TabPage =
   | { kind: "frozen"; holderId: string; wake?: AdoptId }
   | { kind: "adopted"; adopt: AdoptId; nav: Navigation | null }
   | { kind: "loaded"; nav: Navigation };
+
+export type TabPin = { as: "tile"; folder?: TileFolder } | { as: "row" };
 
 export type TileFolder = { id: string; name: string; renamedAt?: number };
 
@@ -132,9 +132,9 @@ export type Bookmarks = {
 
 export type TabSnapshot = Pick<
   Tab,
-  "url" | "title" | "favicon" | "pinned" | "muted" | "zoom" | "customTitle" | "customIcon" | "profileId"
+  "url" | "title" | "favicon" | "pin" | "muted" | "zoom" | "customTitle" | "customIcon" | "profileId"
 > &
-  Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow" | "tileFolder" | "engine">>;
+  Partial<Pick<Tab, "pinnedUrl" | "engine">>;
 
 export type ClosedTab = {
   kind: "tab";

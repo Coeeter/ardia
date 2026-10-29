@@ -11,7 +11,7 @@ import { restoreLaunchLook, saveLaunchLook } from "../windows/launchLook";
 import { parkWindowPins } from "../pins/parkedPins";
 import { closedWindowEntry, MAX_CLOSED_WINDOWS } from "../pins/closedTabs";
 import { isPeekTab } from "../peek/peek";
-import type { AdoptId, BrowserWindow, Tab, TabPage } from "../browser/types";
+import type { AdoptId, BrowserWindow, Tab, TabPage, TabPin, TileFolder } from "../browser/types";
 import { downloadSession } from "../downloads/downloadsSlice";
 import { parseSaved, versionedJson, unchanged, type Migrations, type SavedObject } from "../../lib/savedDocument";
 import { sessionWithCleanUpMinutes } from "../settings/cleanUpAfter";
@@ -21,7 +21,7 @@ import { isFields, isString, isStringList } from "../../lib/decode";
 
 const SAVE_DELAY_MS = 800;
 type SavedPage = Extract<TabPage, { kind: "idle" | "asleep" }>;
-const SESSION_VERSION = 5;
+const SESSION_VERSION = 6;
 const isRestoreId = (v: unknown): v is AdoptId => isString(v) && isAdoptKind(v, "restore");
 const sessionWithTabPages = (doc: SavedObject): SavedObject => ({
   ...doc,
@@ -33,7 +33,35 @@ const sessionWithTabPages = (doc: SavedObject): SavedObject => ({
       })
     : doc.tabs,
 });
-const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes, 4: sessionWithTabPages };
+const folderOf = (v: unknown): TileFolder | undefined =>
+  isFields(v) && isString(v.id) && isString(v.name) ? { id: v.id, name: v.name, ...(typeof v.renamedAt === "number" ? { renamedAt: v.renamedAt } : {}) } : undefined;
+const withPin = (t: unknown): unknown => {
+  if (!isFields(t)) return t;
+  const { pinned, pinnedAsRow, tileFolder, ...tab } = t;
+  const folder = folderOf(tileFolder);
+  return { ...tab, pin: pinned !== true ? null : pinnedAsRow === true ? { as: "row" } : folder ? { as: "tile", folder } : { as: "tile" } };
+};
+const pinFromDisk = (v: unknown): TabPin | null => {
+  if (!isFields(v)) return null;
+  if (v.as === "row") return { as: "row" };
+  if (v.as !== "tile") return null;
+  const folder = folderOf(v.folder);
+  return folder ? { as: "tile", folder } : { as: "tile" };
+};
+const withPins = (list: unknown) => (Array.isArray(list) ? list.map(withPin) : list);
+const entriesWith = (list: unknown, key: "tab" | "tabs") =>
+  Array.isArray(list) ? list.map((e: unknown) => (isFields(e) && key in e ? { ...e, [key]: key === "tab" ? withPin(e.tab) : withPins(e.tabs) } : e)) : list;
+const sessionWithTabPins = (doc: SavedObject): SavedObject => ({
+  ...doc,
+  tabs: withPins(doc.tabs),
+  closedTabs: entriesWith(doc.closedTabs, "tab"),
+  cleanedTabs: entriesWith(doc.cleanedTabs, "tab"),
+  closedWindows: entriesWith(doc.closedWindows, "tabs"),
+  closedGroups: entriesWith(doc.closedGroups, "tabs"),
+  deletedGroups: entriesWith(doc.deletedGroups, "tabs"),
+  parkedPins: isFields(doc.parkedPins) ? Object.fromEntries(Object.entries(doc.parkedPins).map(([p, park]) => [p, isFields(park) ? { ...park, tabs: withPins(park.tabs) } : park])) : doc.parkedPins,
+});
+const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes, 4: sessionWithTabPages, 5: sessionWithTabPins };
 const downloadsWithStagingPathOnly = (doc: SavedObject): SavedObject => ({
   ...doc,
   downloads: Array.isArray(doc.downloads)
@@ -156,7 +184,7 @@ export function parseSession(json: string | null | undefined): SavedSession | nu
     windowOrder: strings(raw.windowOrder),
     focusedWindowId: nullableString(raw.focusedWindowId),
     lastProfileId: nullableString(raw.lastProfileId),
-    tabs: byId(rows<Tab>(raw.tabs, tabOk).map((t) => ({ ...t, page: pageFromDisk(t.page) }))),
+    tabs: byId(rows<Tab>(raw.tabs, tabOk).map((t) => ({ ...t, page: pageFromDisk(t.page), pin: pinFromDisk(t.pin) }))),
     groups: byId(rows(raw.groups, groupOk)),
     splits: byId(rows(raw.splits, splitOk)),
     closedTabs: rows(raw.closedTabs, closedTabOk),

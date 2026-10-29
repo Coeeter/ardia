@@ -12,7 +12,7 @@ const stub = await import("../../test-native/index.ts");
 const S = () => useBrowser.getState();
 startTabReveal();
 const tab = (id, windowId, url, profileId = "default") => ({
-  id, windowId, profileId, url, title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null,
+  id, windowId, profileId, url, title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null,
   pinnedUrl: null, page: url ? { kind: "loaded", nav: { url, seq: 1 } } : { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0,
 });
 const win = (id, tabIds, active, extra = {}) => ({

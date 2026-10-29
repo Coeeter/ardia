@@ -6,6 +6,7 @@ import { splitOf } from "../splits/splits";
 import { lastUsedOf, sharedLastUsed } from "../tabs/tabShare";
 import type { ClosedTab, Tab, TabGroup } from "../browser/types";
 import { withoutFragment } from "../../lib/url";
+import { tileFolderOf } from "./tileFolders";
 
 export type ClearedTabs = {
   windowId: string;
@@ -51,7 +52,7 @@ function windowFingerprint(s: BrowserState, windowId: string): string {
   const inWindow = (id: string) => s.tabs[id]?.windowId === windowId;
   const tabs = w.tabIds.map((id) => {
     const t = s.tabs[id];
-    return t ? [id, t.profileId, pinSection(t), t.tileFolder?.id ?? ""].join(" ") : id;
+    return t ? [id, t.profileId, pinSection(t), tileFolderOf(t)?.id ?? ""].join(" ") : id;
   });
   const groups = Object.values(s.groups)
     .filter((g) => g.windowId === windowId)
@@ -126,7 +127,7 @@ export function cleanUpCandidates(s: BrowserState, windowId: string, inactiveFor
   }
   for (const same of byPage.values()) {
     if (same.length < 2) continue;
-    const keeper = same.find((t) => t.pinned) ?? same.find((t) => t.id === active) ?? [...same].sort((a, b) => lastUsedOf(used, b) - lastUsedOf(used, a))[0]!;
+    const keeper = same.find((t) => t.pin) ?? same.find((t) => t.id === active) ?? [...same].sort((a, b) => lastUsedOf(used, b) - lastUsedOf(used, a))[0]!;
     for (const t of same) if (t !== keeper && !keep(t) && !inSplit.has(t.id)) out.add(t.id);
   }
   for (const id of view) {
@@ -153,7 +154,7 @@ export function abandonedNewTabs(s: BrowserState, windowId: string): string[] {
   const shown = w.activeTabIds[w.profileId];
   const out = w.tabIds.filter((id) => {
     const t = s.tabs[id];
-    return !!t && t.windowId === w.id && !t.url && !hasPage(t) && !t.pinned && id !== shown && !selected.has(id);
+    return !!t && t.windowId === w.id && !t.url && !hasPage(t) && !t.pin && id !== shown && !selected.has(id);
   });
   return out.length >= w.tabIds.length ? out.slice(0, w.tabIds.length - 1) : out;
 }

@@ -11,7 +11,7 @@ const S = () => useBrowser.getState();
 const reset = () => S().hydrate({});
 const loaded = (id) => !!S().tabs[id]?.page.nav || !!S().tabs[id]?.page.adopt;
 const shown = (w) => model.activeTabId(S(), w);
-const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === url);
+const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => !!S().tabs[id].pin && S().tabs[id].pinnedUrl === url);
 const pages = (url) => Object.values(S().tabs).filter((t) => t.pinnedUrl === url && (t.page.nav || t.page.adopt));
 
 function twoWindows() {
@@ -59,7 +59,7 @@ test("B switching to another tab leaves the page in B until another window asks"
   reset();
   const { a, b, mail } = twoWindows();
   S().activate(tileOf(b, "https://mail.com"));
-  const other = model.viewTabIds(S(), b).find((id) => !S().tabs[id].pinned);
+  const other = model.viewTabIds(S(), b).find((id) => !S().tabs[id].pin);
   S().activate(other);
   assert.equal(S().tabs[mail].windowId, b, "it stays");
   assert.equal(loaded(mail), true);
@@ -157,7 +157,7 @@ test("reopening a closed pinned tile while another window holds the page brings 
 test("a pin in a split keeps its own page; private windows have no pins; another profile's pin shares only with itself", () => {
   reset();
   const { a, b, mail } = twoWindows();
-  const regular = model.viewTabIds(S(), a).find((id) => !S().tabs[id].pinned);
+  const regular = model.viewTabIds(S(), a).find((id) => !S().tabs[id].pin);
   S().createSplit([mail, regular]);
   const copy = tileOf(b, "https://mail.com");
   S().activate(copy);
@@ -166,7 +166,7 @@ test("a pin in a split keeps its own page; private windows have no pins; another
   assert.equal(S().tabs[copy].page.holderId, undefined);
 
   const p = S().createWindow({ incognito: true, url: "https://secret.com" });
-  assert.equal(model.viewTabIds(S(), p).some((id) => S().tabs[id].pinned), false);
+  assert.equal(model.viewTabIds(S(), p).some((id) => !!S().tabs[id].pin), false);
 
   reset();
   const two = twoWindows();
@@ -232,7 +232,7 @@ test("a background wake of a copy whose page another window holds never makes a 
   reset();
   const two = twoWindows();
   S().activate(two.docs);
-  const other = model.viewTabIds(S(), two.a).find((id) => !S().tabs[id].pinned);
+  const other = model.viewTabIds(S(), two.a).find((id) => !S().tabs[id].pin);
   S().activate(other);
   S().closeTab(two.mail);
   const bCopy = tileOf(two.b, "https://mail.com");
@@ -246,7 +246,7 @@ test("a background wake of a copy whose page another window holds never makes a 
 test("leaving a split hands the pin back to one page", () => {
   reset();
   const { a, b, mail } = twoWindows();
-  const regular = model.viewTabIds(S(), a).find((id) => !S().tabs[id].pinned);
+  const regular = model.viewTabIds(S(), a).find((id) => !S().tabs[id].pin);
   const split = S().createSplit([mail, regular]);
   const copy = tileOf(b, "https://mail.com");
   S().activate(copy);

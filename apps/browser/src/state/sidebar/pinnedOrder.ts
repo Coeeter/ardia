@@ -4,7 +4,7 @@ import { arrangeFolders, live, useLive } from "../live/store";
 import type { LiveFolder } from "../live/types";
 import { useBrowser, type BrowserState } from "../browser/store";
 import { pinnedAreaKeys } from "../pins/pinnedArea";
-import { findLast, pinKeyOf } from "../browser/model";
+import { findLast, isPinnedRow, pinKeyOf } from "../browser/model";
 import { splitRowPanes } from "../splits/splits";
 import { mainWindowFor } from "../windows/small";
 import { sidebarEntries } from "../sidebar/entries";
@@ -53,8 +53,8 @@ export function pinnedSequence(s: BrowserState, folders: Record<string, LiveFold
 
 const stillPinned = (s: Pick<BrowserState, "tabs" | "groups" | "splits">, entry: string, profileId: string | undefined): boolean => {
   const { kind, id } = parseEntry(entry);
-  if (kind === "split") return splitRowPanes(s, s.splits[id]).some((t) => s.tabs[t]!.pinned && s.tabs[t]!.profileId === profileId);
-  if (kind === "tab") return !!s.tabs[id]?.pinned && !!s.tabs[id]!.pinnedAsRow && s.tabs[id]!.profileId === profileId;
+  if (kind === "split") return splitRowPanes(s, s.splits[id]).some((t) => s.tabs[t]!.pin && s.tabs[t]!.profileId === profileId);
+  if (kind === "tab") return isPinnedRow(s.tabs[id]) && s.tabs[id]!.profileId === profileId;
   if (kind === "group") return !!s.groups[id]?.pinned && !s.groups[id]!.parentId && s.groups[id]!.profileId === profileId;
   return true;
 };

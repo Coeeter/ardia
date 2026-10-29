@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
-import { newId } from "../browser/model";
+import { isPinnedRow, newId } from "../browser/model";
 import { closingGroup } from "../pins/closedTabs";
 import { withGroup } from "../pins/tabGrouping";
 import { withSplitRows } from "../splits/splits";
@@ -39,7 +39,7 @@ export function syncGroupOrder(groups: Record<string, TabGroup>, window: Browser
 
 export function orderSections(ids: string[], tabs: Record<string, Tab>, groups: Record<string, TabGroup>): string[] {
   const pinnedGroup = pinnedGroupMembers(groups);
-  const rank = (id: string) => (tabs[id]?.pinned ? (tabs[id]!.pinnedAsRow ? 1 : 0) : pinnedGroup.has(id) ? 1 : 2);
+  const rank = (id: string) => (tabs[id]?.pin ? (isPinnedRow(tabs[id]) ? 1 : 0) : pinnedGroup.has(id) ? 1 : 2);
   const out = [0, 1, 2].flatMap((r) => ids.filter((id) => rank(id) === r));
   return out.every((id, i) => id === ids[i]) ? ids : out;
 }
@@ -165,7 +165,7 @@ export const createGroupsSlice: StateCreator<BrowserState, [], [], GroupsSlice> 
       if (!group) return {};
       const adding = withSplitRows(s, tabIds).filter((id) => {
         const t = s.tabs[id];
-        return t && !t.pinned && t.windowId === group.windowId && t.profileId === group.profileId && !group.tabIds.includes(id);
+        return t && !t.pin && t.windowId === group.windowId && t.profileId === group.profileId && !group.tabIds.includes(id);
       });
       if (!adding.length) return {};
       const w = s.windows[group.windowId]!;

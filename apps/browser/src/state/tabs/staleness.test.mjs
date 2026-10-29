@@ -54,7 +54,7 @@ const row = (tabId, windowId) =>
       return {
         title: tab?.customTitle ?? tab?.title,
         url: tab?.url,
-        pinned: tab?.pinned,
+        pinned: !!tab?.pin,
         favicon: tab?.favicon,
         gone: !tab,
         active: !!(flags & ACTIVE),
@@ -140,7 +140,7 @@ test("a row's tab and flags survive a relaunch: a row mounted on the restored se
   const stop = startPersistence();
   const w = S().createWindow({ url: "https://a.com/" });
   const b = S().newTab(w, { url: "https://b.com/", background: true });
-  S().updateTab(b, { title: "Before quit", pinned: true });
+  S().updateTab(b, { title: "Before quit", pin: { as: "tile" } });
   S().activate(b);
   flushPersistence();
   stop();

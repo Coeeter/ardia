@@ -60,7 +60,7 @@ export function withGroup(
   ids: string[],
   o: { name?: string; pinned?: boolean; autoUngroup?: boolean; pinnedOpenerId?: string; parentId?: string | null } = {},
 ): [BrowserState, string] {
-  const tabs = withSplitRows(s, ids).map((id) => s.tabs[id]).filter((t): t is Tab => !!t && !t.pinned);
+  const tabs = withSplitRows(s, ids).map((id) => s.tabs[id]).filter((t): t is Tab => !!t && !t.pin);
   const first = tabs[0];
   if (!first || tabs.some((t) => t.windowId !== first.windowId || t.profileId !== first.profileId)) return [s, ""];
   const w = s.windows[first.windowId]!;
@@ -101,8 +101,7 @@ export function withRowsGrouped(s: BrowserState, asked: string[], o: { name?: st
   if (!rows.length) return withGroup(s, ids, o);
   const tabs = { ...s.tabs };
   for (const id of rows) {
-    const { pinnedAsRow: _, ...rest } = tabs[id]!;
-    tabs[id] = { ...rest, pinned: false };
+    tabs[id] = { ...tabs[id]!, pin: null };
   }
   const [next, id] = withGroup({ ...s, tabs }, ids, { ...o, pinned: true });
   const g = next.groups[id];
@@ -153,7 +152,7 @@ export function movingGroup(s: BrowserState, groupId: string, p: GroupPlacement)
     at = kept.length ? rest.indexOf(kept.at(-1)!) + 1 : Math.min(w.tabIds.indexOf(g.tabIds[0]!), rest.length);
   } else if (pinned) {
     const pinnedGroup = new Set(Object.values(groups).filter((x) => x.pinned && !moving.has(x.tabIds[0] ?? "")).flatMap((x) => x.tabIds));
-    at = rest.reduce((last, id, i) => (s.tabs[id]?.pinned || pinnedGroup.has(id) ? i + 1 : last), 0);
+    at = rest.reduce((last, id, i) => (s.tabs[id]?.pin || pinnedGroup.has(id) ? i + 1 : last), 0);
   } else at = rest.length;
   insertAll(rest, at, g.tabIds);
   const window = { ...w, tabIds: orderSections(placeGroups(rest, groups, w.id), s.tabs, groups) };

@@ -18,12 +18,12 @@ const groupPath = (s, id) => {
 const pinnedArea = (s, w, profileId) =>
   model.viewTabIds(s, w, profileId).filter((id) => model.inPinnedContainer(s, id)).map((id) => {
     const t = s.tabs[id];
-    const place = t.pinned ? (t.pinnedAsRow ? "row" : t.tileFolder ? `tile[${t.tileFolder.id}]` : "tile") : groupPath(s, id);
+    const place = !!t.pin ? ((t.pin?.as === "row") ? "row" : t.pin?.folder ? `tile[${t.pin?.folder.id}]` : "tile") : groupPath(s, id);
     return `${place}:${model.pinKeyOf(t)}:${t.customTitle ?? ""}:${t.pinnedUrl}`;
   });
 const area = (w) => model.viewTabIds(S(), w).filter((id) => model.inPinnedContainer(S(), id)).map((id) => {
   const t = S().tabs[id];
-  return `${t.pinned ? (t.pinnedAsRow ? "row" : t.tileFolder ? "tile[]" : "tile") : groupPath(S(), id)}:${host(id)}`;
+  return `${!!t.pin ? ((t.pin?.as === "row") ? "row" : t.pin?.folder ? "tile[]" : "tile") : groupPath(S(), id)}:${host(id)}`;
 });
 const tileOf = (w, h) => model.viewTabIds(S(), w).find((id) => model.inPinnedContainer(S(), id) && host(id) === h);
 
@@ -42,8 +42,8 @@ function settledProblems(s) {
       const h = s.tabs[t.page.holderId];
       if (!h || !hasPage(h) || h.page.holderId || h.profileId !== t.profileId || model.pinKeyOf(h) !== model.pinKeyOf(t)) problems.push(`${t.id} is frozen on a holder that can't hold it`);
     }
-    if (t.tileFolder && (!t.pinned || t.pinnedAsRow)) problems.push(`${t.id} has a folder but isn't a tile`);
-    if (t.pinned && t.liveItem) problems.push(`${t.id} is pinned and still a live item`);
+    if (t.pin?.folder && (!t.pin || (t.pin?.as === "row"))) problems.push(`${t.id} has a folder but isn't a tile`);
+    if (!!t.pin && t.liveItem) problems.push(`${t.id} is pinned and still a live item`);
   }
   for (const g of Object.values(s.groups)) {
     const w = s.windows[g.windowId];
@@ -103,7 +103,7 @@ test("two windows changing their pins in one batch: the focused window wins", ()
   });
   assert.deepEqual(area(b), ["tile:m", "tile:d", "tile:z"]);
   assert.deepEqual(area(a), area(b), "A's pin of y gives way to B's state");
-  assert.equal(S().tabs[y].pinned, false);
+  assert.equal(!!S().tabs[y].pin, false);
   storeTransaction(() => {
     S().updateTab(tileOf(a, "m"), { customTitle: "FromA" });
     S().updateTab(tileOf(b, "m"), { customTitle: "FromB" });
@@ -187,7 +187,7 @@ test("a step that never settles is named once the round limit is reached", () =>
 test("inside a transaction listeners wait, writes read unsettled; at the end they hear the settled state once", () => {
   const { a, b, x } = pinnedPair();
   const heard = [];
-  const off = useBrowser.subscribe((s, prev) => heard.push([area(b).join(" "), prev.tabs[x].pinned]));
+  const off = useBrowser.subscribe((s, prev) => heard.push([area(b).join(" "), !!prev.tabs[x].pin]));
   storeTransaction(() => {
     S().pinTabs([x], true);
     assert.deepEqual(area(b), ["tile:m", "tile:d"], "B isn't mirrored yet");
@@ -201,7 +201,7 @@ test("inside a transaction listeners wait, writes read unsettled; at the end the
 test("a subscriber's own write is settled and heard by the others", () => {
   const { a, b, x } = pinnedPair();
   const off = useBrowser.subscribe((s) => {
-    if (s.tabs[x]?.customTitle === "go" && !s.tabs[x].pinned) S().pinTabs([x], true);
+    if (s.tabs[x]?.customTitle === "go" && !s.tabs[x].pin) S().pinTabs([x], true);
   });
   const heard = [];
   const off2 = useBrowser.subscribe(() => heard.push(area(b).join(" ")));

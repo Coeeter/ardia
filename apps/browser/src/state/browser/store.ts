@@ -127,13 +127,7 @@ export const useBrowser = create<BrowserState>()(transactions.middleware(batched
     const tabs: Record<string, Tab> = {};
     for (const t of Object.values(data.tabs ?? {})) {
       if (!rawWindows[t.windowId] || !profileOk(t.profileId)) continue;
-      const { pinnedAsRow, tileFolder, ...kept } = t;
-      tabs[t.id] = {
-        ...kept,
-        ...(pinnedAsRow && kept.pinned ? { pinnedAsRow } : {}),
-        ...(tileFolder && kept.pinned && !pinnedAsRow ? { tileFolder } : {}),
-        pinnedUrl: kept.pinnedUrl ?? pinHome(kept, kept.pinned),
-      };
+      tabs[t.id] = { ...t, pinnedUrl: t.pinnedUrl ?? pinHome(t, !!t.pin) };
     }
     const windows: Record<string, BrowserWindow> = {};
     for (const w of Object.values(rawWindows)) {

@@ -98,7 +98,7 @@ export function stripEntries(s: BrowserState, windowId: string, profileId: strin
       if (id === activeId) dock.push(`pinned:${id}`);
       continue;
     }
-    if (t.pinned) {
+    if (t.pin) {
       dock.push(`pinned:${id}`);
       continue;
     }

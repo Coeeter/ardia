@@ -68,7 +68,7 @@ export function splitOf(s: Pick<BrowserState, "splits">, tabId: string | undefin
 
 export function splitRowPanes(s: Pick<BrowserState, "tabs">, split: SplitView | undefined): string[] {
   if (!split) return [];
-  const unpinned = split.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pinned);
+  const unpinned = split.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pin);
   if (unpinned.length >= 2) return unpinned;
   const rows = split.tabIds.filter((id) => isPinnedRow(s.tabs[id]));
   return rows.length >= 2 ? rows : [];
@@ -145,8 +145,8 @@ function gather(s: BrowserState, anchorId: string, members: string[]): BrowserSt
   const anchor = s.tabs[anchorId];
   const w = anchor && s.windows[anchor.windowId];
   if (!anchor || !w) return s;
-  if (anchor.pinned) return isPinnedRow(anchor) ? gatherPinned(s, anchorId, members) : s;
-  const moving = new Set(members.filter((id) => id !== anchorId && s.tabs[id] && !s.tabs[id]!.pinned));
+  if (anchor.pin) return isPinnedRow(anchor) ? gatherPinned(s, anchorId, members) : s;
+  const moving = new Set(members.filter((id) => id !== anchorId && s.tabs[id] && !s.tabs[id]!.pin));
   if (!moving.size) return s;
   const block = members.filter((id) => id === anchorId || moving.has(id));
   const tabIds = w.tabIds.filter((id) => !moving.has(id));
@@ -160,7 +160,7 @@ function gather(s: BrowserState, anchorId: string, members: string[]): BrowserSt
 
 function placedAfterSplit(s: BrowserState, split: SplitView, tabId: string): BrowserState {
   const w = s.windows[split.windowId];
-  if (!w || s.tabs[tabId]?.pinned) return s;
+  if (!w || s.tabs[tabId]?.pin) return s;
   const tabIds = w.tabIds.filter((id) => id !== tabId);
   const last = Math.max(...split.tabIds.map((id) => tabIds.indexOf(id)));
   tabIds.splice(last + 1, 0, tabId);
@@ -268,7 +268,7 @@ export const createSplitsSlice: StateCreator<BrowserState, [], [], SplitsSlice> 
       const tabIds = w.tabIds.filter((id) => id !== tabId);
       const last = Math.max(...rest.map((id) => tabIds.indexOf(id)));
       tabIds.splice(last + 1, 0, tabId);
-      const window = s.tabs[tabId]?.pinned ? w : { ...w, tabIds };
+      const window = s.tabs[tabId]?.pin ? w : { ...w, tabIds };
       return { splits, windows: { ...s.windows, [w.id]: window }, groups: syncGroupOrder(s.groups, window) };
     });
   },

@@ -41,7 +41,7 @@ function livePinTable<T>(table: Record<string, Record<string, T>>, s: Pick<Brows
     add(g.profileId, orderChoiceKey(pinKeyOf(g)));
     for (const id of g.tabIds) members.add(id);
   }
-  for (const t of Object.values(s.tabs)) if (t.pinned || members.has(t.id)) (add(t.profileId, tabChoiceKey(pinKeyOf(t))), add(t.profileId, placeChoiceKey(pinKeyOf(t))));
+  for (const t of Object.values(s.tabs)) if (t.pin || members.has(t.id)) (add(t.profileId, tabChoiceKey(pinKeyOf(t))), add(t.profileId, placeChoiceKey(pinKeyOf(t))));
   for (const [profileId, park] of Object.entries(s.parkedPins)) {
     for (const p of park.tabs) (add(profileId, p.id), add(profileId, placeChoiceKey(p.id)));
     for (const g of park.groups) {

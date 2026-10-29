@@ -7,6 +7,7 @@ import { splitOf } from "../splits/splits";
 import { groupEntries, holdsTab, keptEntry, sidebarEntries } from "./entries";
 import { shownPinnedEntries } from "./pinnedFold";
 import { entryId, entryKey } from "./entryKey";
+import { pinSection } from "../browser/model";
 
 const GROUP_PAD = SIDEBAR_GROUP.pad;
 const GROUP_BORDER = SIDEBAR_GROUP.border;
@@ -106,7 +107,7 @@ export function revealSpot(windowId: string, tabId: string, tilesFixed: boolean,
   const profileId = s.windows[windowId]?.profileId;
   if (!profileId) return null;
   const pinned = s.tabs[tabId];
-  if (tilesFixed && pinned?.pinned && !pinned.pinnedAsRow) return null;
+  if (tilesFixed && pinSection(pinned) === "tile") return null;
   const span = rowSpan(s, windowId, profileId, tabId, newTabAtTop);
   const pinnedHasLive = span?.section === "pinnedGroups" && live().folderOrder.some((id) => live().folders[id]?.profileId === profileId);
   if (span && !pinnedHasLive) return { span };

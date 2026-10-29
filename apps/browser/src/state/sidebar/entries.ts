@@ -1,5 +1,5 @@
 import type { BrowserState } from "../browser/store";
-import { activeTabId, viewTabIds } from "../browser/model";
+import { activeTabId, isPinnedRow, viewTabIds } from "../browser/model";
 import { hiddenEmptyCard } from "../omnibox/newTabBarPolicy";
 import { splitRowPanes } from "../splits/splits";
 import { groupIndex, splitIndex, stableList } from "../browser/structure";
@@ -39,9 +39,9 @@ function computeEntries(s: BrowserState, windowId: string, profileId?: string): 
   const seen = new Set<string>();
   for (const id of viewTabIds(s, windowId, profileId)) {
     const tab = s.tabs[id]!;
-    if ((tab.liveItem && !tab.pinned) || hiddenEmptyCard(s, tab)) continue;
-    if (tab.pinned) {
-      if (!tab.pinnedAsRow) tiles.push(id);
+    if ((tab.liveItem && !tab.pin) || hiddenEmptyCard(s, tab)) continue;
+    if (tab.pin) {
+      if (!isPinnedRow(tab)) tiles.push(id);
       else {
         const entry = pinnedRowEntry(s, id, splits);
         if (!seen.has(entry)) pinned.push(entry);
@@ -137,7 +137,7 @@ function pinnedRowEntry(s: BrowserState, tabId: string, splits: ReturnType<typeo
 
 function splitEntry(s: BrowserState, tabId: string, splits = splitIndex(s.splits)): string {
   for (const v of splits.get(tabId) ?? []) {
-    if (v.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pinned).length >= 2) return entryKey("split", v.id);
+    if (v.tabIds.filter((id) => s.tabs[id] && !s.tabs[id]!.pin).length >= 2) return entryKey("split", v.id);
   }
   return entryKey("tab", tabId);
 }

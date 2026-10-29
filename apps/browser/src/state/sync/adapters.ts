@@ -268,7 +268,7 @@ export function deviceTabsAdapter(profileId: string, deviceId: string, name: () 
       if (retired) return { values: new Map(), ignore: (k) => k !== key };
       const s = store();
       const open = Object.values(s.tabs)
-        .filter((t) => t.profileId === profileId && !t.pinned && !isAsleep(t) && isWebPageUrl(t.url) && !s.windows[t.windowId]?.incognito && !isPeekTab(s, t.id))
+        .filter((t) => t.profileId === profileId && !t.pin && !isAsleep(t) && isWebPageUrl(t.url) && !s.windows[t.windowId]?.incognito && !isPeekTab(s, t.id))
         .sort((a, z) => z.lastActiveAt - a.lastActiveAt)
         .slice(0, MAX_DEVICE_TABS)
         .map((t) => ({ u: t.url, t: t.customTitle || t.title }));

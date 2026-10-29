@@ -13,7 +13,7 @@ export function multiTabMenuFacts(s: BrowserState, windowId: string, ids: string
   const chosen = new Set(ids);
   return {
     tabs,
-    allPinned: tabs.every((t) => t.pinned),
+    allPinned: tabs.every((t) => t.pin),
     allTiles: tabs.every((t) => pinSection(t) === "tile"),
     incognito: tabs.some((t) => isIncognitoProfile(t.profileId)),
     others: viewTabIds(s, windowId).filter((id) => !chosen.has(id) && !inPinnedContainer(s, id)),

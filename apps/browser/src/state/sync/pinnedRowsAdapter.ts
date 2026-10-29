@@ -4,7 +4,7 @@ import { arrangeParked, arrangePinnedArea } from "../pins/pinnedArea";
 import type { Tab } from "../browser/types";
 import { PIN_TAB, anchorIn, PIN_ORDER, PIN_ROW, ROW, TILE, type PinValue } from "./pinRecords";
 import { commitPinnedEdit, homeWindow, openWindows, settleChoices, store, windowsHomeFirst } from "./pinnedSyncState";
-import { pinKeyOf } from "../browser/model";
+import { isPinnedRow, pinKeyOf, ROW_PIN, TILE_PIN } from "../browser/model";
 
 export function pinnedRowsAdapter(profileId: string): Adapter {
   const keyOf = (k: string) => k.slice(PIN_ROW.length);
@@ -24,15 +24,15 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       for (const w of windows) {
         for (const id of w.tabIds) {
           const t = s.tabs[id];
-          if (!t?.pinned || t.profileId !== profileId || known.has(pinKeyOf(t))) continue;
+          if (!t?.pin || t.profileId !== profileId || known.has(pinKeyOf(t))) continue;
           known.add(pinKeyOf(t));
-          mark(pinKeyOf(t), t.pinnedAsRow);
+          mark(pinKeyOf(t), isPinnedRow(t));
         }
       }
       for (const p of s.parkedPins[profileId]?.tabs ?? []) {
         if (p.groupId || known.has(p.id)) continue;
         known.add(p.id);
-        mark(p.id, p.pinnedAsRow);
+        mark(p.id, isPinnedRow(p));
       }
       return {
         values,
@@ -55,13 +55,13 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
         let moved = false;
         for (const id of w.tabIds) {
           const t = tabs[id];
-          if (!t?.pinned || t.profileId !== profileId || !wants(pinKeyOf(t), t.pinnedAsRow)) continue;
-          tabs[id] = rows.has(pinKeyOf(t)) ? { ...t, pinnedAsRow: true } : { ...t, pinnedAsRow: undefined };
+          if (!t?.pin || t.profileId !== profileId || !wants(pinKeyOf(t), isPinnedRow(t))) continue;
+          tabs[id] = { ...t, pin: rows.has(pinKeyOf(t)) ? ROW_PIN : TILE_PIN };
           moved = true;
         }
         if (!moved) continue;
         const ids = [...w.tabIds];
-        const slots = ids.map((id, i) => (tabs[id]?.pinned && tabs[id]!.profileId === profileId && pos(tabs[id]) !== undefined ? i : -1)).filter((i) => i >= 0);
+        const slots = ids.map((id, i) => (tabs[id]?.pin && tabs[id]!.profileId === profileId && pos(tabs[id]) !== undefined ? i : -1)).filter((i) => i >= 0);
         const sorted = slots.map((i) => ids[i]!).sort((a, z) => (pos(tabs[a])! < pos(tabs[z])! ? -1 : pos(tabs[a])! > pos(tabs[z])! ? 1 : 0));
         slots.forEach((slot, i) => (ids[slot] = sorted[i]!));
         const sectioned = { ...w, tabIds: orderSections(ids, tabs, s.groups) };
@@ -70,7 +70,7 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       }
       const park = s.parkedPins[profileId];
       const marked = park?.tabs.map((p) =>
-        p.groupId || !wants(p.id, p.pinnedAsRow) ? p : rows.has(p.id) ? { ...p, pinnedAsRow: true as const } : (({ pinnedAsRow: _, ...rest }) => rest)(p),
+        p.groupId || !wants(p.id, isPinnedRow(p)) ? p : { ...p, pin: rows.has(p.id) ? ROW_PIN : TILE_PIN },
       );
       const parked = park && marked && arrangeParked({ ...park, tabs: marked }, (group) => anchorIn(base(`${PIN_ORDER}${group}`))).tabs;
       const parkEdited = !!park && parked!.some((p, i) => p !== park.tabs[i]);

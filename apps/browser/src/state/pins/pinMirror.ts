@@ -1,7 +1,7 @@
 import type { BrowserState } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { ancestorIds, depthOf, orderSections, placeBlock, syncGroupOrder, withParent } from "../groups/groups";
-import { IDLE_LIVE, isIncognitoProfile, makeTab, newId, pinKeyOf, without } from "../browser/model";
+import { IDLE_LIVE, isIncognitoProfile, isPinnedRow, makeTab, newId, pinKeyOf, pinSection, TILE_PIN, without } from "../browser/model";
 import { ASLEEP, hasPage } from "../tabs/pageSession";
 import { removeFromSplits } from "../splits/splits";
 import { sharedListTab, sharesTabs } from "../tabs/tabShare";
@@ -9,6 +9,7 @@ import { removeTabs } from "../tabs/tabs";
 import type { BrowserWindow, SplitView, Tab, TabGroup } from "../browser/types";
 import { samePage } from "../../lib/url";
 import { isRegularWindow } from "../windows/small";
+import { tileFolderOf } from "./tileFolders";
 
 const homeOf = (t: Pick<Tab, "url" | "pinnedUrl">) => t.pinnedUrl || t.url;
 
@@ -16,7 +17,7 @@ type Item = { tab: Tab; group: string | null };
 type Section = { items: Item[]; groups: Map<string, { group: TabGroup; parent: string | null }>; own: TabGroup[]; duplicate?: boolean; splits?: PinnedSplit[] };
 type PinnedSplit = Pick<SplitView, "orientation" | "sizes" | "stack"> & { keys: string[] };
 
-const isTile = (t: Tab) => t.pinned && !t.pinnedAsRow;
+const isTile = (t: Tab) => pinSection(t) === "tile";
 
 function withSplits(s: Pick<BrowserState, "splits">, w: BrowserWindow, x: Section): Section {
   const keyOf = new Map(x.items.filter((i) => !isTile(i.tab)).map((i) => [i.tab.id, pinKeyOf(i.tab)]));
@@ -48,8 +49,8 @@ export function sectionOf(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWi
   for (const id of w.tabIds) {
     const t = s.tabs[id];
     if (!t || t.profileId !== profileId) continue;
-    const g = t.pinned ? undefined : inner.get(id);
-    if (member ? !member(t) : !t.pinned && !g) continue;
+    const g = t.pin ? undefined : inner.get(id);
+    if (member ? !member(t) : !t.pin && !g) continue;
     if (g) {
       for (const c of pinnedChain(s, g, ownIds)) {
         if (owned.has(c.id)) continue;
@@ -75,7 +76,7 @@ export function chainOf(x: Pick<Section, "groups">, key: string | null): string[
 }
 
 const tileSig = (t: Tab) =>
-  `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${t.pinnedAsRow ? "r" : ""}\u0001${t.tileFolder?.id ?? ""}\u0001${t.tileFolder?.name ?? ""}\u0001${t.tileFolder?.renamedAt ?? ""}`;
+  `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}\u0001${isPinnedRow(t) ? "r" : ""}\u0001${tileFolderOf(t)?.id ?? ""}\u0001${tileFolderOf(t)?.name ?? ""}\u0001${tileFolderOf(t)?.renamedAt ?? ""}`;
 const memberSig = (t: Tab) => `${pinKeyOf(t)}\u0001${t.pinnedUrl ?? ""}\u0001${t.customTitle ?? ""}\u0001${t.customIcon ?? ""}`;
 export function signature(x: Section): string {
   const shown = new Set<string>();
@@ -109,11 +110,11 @@ export function hasDuplicates(x: Section): boolean {
   return !!x.duplicate || new Set(tabs).size < tabs.length;
 }
 
-const PIN_FIELDS = ["pinned", "pinnedUrl", "pinnedAsRow", "tileFolder", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
+const PIN_FIELDS = ["pin", "pinnedUrl", "customTitle", "customIcon", "profileId", "windowId", "pinKey"] as const;
 function pinnedSplitsChanged(s: BrowserState, prev: BrowserState): boolean {
   if (s.splits === prev.splits) return false;
   const members = new Set(pinnedGroupsOf(s).flatMap((g) => g.tabIds));
-  const pinnedPane = (id: string) => !!s.tabs[id]?.pinned || !!prev.tabs[id]?.pinned || members.has(id);
+  const pinnedPane = (id: string) => !!s.tabs[id]?.pin || !!prev.tabs[id]?.pin || members.has(id);
   return [...Object.values(s.splits), ...Object.values(prev.splits)].some((v) => v.tabIds.some(pinnedPane));
 }
 
@@ -125,7 +126,7 @@ function pinsMayDiffer(s: BrowserState, prev: BrowserState): boolean {
     const a = s.tabs[id];
     const b = prev.tabs[id];
     if (!a || !b) {
-      if (a?.pinned || b?.pinned) return true;
+      if (a?.pin || b?.pin) return true;
       members ??= new Set(pinnedGroupsOf(s).flatMap((g) => g.tabIds));
       if (members.has(id)) return true;
       continue;
@@ -196,10 +197,8 @@ export function copyOf(src: Tab, windowId: string, tile: boolean): Tab {
     ...makeTab(windowId, src.profileId, url, {
       title: atSource ? src.title : "",
       favicon: atSource ? src.favicon : null,
-      pinned: tile,
+      pin: tile ? (src.pin ?? TILE_PIN) : null,
       pinnedUrl: src.pinnedUrl || (tile ? src.url : null) || null,
-      ...(tile && src.pinnedAsRow ? { pinnedAsRow: true as const } : {}),
-      ...(tile && !src.pinnedAsRow && src.tileFolder ? { tileFolder: src.tileFolder } : {}),
       customTitle: src.customTitle,
       customIcon: src.customIcon,
       muted: src.muted,
@@ -225,7 +224,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
     const key = pinKeyOf(src);
     const same = (byKey.get(key) ?? []).filter((m) => !used.has(m.id));
     let t = same.find(hasPage) ?? same[0];
-    if (!t && tile) t = mine.find((m) => m.pinned && !used.has(m.id) && !wantedKeys.has(pinKeyOf(m)) && samePage(homeOf(m), homeOf(src)));
+    if (!t && tile) t = mine.find((m) => m.pin && !used.has(m.id) && !wantedKeys.has(pinKeyOf(m)) && samePage(homeOf(m), homeOf(src)));
     if (!t) {
       const copy = copyOf(src, windowId, tile);
       tabs[copy.id] = copy;
@@ -236,9 +235,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
     used.add(t.id);
     const patch: Partial<Tab> = {
       ...keyField(t.id, key),
-      pinned: tile,
-      pinnedAsRow: tile && src.pinnedAsRow ? true : undefined,
-      tileFolder: tile && !src.pinnedAsRow ? src.tileFolder : undefined,
+      pin: tile ? (src.pin ?? TILE_PIN) : null,
       customTitle: src.customTitle,
       customIcon: src.customIcon,
     };
@@ -272,7 +269,7 @@ function conform(s: BrowserState, windowId: string, profileId: string, spec: Sec
   const demoted = leaving.filter((t) => hasPage(t) || shown.has(t.id)).map((t) => t.id);
   const stays = new Set(demoted);
   const gone = leaving.filter((t) => !stays.has(t.id)).map((t) => t.id);
-  for (const id of demoted) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, tileFolder: undefined, pinKey: undefined };
+  for (const id of demoted) tabs[id] = { ...tabs[id]!, pin: null, pinnedUrl: null, pinKey: undefined };
   const kept = new Set<string>();
   for (const group of cur.own) {
     if (usedGroups.has(group.id)) continue;
@@ -344,7 +341,7 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
   const memberOf = innermostPinned(before, pinnedGroupsOf(before));
   const pins = moved
     .map((id) => before.tabs[id])
-    .filter((t): t is Tab => !!t && (t.pinned || memberOf.has(t.id) || sharedListTab(before, t)) && t.windowId !== targetId && after.tabs[t.id]?.windowId === targetId);
+    .filter((t): t is Tab => !!t && (t.pin || memberOf.has(t.id) || sharedListTab(before, t)) && t.windowId !== targetId && after.tabs[t.id]?.windowId === targetId);
   if (!pins.length) return after;
   const tabs = { ...after.tabs };
   const live = { ...after.live };
@@ -358,11 +355,11 @@ export function settleMovedPins(before: BrowserState, after: BrowserState, moved
     let activeTabIds = src.activeTabIds;
     for (const t of pins) {
       if (t.windowId !== sourceId) continue;
-      const copy = copyOf(t, sourceId, t.pinned);
+      const copy = copyOf(t, sourceId, !!t.pin);
       tabs[copy.id] = copy;
       live[copy.id] = IDLE_LIVE;
       swap.set(t.id, copy.id);
-      if (shown[t.profileId] === t.id && !t.pinned && !memberOf.has(t.id)) activeTabIds = { ...activeTabIds, [t.profileId]: copy.id };
+      if (shown[t.profileId] === t.id && !t.pin && !memberOf.has(t.id)) activeTabIds = { ...activeTabIds, [t.profileId]: copy.id };
     }
     const present = new Set([...src.tabIds, ...swap.values()]);
     const keep = (ids: string[]) => ids.map((id) => swap.get(id) ?? id).filter((id) => present.has(id));

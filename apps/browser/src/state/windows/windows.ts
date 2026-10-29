@@ -119,7 +119,7 @@ function intoProfile(s: BrowserState, tabId: string, profileId: string): Browser
   const base = next.windows[w.id] ?? { ...w, tabIds: [], activeTabIds: {} };
   const loaded = hasLoadedPage(tab);
   const moved: Tab = { ...tab, profileId, page: loaded ? loadedPage(navigationTo(tab.url)) : hasPage(tab) ? IDLE : withWake(tab.page, undefined), lastActiveAt: Date.now() };
-  const pinChoices = tab.pinned ? markPinned(next.pinChoices, profileId, { tabs: [pinKeyOf(moved)], placed: [pinKeyOf(moved)] }) : next.pinChoices;
+  const pinChoices = tab.pin ? markPinned(next.pinChoices, profileId, { tabs: [pinKeyOf(moved)], placed: [pinKeyOf(moved)] }) : next.pinChoices;
   const tabs = { ...next.tabs, [tabId]: moved };
   const index = Math.min(w.tabIds.indexOf(tabId), base.tabIds.length);
   const tabIds = [...base.tabIds];

@@ -90,7 +90,7 @@ test("private entries an older build saved are dropped when the session loads, a
   stub.docs.clear();
   const privateEntry = {
     kind: "tab", id: "ct-old", windowId: "w-private", index: 0, group: null, closedAt: Date.now(),
-    tab: { url: "https://secret.example/", title: "Secret", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "incognito:w-private" },
+    tab: { url: "https://secret.example/", title: "Secret", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "incognito:w-private" },
   };
   const publicEntry = { ...privateEntry, id: "ct-ok", tab: { ...privateEntry.tab, url: "https://public.example/", profileId: "default" } };
   stub.docs.set("session.json", JSON.stringify({ version: 2, profiles: {}, profileOrder: [], settings: {}, windows: [], windowOrder: [], focusedWindowId: null, tabs: [], groups: [], splits: [], closedTabs: [], closedWindows: [], cleanedTabs: [privateEntry, publicEntry] }));
@@ -109,7 +109,7 @@ test("cleaned tabs leave Recently Cleaned a week after their clean-up", () => {
   const DAY = 24 * HOUR;
   const entry = (id, url, closedAt) => ({
     kind: "tab", id, windowId: "w-gone", index: 0, group: null, closedAt,
-    tab: { url, title: id, favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "default" },
+    tab: { url, title: id, favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "default" },
   });
   const stale = entry("ct-stale", "https://stale.example/", Date.now() - 8 * DAY);
   const recent = entry("ct-recent", "https://recent.example/", Date.now() - HOUR);
@@ -141,7 +141,7 @@ test("session.json filters private tabs out of every closed and parked list", ()
   S().hydrate({});
   const stop = startApp();
   S().createWindow({ url: "https://public.example/" });
-  const snap = { url: "https://secret.example/", title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "incognito:w-x" };
+  const snap = { url: "https://secret.example/", title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, profileId: "incognito:w-x" };
   useBrowser.setState({
     closedTabs: [{ kind: "tab", id: "c1", tab: snap, windowId: "w-x", index: 0, group: null, closedAt: 1 }],
     closedWindows: [{ kind: "window", id: "c2", window: { profileId: "incognito:w-x", sidebarOpen: true, frame: null }, tabs: [{ ...snap, active: true }], groups: [], closedAt: 1 }],

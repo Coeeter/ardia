@@ -4,11 +4,11 @@ import { groupChoiceKey, placeChoiceKey } from "../pins/pinChoices";
 import type { Tab, TabGroup } from "../browser/types";
 import { PIN_TAB, PIN_GROUP, legacyColor, PIN_NEST, PIN_ROW, type NestGroupValue, type NestTabValue, type PinGroupValue, type PinValue } from "./pinRecords";
 import { homeWindow, settleChoices, store, windowsHomeFirst } from "./pinnedSyncState";
-import { pinKeyOf } from "../browser/model";
+import { isPinnedRow, pinKeyOf } from "../browser/model";
 
 export function extractPinned(profileId: string, base: (key: string) => unknown, queued: (key: string) => boolean, now: number): Extraction {
   const s = store();
-  type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Partial<Pick<Tab, "pinnedUrl" | "pinnedAsRow">>;
+  type Pin = Pick<Tab, "id" | "url" | "title" | "customTitle" | "customIcon"> & Pick<Tab, "pin"> & Partial<Pick<Tab, "pinnedUrl">>;
   type Node = { pin: Pin } | { group: string };
   const area: Node[] = [];
   const inside = new Map<string, Node[]>();
@@ -31,7 +31,7 @@ export function extractPinned(profileId: string, base: (key: string) => unknown,
       const t = s.tabs[id];
       if (!t || t.profileId !== profileId || seen.has(pinKeyOf(t))) continue;
       const g = pinnedGroupOf.get(id);
-      if (t.pinned) area.push({ pin: { ...t, id: pinKeyOf(t) } });
+      if (t.pin) area.push({ pin: { ...t, id: pinKeyOf(t) } });
       else if (g) {
         const chain = [...ancestorIds(s.groups, g.id).reverse().map((x) => s.groups[x]!).filter((x) => x.pinned), g];
         enter(chain.map((x) => ({ ...x, key: pinKeyOf(x) })));
@@ -79,7 +79,7 @@ export function extractPinned(profileId: string, base: (key: string) => unknown,
       nest(n.group);
     }
   };
-  const legacyRank = (n: Node) => ("pin" in n ? (n.pin.pinnedAsRow ? 1 : 0) : 2);
+  const legacyRank = (n: Node) => ("pin" in n ? (isPinnedRow(n.pin) ? 1 : 0) : 2);
   area.sort((a, z) => legacyRank(a) - legacyRank(z));
   const areaPositions = assignPositions(area.map((n) => ("pin" in n ? ((baseTab(n.pin.id)?.g ?? null) === null ? baseTab(n.pin.id)?.pos : undefined) : baseGroup(n.group)?.pos)));
   area.forEach((n, i) => {

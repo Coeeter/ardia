@@ -10,7 +10,7 @@ const stub = await import("../../test-native/index.ts");
 const S = () => useBrowser.getState();
 startPersistence();
 const tab = (id, windowId, url, profileId = "default") => ({
-  id, windowId, profileId, url, title: "", favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null,
+  id, windowId, profileId, url, title: "", favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null,
   pinnedUrl: null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0,
 });
 const win = (id, tabIds, active, extra = {}) => ({

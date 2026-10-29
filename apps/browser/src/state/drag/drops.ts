@@ -5,7 +5,7 @@ import { selectedTabIds } from "../pins/organize";
 import { canMoveGroup, movingGroup, type GroupPlacement } from "../pins/tabGrouping";
 import { groupingOnto, placing, type TabPlacement } from "../pins/placing";
 import { splitOf } from "../splits/splits";
-import { addToTileFolder } from "../pins/tileFolders";
+import { addToTileFolder, tileFolderOf } from "../pins/tileFolders";
 import { entryKey } from "../sidebar/entryKey";
 
 type Slot = { readonly tabIds: readonly string[] };
@@ -115,7 +115,7 @@ export function dropping(s: BrowserState, ids: string[], drop: Drop): BrowserSta
 export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
   const tab = s.tabs[tabId];
   const w = tab && s.windows[tab.windowId];
-  if (!tab || !w || tab.tileFolder) return NO_DROP;
+  if (!tab || !w || tileFolderOf(tab)) return NO_DROP;
   const chainOf = (id: string) => {
     const g = innermostGroupOf(s.groups, id);
     return g ? [g.id, ...ancestorIds(s.groups, g.id)] : [];
@@ -127,7 +127,7 @@ export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
     const at = container ? chain.indexOf(container.id) : chain.length;
     if (at < 0) return null;
     if (at > 0) return entryKey("group", chain[at - 1]!);
-    const folder = s.tabs[id]?.tileFolder;
+    const folder = tileFolderOf(s.tabs[id]);
     return folder ? entryKey("tileFolder", folder.id) : entryKey("tab", splitOf(s, id)?.id ?? id);
   };
   const blocks: { key: string; ids: string[] }[] = [];
@@ -145,13 +145,13 @@ export function stepDrop(s: BrowserState, tabId: string, delta: 1 | -1): Drop {
   const next = blocks[at + delta];
   if (next) {
     const beforeId = delta < 0 ? next.ids[0]! : (blocks[at + 2]?.ids[0] ?? null);
-    return tabsAt({ pinned: tab.pinned, groupId: container?.id ?? null, beforeId, ...(beforeId ? {} : { last: true }) });
+    return tabsAt({ pinned: !!tab.pin, groupId: container?.id ?? null, beforeId, ...(beforeId ? {} : { last: true }) });
   }
   if (!container || (container.pinned && !container.parentId)) return NO_DROP;
   const parent = container.parentId ? s.groups[container.parentId] : undefined;
   const after = w.tabIds.slice(w.tabIds.indexOf(container.tabIds.at(-1)!) + 1).find((id) => !container.tabIds.includes(id) && (!parent || parent.tabIds.includes(id)));
   const beforeId = delta < 0 ? (container.tabIds.find((id) => !blocks[at]!.ids.includes(id)) ?? after ?? null) : (after ?? null);
-  return tabsAt({ pinned: tab.pinned, groupId: parent?.id ?? null, beforeId });
+  return tabsAt({ pinned: !!tab.pin, groupId: parent?.id ?? null, beforeId });
 }
 
 export function movingTabIds(s: BrowserState, tabId: string): string[] {

@@ -23,7 +23,7 @@ function scriptState(s: BrowserState): ScriptState {
             title: t.customTitle || t.title,
             url: t.url,
             loading: !!s.live[tabId]?.isLoading,
-            pinned: t.pinned };
+            pinned: !!t.pin };
         }) };
     }),
     profiles: s.profileOrder.map((id) => ({ id, name: s.profiles[id]!.name })) };
@@ -92,7 +92,7 @@ async function runScriptCommand(request: ScriptCommand): Promise<Record<string, 
       const w = s.windows[windowId]!;
       let index: number | undefined;
       if (request.index !== undefined) {
-        const pinned = view.filter((id) => s.tabs[id]!.pinned).length;
+        const pinned = view.filter((id) => s.tabs[id]!.pin).length;
         const at = Math.max(request.index, pinned);
         index = at < view.length ? w.tabIds.indexOf(view[at]!) : w.tabIds.length;
       }

@@ -48,7 +48,7 @@ NSString *ContentOf(ArdiaSavedSession *session, NSString *windowId) {
   for (NSDictionary *t in session.tabs)
     if ([t[@"windowId"] isEqual:windowId] && [t[@"id"] isKindOfClass:NSString.class])
       tabs[t[@"id"]] = @[ t[@"title"] ?: NSNull.null, t[@"customTitle"] ?: NSNull.null, t[@"url"] ?: NSNull.null, t[@"favicon"] ?: NSNull.null,
-                          t[@"customIcon"] ?: NSNull.null, t[@"pinned"] ?: NSNull.null, t[@"muted"] ?: NSNull.null ];
+                          t[@"customIcon"] ?: NSNull.null, [session pinOfTab:t] ?: NSNull.null, t[@"muted"] ?: NSNull.null ];
   NSMutableArray *groups = [NSMutableArray array];
   for (NSDictionary *g in session.groups)
     if ([g[@"windowId"] isEqual:windowId]) [groups addObject:g];

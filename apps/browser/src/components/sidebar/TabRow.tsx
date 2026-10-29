@@ -65,7 +65,7 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const closeControl = useTabCloseControlWhile(tabId, hovered && !renaming);
   const { backToPinHint } = useSidebarRowLook();
   if (!tab) return null;
-  const resettable = (isPinnedRow(tab) || !tab.pinned) && awayFromPin(tab);
+  const resettable = (isPinnedRow(tab) || !tab.pin) && awayFromPin(tab);
   const resetting = resettable && backToPin.hovered && !renaming;
   const title = resetting ? "Back to Pinned URL" : tabTitle(tab);
   const fill = active ? theme.tabSelected : selected ? tokens.multiSelected : hovered ? theme.tabHover : ink.clear;

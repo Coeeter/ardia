@@ -8,7 +8,7 @@ const S = () => useBrowser.getState();
 const reset = () => S().hydrate({});
 const loaded = (id) => !!S().tabs[id]?.page.nav || !!S().tabs[id]?.page.adopt;
 const shown = (w) => model.activeTabId(S(), w);
-const list = (w) => model.viewTabIds(S(), w).filter((id) => !S().tabs[id].pinned && S().tabs[id].url);
+const list = (w) => model.viewTabIds(S(), w).filter((id) => !S().tabs[id].pin && S().tabs[id].url);
 const urls = (w) => list(w).map((id) => S().tabs[id].url);
 const keys = (w) => list(w).map((id) => pinKeyOf(S().tabs[id]));
 const rowOf = (w, url) => list(w).find((id) => S().tabs[id].url === url);
@@ -151,7 +151,7 @@ test("pinning a shared tab from a window showing it frozen keeps its live page",
   S().pinTabs([copy], true);
   assert.ok(S().tabs[a1], "the live tab is still there");
   assert.equal(loaded(a1), true, "with its page");
-  assert.equal(S().tabs[a1].pinned, true, "now as A's copy of the pin");
+  assert.equal(!!S().tabs[a1].pin, true, "now as A's copy of the pin");
   assert.equal(S().tabs[a1].windowId, a);
   assert.equal(shown(a), a1, "A keeps showing it");
   assert.equal(pages("https://a1.com").length, 1, "one live page");

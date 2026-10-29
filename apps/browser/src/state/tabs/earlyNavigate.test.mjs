@@ -11,7 +11,7 @@ const loads = [];
 const handle = () => ({ loadUrl: async (url, options) => void loads.push({ url, userInitiated: !!options?.userInitiated }) });
 const setup = () => {
   const tab = {
-    id: "a", windowId: "w1", profileId: "default", url: "https://a.com/", title: "", favicon: null, pinned: false, muted: false, zoom: 1,
+    id: "a", windowId: "w1", profileId: "default", url: "https://a.com/", title: "", favicon: null, pin: null, muted: false, zoom: 1,
     customTitle: null, customIcon: null, pinnedUrl: null, page: { kind: "loaded", nav: { url: "https://a.com/", seq: 1 } }, openerId: null, createdAt: 0, lastActiveAt: 0,
   };
   const win = { id: "w1", profileId: "default", incognito: false, tabIds: ["a"], activeTabIds: { default: "a" }, sidebarOpen: true, frame: null, createdAt: 0 };

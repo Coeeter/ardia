@@ -83,7 +83,7 @@ const until = (test, ms = 30000) => new Promise((ok, no) => { const end = Date.n
 const run = (body, timeout = 90_000) => app.eval(`${HELPERS}\n${body}`, { timeout });
 
 const storeSummary = `const s = ac.store.getState();
-  const tabs = {}; for (const t of Object.values(s.tabs)) { const p = s.profiles[t.profileId]?.name ?? t.profileId; tabs[p] ??= { open: 0, pinned: 0 }; tabs[p][t.pinned ? "pinned" : "open"]++; }
+  const tabs = {}; for (const t of Object.values(s.tabs)) { const p = s.profiles[t.profileId]?.name ?? t.profileId; tabs[p] ??= { open: 0, pinned: 0 }; tabs[p][t.pin ? "pinned" : "open"]++; }
   return { profiles: Object.values(s.profiles).map((p) => [p.name, p.color, p.icon]).sort(), tabs, groups: Object.keys(s.groups ?? {}).length };`;
 
 async function openWindow() {

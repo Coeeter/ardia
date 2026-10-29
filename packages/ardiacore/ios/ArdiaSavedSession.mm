@@ -20,7 +20,7 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 @implementation ArdiaSavedSession
 
 + (NSInteger)version {
-  return 5;
+  return 6;
 }
 
 + (instancetype)readFrom:(NSString *)directory {
@@ -39,6 +39,7 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
 
 - (instancetype)initWithDocument:(NSDictionary *)document {
   if ((self = [super init])) {
+    _fileVersion = [Typed<NSNumber>(document[@"version"]) integerValue];
     _focusedWindowId = Typed<NSString>(document[@"focusedWindowId"]);
     _linkProfile = Typed<NSString>(document[@"linkProfile"]);
     NSDictionary *hint = Typed<NSDictionary>(document[@"launchTab"]);
@@ -57,6 +58,10 @@ NSArray<NSDictionary *> *Dictionaries(id value) {
     _splits = Dictionaries(document[@"splits"]);
   }
   return self;
+}
+
+- (id)pinOfTab:(NSDictionary *)tab {
+  return _fileVersion < 6 ? tab[@"pinned"] : tab[@"pin"];
 }
 
 - (NSDictionary *)windowWithId:(NSString *)windowId {

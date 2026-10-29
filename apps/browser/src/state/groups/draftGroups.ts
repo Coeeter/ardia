@@ -76,7 +76,7 @@ export function withDraftGroups(s: BrowserState, windowId: string, profileId: st
   }
   if (!made.length) return [s, { made, carried, skipped }];
   const pinnedArea = pinnedGroupMembers(s.groups);
-  const at = w.tabIds.reduce((last, id, i) => (s.tabs[id]?.pinned || pinnedArea.has(id) ? i + 1 : last), 0);
+  const at = w.tabIds.reduce((last, id, i) => (s.tabs[id]?.pin || pinnedArea.has(id) ? i + 1 : last), 0);
   const ids = [...w.tabIds];
   insertAll(ids, at, order);
   groups = nestGroups(groups);

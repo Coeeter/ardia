@@ -34,7 +34,7 @@ export function pinnedHomesAdapter(profileId: string): Adapter {
       for (const w of windowsHomeFirst(s, home)) {
         for (const id of w.tabIds) {
           const t = s.tabs[id];
-          if (t?.profileId === profileId && (t.pinned || members.has(id))) offer(pinKeyOf(t), !t.pinned, t.pinnedUrl);
+          if (t?.profileId === profileId && (t.pin || members.has(id))) offer(pinKeyOf(t), !t.pin, t.pinnedUrl);
         }
       }
       for (const p of s.parkedPins[profileId]?.tabs ?? []) offer(p.id, !!p.groupId, p.pinnedUrl || p.url);
@@ -61,7 +61,7 @@ export function pinnedHomesAdapter(profileId: string): Adapter {
       let tabs: Record<string, Tab> | null = null;
       for (const id of pinnedGroupMembers(s.groups)) {
         const t = s.tabs[id];
-        if (!t || t.profileId !== profileId || t.pinned) continue;
+        if (!t || t.profileId !== profileId || t.pin) continue;
         const home = wanted(pinKeyOf(t), t.pinnedUrl);
         if (home) (tabs ??= { ...s.tabs })[id] = { ...t, pinnedUrl: home };
       }

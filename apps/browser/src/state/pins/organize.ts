@@ -73,7 +73,7 @@ export function pruneSelection(selection: Record<string, string[]>, gone: Set<st
 
 function openInActiveGroup(s: BrowserState, windowId: string, tabId: string) {
   const active = activeTabId(s, windowId);
-  if (!active || active === tabId || s.tabs[tabId]?.pinned || s.tabs[active]?.pinned) return;
+  if (!active || active === tabId || s.tabs[tabId]?.pin || s.tabs[active]?.pin) return;
   const group = groupOf(s, active);
   if (group) s.addTabsToGroup(group.id, [tabId]);
   else s.groupTabs([active, tabId]);
@@ -137,7 +137,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const w = first && s.windows[first.windowId];
     if (!w) return;
     const members = pinnedGroupMembers(s.groups);
-    const beforeId = pinned ? null : w.tabIds.find((id) => !s.tabs[id]?.pinned && !members.has(id) && !ids.includes(id));
+    const beforeId = pinned ? null : w.tabIds.find((id) => !s.tabs[id]?.pin && !members.has(id) && !ids.includes(id));
     set(placing(s, ids, { pinned, row, beforeId }));
   },
 

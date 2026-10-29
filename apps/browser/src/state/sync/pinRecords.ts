@@ -1,4 +1,5 @@
-import type { TabGroup } from "../browser/types";
+import type { TabGroup, TabPin } from "../browser/types";
+import { TILE_PIN } from "../browser/model";
 
 export type PinValue = { g: string | null; u: string; t: string | null; i: string | null; ti: string; pos: string };
 export type PinGroupValue = { n: string; i: string | null; c: TabGroup["color"]; pos: string };
@@ -39,7 +40,7 @@ export const syncedName = (value: unknown) => {
   const v = value as FolderNameValue | undefined;
   return v && typeof v.n === "string" ? v.n : undefined;
 };
-export const folderMark = (base: (key: string) => unknown, key: string) => {
+export const markedTile = (base: (key: string) => unknown, key: string): TabPin => {
   const id = syncedFolderId(base(`${TILE_FOLDER}${key}`));
-  return id ? { tileFolder: { id, name: syncedName(base(`${FOLDER_NAME}${id}`)) ?? "" } } : {};
+  return id ? { as: "tile", folder: { id, name: syncedName(base(`${FOLDER_NAME}${id}`)) ?? "" } } : TILE_PIN;
 };

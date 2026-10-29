@@ -67,15 +67,15 @@ export function chromeChanged(
   for (const t of [...followed].reverse()) {
     const tab = s.tabs[t.key];
     if (!tab) continue;
-    if (tab.pinned !== t.pinned && splitOf(s, t.key)) continue;
-    const pinFlip = tab.pinned !== t.pinned && (taken.has(t.key) || was.get(t.browser)!.pinned !== t.pinned);
+    if (!!tab.pin !== t.pinned && splitOf(s, t.key)) continue;
+    const pinFlip = !!tab.pin !== t.pinned && (taken.has(t.key) || was.get(t.browser)!.pinned !== t.pinned);
     if (kept.has(t.key) && !pinFlip) continue;
-    s = placeLike(s, t.key, pinFlip ? t.pinned : tab.pinned, now, settled, kept, chromeGroup(t));
+    s = placeLike(s, t.key, pinFlip ? t.pinned : !!tab.pin, now, settled, kept, chromeGroup(t));
     settled.add(t.key);
   }
   for (const t of followed) {
     const want = chromeGroup(t);
-    if (want === undefined || !s.tabs[t.key] || s.tabs[t.key]!.pinned || t.pinned || kept.has(t.key)) continue;
+    if (want === undefined || !s.tabs[t.key] || s.tabs[t.key]!.pin || t.pinned || kept.has(t.key)) continue;
     if ((chromeGroupOf(s, t.key)?.id ?? null) !== want) s = regroupInPlace(s, t.key, want);
   }
 
@@ -113,7 +113,7 @@ function groupsChanged(
   const looksBefore = new Map((before?.groups ?? []).map((g) => [g.id, g]));
   for (const t of now) {
     const tab = s.tabs[t.key];
-    if (!tab || tab.pinned || !followed(t) || pending.grouped?.has(t.key)) continue;
+    if (!tab || tab.pin || !followed(t) || pending.grouped?.has(t.key)) continue;
     const token = t.group ?? null;
     if (!taken.has(t.key) && was.get(t.browser) === token) continue;
     const current = chromeGroupOf(s, t.key);
@@ -126,7 +126,7 @@ function groupsChanged(
       if (current?.id !== id) s = regroupInPlace(s, t.key, id);
       continue;
     }
-    const members = now.filter((x) => x.group === token && s.tabs[x.key] && !s.tabs[x.key]!.pinned).map((x) => x.key);
+    const members = now.filter((x) => x.group === token && s.tabs[x.key] && !s.tabs[x.key]!.pin).map((x) => x.key);
     const [next, made] = withGroup(s, members, { pinned: false, name: looks.get(token)?.title ?? "", parentId: null });
     if (!made) continue;
     bound.set(token, made);
@@ -168,7 +168,7 @@ type GroupStep = {
 
 export function groupStep(s: BrowserState, strip: StripState, bound: GroupBindings): GroupStep | null {
   if (!reportsGroups(strip)) return null;
-  const tabs = strip.tabs.filter((t): t is Keyed => known(s, t) && !t.pinned && !s.tabs[t.key]!.pinned);
+  const tabs = strip.tabs.filter((t): t is Keyed => known(s, t) && !t.pinned && !s.tabs[t.key]!.pin);
   const looks = new Map((strip.groups ?? []).map((g) => [g.id, g]));
   const tokenOf = (id: string) => [...bound].find(([token, g]) => g === id && looks.has(token))?.[0];
   const strays = tabs.filter((t) => t.group && t.group !== (chromeGroupOf(s, t.key) ? tokenOf(chromeGroupOf(s, t.key)!.id) : undefined));
@@ -295,11 +295,11 @@ export function stripPlan(s: BrowserState, strip: StripState): StripPlan | null 
   if (!w) return null;
   const inStrip = new Set(mine.map((t) => t.key));
   const keys = w.tabIds.filter((id) => inStrip.has(id));
-  const pinned = keys.filter((id) => s.tabs[id]!.pinned);
+  const pinned = keys.filter((id) => s.tabs[id]!.pin);
   const profiles = [w.profileId, ...new Set(keys.map((id) => s.tabs[id]!.profileId))];
   const peek = s.peeks[windowId]?.tabId;
   const active = peek && strip.tabs.some((t) => t.key === peek) ? peek : (profiles.map((p) => w.activeTabIds[p]).find((id) => !!id && inStrip.has(id)) ?? null);
-  return { keys: [...pinned, ...keys.filter((id) => !s.tabs[id]!.pinned)], pinned: pinned.length, active };
+  return { keys: [...pinned, ...keys.filter((id) => !s.tabs[id]!.pin)], pinned: pinned.length, active };
 }
 
 export function stripActual(strip: StripState, plan: StripPlan): StripPlan {

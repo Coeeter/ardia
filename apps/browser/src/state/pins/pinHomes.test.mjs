@@ -17,7 +17,7 @@ function windowWith(...hosts) {
 }
 
 const groupIn = (w, name) => Object.values(S().groups).find((g) => g.windowId === w && g.name === name);
-const memberIn = (w, home) => model.viewTabIds(S(), w).find((id) => !S().tabs[id].pinned && S().tabs[id].pinnedUrl === home);
+const memberIn = (w, home) => model.viewTabIds(S(), w).find((id) => !S().tabs[id].pin && S().tabs[id].pinnedUrl === home);
 
 test("a tab in a pinned group keeps the page it was pinned at and goes back there when closed", () => {
   reset();
@@ -52,7 +52,7 @@ test("a home follows the tab between pinned places and goes when it leaves them"
   go(a, "https://a.com/away");
   const g = S().groupTabs([b], { pinned: true, name: "Uni" });
   S().placeTabs([a], { pinned: false, groupId: g });
-  assert.equal(S().tabs[a].pinned, false);
+  assert.equal(!!S().tabs[a].pin, false);
   assert.equal(S().tabs[a].pinnedUrl, "https://a.com/", "a tile moved into a pinned group keeps its home");
   S().placeTabs([a], { pinned: true, row: true });
   assert.equal(S().tabs[a].pinnedUrl, "https://a.com/", "and keeps it as a pinned row");

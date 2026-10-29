@@ -2,7 +2,7 @@ import type { BrowserState } from "../browser/store";
 import { rootOf } from "../groups/groups";
 import type { BrowserWindow, ParkedPins, TabGroup } from "../browser/types";
 import { entryKey, parseEntry } from "../sidebar/entryKey";
-import { pinKeyOf } from "../browser/model";
+import { isPinnedRow, pinKeyOf } from "../browser/model";
 
 type Block = { key: string; row: boolean; ids: string[] };
 
@@ -18,8 +18,8 @@ function pinnedBlocks(s: Pick<BrowserState, "tabs" | "groups">, w: BrowserWindow
   for (const id of w.tabIds) {
     const t = s.tabs[id];
     if (!t || t.profileId !== profileId) continue;
-    if (t.pinned) {
-      if (t.pinnedAsRow) blocks.push({ key: entryKey("tab", pinKeyOf(t)), row: true, ids: [id] });
+    if (t.pin) {
+      if (isPinnedRow(t)) blocks.push({ key: entryKey("tab", pinKeyOf(t)), row: true, ids: [id] });
       continue;
     }
     const root = pinnedRoot.get(id);
@@ -62,7 +62,7 @@ function parkedBlocks(park: ParkedPins): Block[] {
   const blocks: Block[] = [];
   const byKey = new Map<string, Block>();
   for (const t of park.tabs) {
-    const key = t.groupId ? entryKey("group", rootOf(t.groupId)) : t.pinnedAsRow ? entryKey("tab", t.id) : null;
+    const key = t.groupId ? entryKey("group", rootOf(t.groupId)) : isPinnedRow(t) ? entryKey("tab", t.id) : null;
     if (!key) continue;
     const known = byKey.get(key);
     if (known) known.ids.push(t.id);

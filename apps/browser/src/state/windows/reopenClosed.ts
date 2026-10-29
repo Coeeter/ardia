@@ -65,7 +65,7 @@ export function restoreTab(s: BrowserState, entry: ClosedTab, requested?: string
     return withNewTab(next, id, {
       url: entry.tab.url || undefined,
       profileId,
-      snapshot: { ...entry.tab, pinned: false, profileId },
+      snapshot: { ...entry.tab, pin: null, profileId },
       adoptId: entry.tabId && entry.tab.url ? restoreId(entry.restoreFrom ?? entry.tabId) : undefined,
     })[0];
   }

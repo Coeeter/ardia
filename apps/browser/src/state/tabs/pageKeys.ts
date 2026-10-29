@@ -16,7 +16,7 @@ const pageKeys = (tabs: { url: string; pinnedUrl?: string | null }[]): Set<strin
 
 export function pinnedPages(s: Pick<BrowserState, "tabs" | "groups" | "parkedPins">, profileId: string): Set<string> {
   const inPinnedGroup = pinnedGroupMembers(s.groups);
-  const pinned = Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pinned || inPinnedGroup.has(t.id)));
+  const pinned = Object.values(s.tabs).filter((t) => t.profileId === profileId && (t.pin || inPinnedGroup.has(t.id)));
   return pageKeys([...pinned, ...(s.parkedPins[profileId]?.tabs ?? [])]);
 }
 

@@ -46,7 +46,7 @@ const items = (id) => win(id).then((n) => { const xs = []; for (let x = 70; x < 
     hits.forEach((h, i) => { const on = /ContextMenuArea|ImageView|Symbol|FadeLabel/.test(h); if (on && !cur) cur = [xs[i], xs[i]]; else if (on) cur[1] = xs[i]; else if (cur) { runs.push(cur); cur = null; } });
     if (cur) runs.push(cur); return runs; }); });
 const settle = (ms) => new Promise((r) => setTimeout(r, ms));
-const loose = (id) => st().windows[id].tabIds.filter((t) => !st().tabs[t].pinned);
+const loose = (id) => st().windows[id].tabIds.filter((t) => !st().tabs[t].pin);
 const tabItems = (id) => items(id).then((xs) => xs.slice(st().windows[id].tabIds.length - loose(id).length));
 `;
 const run = (body) => app.eval(`${HELPERS}\n${body}`);
@@ -159,7 +159,7 @@ try {
     assert.deepEqual(seen.picture, [], "no drag picture for a reorder");
     const after = await order("w1");
     assert.notDeepEqual(after, before, "it moved");
-    await run(`const id = ${JSON.stringify(before[2])}; const ids = ${JSON.stringify(before)}.filter((t) => !st().tabs[t].pinned); st().moveTab(id, ids.indexOf(id)); return settle(300);`);
+    await run(`const id = ${JSON.stringify(before[2])}; const ids = ${JSON.stringify(before)}.filter((t) => !st().tabs[t].pin); st().moveTab(id, ids.indexOf(id)); return settle(300);`);
     assert.deepEqual(await order("w1"), before);
   });
 
@@ -359,11 +359,11 @@ try {
     let now = await run(`return items("w1");`);
     const x = Math.round((now[2][0] + now[2][1]) / 2);
     assert.equal(await drag("w1", [[x, 21], [now[1][0], 21], [now[0][0] + 6, 21]]), 0, "window drags");
-    assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${fresh}"].pinned];`), [[fresh, "p2", "p1", "t1"], true]);
+    assert.deepEqual(await run(`return [st().windows.w1.tabIds, !!st().tabs["${fresh}"].pin];`), [[fresh, "p2", "p1", "t1"], true]);
     now = await run(`return items("w1");`);
     const cell = Math.round((now[0][0] + now[0][1]) / 2);
     await drag("w1", [[cell, 21], [now[3][0], 21], [now[3][1] - 20, 21]]);
-    assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${fresh}"].pinned];`), [["p2", "p1", "t1", fresh], false]);
+    assert.deepEqual(await run(`return [st().windows.w1.tabIds, !!st().tabs["${fresh}"].pin];`), [["p2", "p1", "t1", fresh], false]);
   });
 
   await check("a tab let go just past the last pinned tile is pinned after it", async () => {
@@ -372,7 +372,7 @@ try {
     const x = Math.round((now[2][0] + now[2][1]) / 2);
     const past = now[1][1] + 17;
     assert.equal(await drag("w1", [[x, 21], [x - 20, 21], [past, 21]]), 0, "window drags");
-    assert.deepEqual(await run(`return [st().windows.w1.tabIds, st().tabs["${ids[2]}"].pinned];`), [ids, true]);
+    assert.deepEqual(await run(`return [st().windows.w1.tabIds, !!st().tabs["${ids[2]}"].pin];`), [ids, true]);
     await run(`st().placeTabs(["${ids[2]}"], { pinned: false, beforeId: ${JSON.stringify(ids[3] ?? null)} }); return settle(500);`);
     assert.deepEqual(await order("w1"), ids);
   });
@@ -395,7 +395,7 @@ try {
   });
   await check("sidebar: nothing moves as a drag starts or ends (the pin target takes no room)", async () => {
     const rows = () => run(`return Promise.all([...globalThis.sidebarDrag.items.values()].filter((i) => (i.kind === "row" || i.kind === "group") && i.view).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r([i.key, x, y, w, h])))));`);
-    await run(`const pinned = st().windows.w1.tabIds.filter((id) => st().tabs[id].pinned); if (pinned.length) st().placeTabs(pinned, { pinned: false, beforeId: null }); return settle(800);`);
+    await run(`const pinned = st().windows.w1.tabIds.filter((id) => !!st().tabs[id].pin); if (pinned.length) st().placeTabs(pinned, { pinned: false, beforeId: null }); return settle(800);`);
     const start = (await rows()).sort((a, b) => a[2] - b[2]);
     const top = start.find(([key]) => key.startsWith("t:"));
     assert.ok(top, JSON.stringify(start));
@@ -489,7 +489,7 @@ try {
   const SIDEBAR_ROWS = `return Promise.all([...globalThis.sidebarDrag.items.values()].filter((i) => i.kind === "row" && i.section === "list" && !i.parentGroup && i.view).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r({ id: i.tabIds[0], x, y, w, h }))))).then((l) => l.filter((i) => i.w > 0).sort((a, b) => a.y - b.y));`;
   const FOLDERS = `const c = globalThis.sidebarDrag;
     const cells = () => Promise.all([...c.items.values()].filter((i) => i.view && (i.kind === "tile" || i.section === "folder")).map((i) => new Promise((r) => i.view.measureInWindow((x, y, w, h) => r({ key: i.key, section: i.section, folder: i.folderId ?? null, id: i.tabIds[0], x, y, w, h }))))).then((l) => l.filter((i) => i.w > 0).sort((a, b) => a.y - b.y || a.x - b.x));
-    const folderOf = (id) => st().tabs[id]?.tileFolder?.id ?? null;`;
+    const folderOf = (id) => st().tabs[id]?.pin?.folder?.id ?? null;`;
   const centre = (cell) => [Math.round(cell.x + cell.w / 2), Math.round(cell.y + cell.h / 2)];
   const held = (points, n) => [...points, ...Array(n).fill(points.at(-1))];
   let folderTabs = [];
@@ -540,18 +540,18 @@ try {
       const second = (await run(`${SIDEBAR_ROWS}`)).find((r) => r.y > below);
       assert.ok(second, "a list row below the panel");
       await drag("w1", [[member.x + 60, member.y + 17], [member.x + 60, member.y + 26], [second.x + 60, second.y + 30], [second.x + 60, second.y + 8], [second.x + 60, second.y + 3]]);
-      const state = await run(`${FOLDERS} const id = ${JSON.stringify(id)}; const w = st().windows.w1.tabIds; return { folder: folderOf(id), pinned: st().tabs[id].pinned, grouped: Object.values(st().groups).some((g) => g.tabIds.includes(id)), next: w[w.indexOf(id) + 1], panel: !!c.regions.get("folder"), order: w.map((x) => [x, st().tabs[x].pinned, st().tabs[x].url.slice(0, 30)]) };`);
+      const state = await run(`${FOLDERS} const id = ${JSON.stringify(id)}; const w = st().windows.w1.tabIds; return { folder: folderOf(id), pinned: !!st().tabs[id].pin, grouped: Object.values(st().groups).some((g) => g.tabIds.includes(id)), next: w[w.indexOf(id) + 1], panel: !!c.regions.get("folder"), order: w.map((x) => [x, !!st().tabs[x].pin, st().tabs[x].url.slice(0, 30)]) };`);
       const { order, ...seen } = state;
       assert.deepEqual(seen, { folder: null, pinned: false, grouped: false, next: second.id, panel: false }, `${id} left the folder for the list, before ${second.id}: ${JSON.stringify(order)}`);
     }
     assert.equal(await run(`${FOLDERS} return folderOf(${JSON.stringify(cc)});`), null, "a folder of one is a tile again");
-    assert.ok(await run(`return st().tabs[${JSON.stringify(cc)}].pinned;`), "still pinned");
+    assert.ok(await run(`return !!st().tabs[${JSON.stringify(cc)}].pin;`), "still pinned");
     await run(`st().pinTabs(${JSON.stringify(folderTabs)}, false); st().closeTabs(${JSON.stringify(folderTabs)}); return settle(900);`);
   });
 
   await check("sidebar: a folder tile dragged along the grid takes one slot: no row moves and the grid doesn't grow", async () => {
     const made = await run(`const ids = ["ga", "gb", "gc", "gd", "ge"].map((n) => st().newTab("w1", { url: "data:text/html,<title>" + n + "</title>" + n, background: true }));
-      const others = st().windows.w1.tabIds.filter((id) => st().tabs[id].pinned && !ids.includes(id)); st().pinTabs(others, false);
+      const others = st().windows.w1.tabIds.filter((id) => !!st().tabs[id].pin && !ids.includes(id)); st().pinTabs(others, false);
       st().pinTabs(ids, true); st().placeTabs(ids.slice(0, 3), { pinned: true, row: false, beforeId: ids[3], tileFolder: { id: "tf-drag", name: "Drag" } });
       return settle(1000).then(() => ({ ids, others }));`);
     try {
@@ -604,7 +604,7 @@ try {
     return step(0).then(() => settle(900)).then(() => {
       const w = st().windows.w1;
       return { log, during, active: w.activeTabIds[w.profileId], order: w.tabIds, after: c.external,
-        added: w.tabIds.filter((id) => !before.has(id)).map((id) => ({ id, url: st().tabs[id].url, pinned: !!st().tabs[id].pinned, group: Object.values(st().groups).find((g) => g.tabIds.includes(id))?.id ?? null })) };
+        added: w.tabIds.filter((id) => !before.has(id)).map((id) => ({ id, url: st().tabs[id].url, pinned: !!st().tabs[id].pin, group: Object.values(st().groups).find((g) => g.tabIds.includes(id))?.id ?? null })) };
     });`);
   const closeAdded = (out) => run(`st().closeTabs(${JSON.stringify(out.added.map((a) => a.id))}); return settle(700);`);
 
@@ -686,7 +686,7 @@ try {
     assert.equal(out.added[0].pinned, true, "pinned");
     assert.equal(out.order[out.order.indexOf(t.id) - 1], out.added[0].id, "before the tile it was dropped on");
     await closeAdded(out);
-    await run(`const pinned = st().windows.w1.tabIds.filter((id) => st().tabs[id].pinned); st().placeTabs(pinned, { pinned: false, beforeId: null }); return settle(800);`);
+    await run(`const pinned = st().windows.w1.tabIds.filter((id) => !!st().tabs[id].pin); st().placeTabs(pinned, { pinned: false, beforeId: null }); return settle(800);`);
   });
 
   await check("file drop: links open, scripts and data URLs don't (text, URLs, .webloc)", async () => {

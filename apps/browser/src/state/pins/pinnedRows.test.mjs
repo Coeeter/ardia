@@ -16,7 +16,7 @@ const entries = (w) => {
   return { tiles: urls(e.tiles), rows: urls(e.pinned.filter((x) => x.startsWith("t:")).map((x) => x.slice(2))) };
 };
 const kindChoices = (profileId = "default") => Object.keys(S().pinChoices[profileId] ?? {}).filter((k) => !k.includes(":"));
-const tileOf = (w, u) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === u);
+const tileOf = (w, u) => model.viewTabIds(S(), w).find((id) => !!S().tabs[id].pin && S().tabs[id].pinnedUrl === u);
 
 function windowWith(...hosts) {
   const w = S().createWindow({ url: `https://${hosts[0]}.com/` });
@@ -32,7 +32,7 @@ test("pin as a row, move it to Top Apps and back, unpin: tiles stay tiles, rows 
   S().pinTabs([b], true, true);
   S().pinTabs([c], true);
   assert.deepEqual(entries(w), { tiles: ["https://a.com/", "https://c.com/"], rows: ["https://b.com/"] });
-  assert.equal(S().tabs[b].pinnedAsRow, true);
+  assert.equal((S().tabs[b].pin?.as === "row"), true);
   assert.equal(S().tabs[b].pinnedUrl, "https://b.com/");
   assert.deepEqual(urls(S().windows[w].tabIds.slice(0, 3)), ["https://a.com/", "https://c.com/", "https://b.com/"], "tiles, then rows, in the window's order");
   assert.deepEqual(urls(numberedTabs(S(), w)), ["https://a.com/", "https://c.com/", "https://b.com/", "https://d.com/"], "⌘1–9: tiles, rows, then the list");
@@ -41,13 +41,13 @@ test("pin as a row, move it to Top Apps and back, unpin: tiles stay tiles, rows 
   assert.deepEqual(entries(w), { tiles: ["https://c.com/"], rows: ["https://a.com/", "https://b.com/"] });
   S().placeTabs([b], { pinned: true, row: false });
   assert.deepEqual(entries(w), { tiles: ["https://c.com/", "https://b.com/"], rows: ["https://a.com/"] });
-  assert.equal(S().tabs[b].pinnedAsRow, undefined);
+  assert.equal((S().tabs[b].pin?.as === "row"), false);
   S().placeTabs([a], { pinned: true });
   assert.deepEqual(entries(w).rows, ["https://a.com/"], "a move inside the pinned area keeps a row a row");
 
   S().pinTabs([a], false);
-  assert.equal(S().tabs[a].pinned, false);
-  assert.equal(S().tabs[a].pinnedAsRow, undefined);
+  assert.equal(!!S().tabs[a].pin, false);
+  assert.equal((S().tabs[a].pin?.as === "row"), false);
   S().pinTabs([a], true);
   assert.deepEqual(entries(w).tiles, ["https://c.com/", "https://b.com/", "https://a.com/"], "pinned again: a tile, as before");
 });
@@ -225,13 +225,13 @@ test("rows park with the last window and come back as rows, and survive a relaun
   assert.deepEqual(entries(w), { tiles: ["https://a.com/"], rows: ["https://b.com/"] });
   assert.deepEqual(kindChoices().sort(), [a, b].sort(), "the choices not yet synced survive a relaunch");
   S().closeWindow(w);
-  assert.deepEqual(S().parkedPins.default.tabs.map((t) => [t.pinnedUrl, !!t.pinnedAsRow]), [["https://a.com/", false], ["https://b.com/", true]]);
+  assert.deepEqual(S().parkedPins.default.tabs.map((t) => [t.pinnedUrl, !!(t.pin?.as === "row")]), [["https://a.com/", false], ["https://b.com/", true]]);
   const n = S().createWindow();
   assert.deepEqual(entries(n), { tiles: ["https://a.com/"], rows: ["https://b.com/"] });
 });
 
 test("older data: 0.2.7's pinnedRow stays a tile, a stray row flag on an unpinned tab is dropped", () => {
-  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
+  const tab = (id, u, pinned, extra = {}) => ({ id, windowId: "w", profileId: "default", url: u, title: "", favicon: null, pin: pinned ? { as: "tile" } : null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? u : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0, ...extra });
   S().hydrate({
     windows: { w: { id: "w", profileId: "default", incognito: false, tabIds: ["r", "t", "u"], activeTabIds: { default: "u" }, sidebarOpen: true, frame: null, createdAt: 0 } },
     windowOrder: ["w"],
@@ -242,7 +242,7 @@ test("older data: 0.2.7's pinnedRow stays a tile, a stray row flag on an unpinne
     },
   });
   assert.deepEqual(entries("w"), { tiles: ["https://r.com/", "https://t.com/"], rows: [] });
-  assert.equal(S().tabs.u.pinnedAsRow, undefined);
+  assert.equal((S().tabs.u.pin?.as === "row"), false);
   S().pinTabs(["u"], true);
   assert.deepEqual(entries("w").tiles, ["https://r.com/", "https://t.com/", "https://u.com/"]);
 });
@@ -251,9 +251,9 @@ test("a closed row comes back as a row from its snapshot", () => {
   reset();
   const { ids: [a] } = windowWith("a", "b");
   S().pinTabs([a], true, true);
-  assert.equal(model.snapshotTab(S().tabs[a]).pinnedAsRow, true);
+  assert.deepEqual(model.snapshotTab(S().tabs[a]).pin, { as: "row" });
   S().pinTabs([a], false);
-  assert.equal(model.snapshotTab(S().tabs[a]).pinnedAsRow, undefined);
+  assert.notEqual(model.snapshotTab(S().tabs[a]).pin?.as, "row");
 });
 
 test("a pending tile or row choice moves with its pin to another profile, with a new generation", () => {
@@ -319,10 +319,10 @@ test("moving a pin to another profile keeps the source's choice while another wi
   const [x] = S().windows[w1].tabIds;
   S().pinTabs([x], true);
   const w2 = S().createWindow({ url: "https://y.com/" });
-  assert.ok(S().windows[w2].tabIds.some((id) => S().tabs[id].pinned), "w2 mirrors the pin");
+  assert.ok(S().windows[w2].tabIds.some((id) => !!S().tabs[id].pin), "w2 mirrors the pin");
   const before = S().pinChoices.default[x];
   S().moveTabToProfile(x, work);
-  assert.ok(S().windows[w2].tabIds.some((id) => S().tabs[id].pinned && (S().tabs[id].pinKey ?? id) === x), "w2 keeps its pin");
+  assert.ok(S().windows[w2].tabIds.some((id) => !!S().tabs[id].pin && (S().tabs[id].pinKey ?? id) === x), "w2 keeps its pin");
   assert.ok(S().pinChoices.default?.[x] >= before, "and Personal keeps the pending choice for it");
   assert.ok(S().pinChoices[work]?.[x] > S().pinChoices.default[x], "Work gets its own, newer one");
 });

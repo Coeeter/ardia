@@ -1,7 +1,7 @@
 import type { ApplyRecords } from "../../platform/sync";
 import { useBrowser } from "../browser/store";
 import { depthOf, leaveGroups, orderSections, syncGroupOrder, withParent } from "../groups/groups";
-import { makeTab, newId, pinKeyOf, without } from "../browser/model";
+import { makeTab, newId, pinKeyOf, ROW_PIN, without } from "../browser/model";
 import { noteRemotePinDeletion } from "../pins/tabCleanup";
 import { type PinSyncEntry } from "../pins/pinChoices";
 import { adoptParkedPins, parkWindowPins } from "../pins/parkedPins";
@@ -11,7 +11,7 @@ import { removeTabs } from "../tabs/tabs";
 import type { Tab, TabGroup } from "../browser/types";
 import {
   anchorIn,
-  folderMark,
+  markedTile,
   GROUP_LOOK,
   lookedColor,
   PIN_GROUP,
@@ -56,7 +56,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
     for (const id of s.windows[wid]?.tabIds ?? []) {
       const t = s.tabs[id];
       if (t?.profileId !== profileId) continue;
-      if (t.pinned || pinnedMember.has(id)) {
+      if (t.pin || pinnedMember.has(id)) {
         if (!tabOfKey.has(pinKeyOf(t))) tabOfKey.set(pinKeyOf(t), id);
       } else if (t.pinKey) {
         const other = kept.get(t.pinKey);
@@ -86,7 +86,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
   const expired = (k: string, g: string) => sync[k.slice(PIN_TAB.length)]?.g === g && (sync[k.slice(PIN_TAB.length)]!.w ?? 0) <= records.now;
   const listed = (g: string) => visible.has(`${PIN_GROUP}${g}`) || visible.has(`${PIN_NEST}g:${g}`);
   const unresolved = (k: string, g: string) => !listed(g) && !hadGroup.has(g) && !records.known(`${PIN_GROUP}${g}`) && !expired(k, g);
-  const contained = (id: string) => !!s.tabs[id] && (s.tabs[id]!.pinned || pinnedMember.has(id));
+  const contained = (id: string) => !!s.tabs[id] && (s.tabs[id]!.pin || pinnedMember.has(id));
   const retainedIn = (id: string, g: string) =>
     !contained(id) && Object.values(s.groups).some((x) => !x.pinned && x.profileId === profileId && pinKeyOf(x) === g && x.tabIds.includes(id));
   for (const [k, v] of visible) {
@@ -168,7 +168,7 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
   });
   s = removeTabs(s, removable, false);
   const tabs = { ...s.tabs };
-  for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pinned: false, pinnedUrl: null, pinnedAsRow: undefined, tileFolder: undefined, pinKey: undefined };
+  for (const id of goneTabs) if (tabs[id]) tabs[id] = { ...tabs[id]!, pin: null, pinnedUrl: null, pinKey: undefined };
   let groups = { ...s.groups };
   for (const k of changed) {
     const key = k.startsWith(PIN_GROUP) ? k.slice(PIN_GROUP.length) : k.startsWith(`${PIN_NEST}g:`) ? k.slice(PIN_NEST.length + 2) : null;
@@ -199,10 +199,8 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
     if (old) {
       tabs[id] = {
         ...old,
-        pinned: !group,
+        pin: group ? null : (old.pin ?? (marked(pinKeyOf(old)) ? ROW_PIN : markedTile(base, pinKeyOf(old)))),
         pinnedUrl: group ? (pinnedMember.has(id) ? old.pinnedUrl || syncedHomeIn(base, pinKeyOf(old)) : syncedHomeIn(base, pinKeyOf(old)) || old.pinnedUrl) || v.u || null : v.u,
-        ...(group ? { pinnedAsRow: undefined } : old.pinned ? {} : { pinnedAsRow: marked(pinKeyOf(old)) }),
-        ...(group ? { tileFolder: undefined } : old.pinned || marked(pinKeyOf(old)) ? {} : folderMark(base, pinKeyOf(old))),
         customTitle: v.t,
         customIcon: v.i,
         ...(isAsleep(old) ? { url: v.u, title: v.ti } : {}),
@@ -214,19 +212,17 @@ export function applyPinned(profileId: string, visible: Map<string, unknown>, ch
     const w = windows[windowId];
     if (!w) continue;
     const tab: Tab = {
-      ...makeTab(windowId, profileId, v.u, { title: v.ti, pinned: !group, customTitle: v.t, customIcon: v.i }),
+      ...makeTab(windowId, profileId, v.u, { title: v.ti, pin: group ? null : marked(keyOfLocal.get(id) ?? id) ? ROW_PIN : markedTile(base, keyOfLocal.get(id) ?? id), customTitle: v.t, customIcon: v.i }),
       id,
       ...pinKeyField(id),
       pinnedUrl: (group && syncedHomeIn(base, keyOfLocal.get(id) ?? id)) || v.u || null,
-      ...(!group && marked(keyOfLocal.get(id) ?? id) ? { pinnedAsRow: true as const } : {}),
-      ...(!group && !marked(keyOfLocal.get(id) ?? id) ? folderMark(base, keyOfLocal.get(id) ?? id) : {}),
       page: ASLEEP,
     };
     note(keyOfLocal.get(id) ?? id, id);
     tabs[id] = tab;
     windows[windowId] = { ...w, tabIds: [...w.tabIds, id] };
   }
-  const standalone = new Set(tileOrder.filter((id) => tabs[id]?.pinned));
+  const standalone = new Set(tileOrder.filter((id) => tabs[id]?.pin));
   groups = {
     ...Object.fromEntries(Object.entries(groups).filter(([, g]) => g.pinned)),
     ...leaveGroups(Object.fromEntries(Object.entries(groups).filter(([, g]) => !g.pinned)), standalone),

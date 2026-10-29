@@ -29,8 +29,8 @@ const dockSlots = (w) =>
   stripEntries(S(), w, S().windows[w].profileId).flatMap((e) => (e.kind === "dock" ? e.ids.filter((cell) => !e.members.has(cell)).map((cell) => ({ tabIds: [cell] })) : []));
 
 const dock = (w) => {
-  const pinned = S().windows[w].tabIds.filter((id) => S().tabs[id].pinned);
-  return { tiles: pinned.filter((id) => !S().tabs[id].pinnedAsRow).map(host), rows: pinned.filter((id) => S().tabs[id].pinnedAsRow).map(host) };
+  const pinned = S().windows[w].tabIds.filter((id) => !!S().tabs[id].pin);
+  return { tiles: pinned.filter((id) => !(S().tabs[id].pin?.as === "row")).map(host), rows: pinned.filter((id) => (S().tabs[id].pin?.as === "row")).map(host) };
 };
 
 function dragInDock(w, id, to) {
@@ -60,7 +60,7 @@ test("top strip dock: a row dragged over the tiles stays a row, first among the 
   const { w, ids: [, , , , e] } = dockWith();
   dragInDock(w, e, 0);
   assert.deepEqual(dock(w), { tiles: ["t1", "t2"], rows: ["e", "c", "d"] });
-  assert.equal(S().tabs[e].pinnedAsRow, true);
+  assert.equal((S().tabs[e].pin?.as === "row"), true);
 });
 
 test("a drop on its own slot moves nothing", () => {

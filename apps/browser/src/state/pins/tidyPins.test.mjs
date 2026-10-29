@@ -20,7 +20,7 @@ const pinnedArea = (w) =>
   model
     .viewTabIds(S(), w)
     .filter((id) => model.inPinnedContainer(S(), id) && model.pinSection(S().tabs[id]) !== "tile")
-    .map((id) => (S().tabs[id].pinned ? `row:${label(id)}` : `${path(innermost(id))}:${label(id)}`));
+    .map((id) => (!!S().tabs[id].pin ? `row:${label(id)}` : `${path(innermost(id))}:${label(id)}`));
 
 function windowWith(...urls) {
   const w = S().createWindow({ url: "https://home.com/" });
@@ -47,7 +47,7 @@ test("duplicate rows: the higher one stays, the same page with a fragment counts
   assert.deepEqual(pinnedArea(w), ["row:a/x", "row:b", "row:a/x", "row:c"]);
   const done = tidy(w);
   assert.deepEqual(pinnedArea(w), ["row:a/x", "row:b", "row:c"]);
-  assert.equal(S().tabs[a1].pinned, true);
+  assert.equal(!!S().tabs[a1].pin, true);
   assert.equal(S().tabs[a2], undefined);
   assert.equal(done.duplicates, 1);
   assert.equal(done.pins, 0);
@@ -239,8 +239,8 @@ test("Undo gives a split pane that Tidy moved along with its partner its own pin
   assert.ok(done);
   undo(done);
   assert.equal(S().tabs[b].pinnedUrl, "https://b.com/home", "the pane's home, not the page it's on");
-  assert.equal(S().tabs[b].pinned && S().tabs[b].pinnedAsRow, true);
-  assert.equal(S().tabs[a1].pinned && S().tabs[a1].pinnedAsRow, true);
+  assert.equal(!!S().tabs[b].pin && (S().tabs[b].pin?.as === "row"), true);
+  assert.equal(!!S().tabs[a1].pin && (S().tabs[a1].pin?.as === "row"), true);
   assert.deepEqual(S().splits[splitId]?.tabIds, [a1, b], "still a split");
 });
 
@@ -250,14 +250,14 @@ test("a pane of a pinned split is never closed as a duplicate, so the split surv
   S().groupTabs([member], { pinned: true, name: "F" });
   const splitId = S().createSplit([p1, p2]);
   S().pinTabs([p1], true, true);
-  assert.equal(S().tabs[p2].pinnedAsRow, true);
+  assert.equal((S().tabs[p2].pin?.as === "row"), true);
   const done = tidy(w);
   assert.ok(S().tabs[p1], "the pane stays");
   assert.deepEqual(splitOfTab(p1)?.tabIds, [p1, p2], "the split stays");
   if (done) undo(done);
   assert.deepEqual(S().splits[splitId]?.tabIds, [p1, p2]);
-  assert.equal(S().tabs[p1].pinned && S().tabs[p1].pinnedAsRow, true);
-  assert.equal(S().tabs[p2].pinned && S().tabs[p2].pinnedAsRow, true);
+  assert.equal(!!S().tabs[p1].pin && (S().tabs[p1].pin?.as === "row"), true);
+  assert.equal(!!S().tabs[p2].pin && (S().tabs[p2].pin?.as === "row"), true);
   assert.deepEqual(Object.values(S().groups).find((g) => g.name === "F").tabIds, [member]);
 });
 

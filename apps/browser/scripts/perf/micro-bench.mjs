@@ -35,7 +35,7 @@ function bigSession(count, bigGroup = 0) {
     const host = ["github.com", "x.com", "news.ycombinator.com", "en.wikipedia.org"][i % 4];
     tabs[id] = {
       id, windowId: "w", profileId: "default", url: `https://${host}/page/${i}`, title: `Page ${i} - ${host.split(".")[0]}`,
-      favicon: null, pinned: false, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: null, openerId: null,
+      favicon: null, pin: null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: null, page: { kind: "idle" }, openerId: null,
       createdAt: t0 + i, lastActiveAt: t0 + i,
     };
     ids.push(id);

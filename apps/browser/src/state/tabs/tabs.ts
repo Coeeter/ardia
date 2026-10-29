@@ -1,13 +1,6 @@
 import type { BrowserState } from "../browser/store";
 import { leaveGroups } from "../groups/groups";
-import {
-  IDLE_LIVE,
-  inPinnedContainer,
-  makeTab,
-  navigationTo,
-  viewTabIds,
-  without,
-} from "../browser/model";
+import { IDLE_LIVE, inPinnedContainer, makeTab, navigationTo, TILE_PIN, viewTabIds, without } from "../browser/model";
 import { forgetOpeners, insertionIndex, openerSuccessor } from "./openers";
 import { onUrlChange, pruneSelection } from "../pins/organize";
 import { isClosedPin } from "../pins/tabCleanup";
@@ -83,7 +76,7 @@ export function closingTabs(s: BrowserState, ids: string[], { lastClosesWindow =
 
 function pinnedInsertionIndex(s: BrowserState, w: BrowserWindow): number {
   let last = -1;
-  w.tabIds.forEach((id, i) => s.tabs[id]?.pinned && (last = i));
+  w.tabIds.forEach((id, i) => s.tabs[id]?.pin && (last = i));
   return last + 1;
 }
 
@@ -125,7 +118,7 @@ export function removeTabs(s: BrowserState, ids: string[], record: boolean): Bro
     if (record) {
       w.tabIds.forEach((id, index) => {
         const t = s.tabs[id];
-        if (!t || !gone.has(id) || (!t.url && !t.pinned)) return;
+        if (!t || !gone.has(id) || (!t.url && !t.pin)) return;
         closed.push({ ...closedTabEntry(s, t, { windowId: w.id, index }, now), ...(w.kind === "small" ? { small: true } : {}) });
       });
     }
@@ -261,15 +254,15 @@ export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions =
   if (!w) return [s, ""];
   const profileId = w.incognito ? w.profileId : o.profileId && s.profiles[o.profileId] ? o.profileId : w.profileId;
   const url = o.url ? resolveTyped(s.settings, o.url) : "";
-  const tab = makeTab(windowId, profileId, url, { ...o.snapshot, pinned: o.pinned ?? o.snapshot?.pinned ?? false });
+  const tab = makeTab(windowId, profileId, url, { ...o.snapshot, pin: o.pinned === false ? null : (o.snapshot?.pin ?? (o.pinned ? TILE_PIN : null)) });
   if (tab.page.kind === "loaded" && !o.snapshot) tab.page = loadedPage(navigationTo(url, true));
   tab.openerId = o.openerId ?? null;
-  tab.pinnedUrl = tab.pinned ? pinHome({ pinnedUrl: tab.pinnedUrl, url }, true) : tab.pinnedUrl || null;
+  tab.pinnedUrl = tab.pin ? pinHome({ pinnedUrl: tab.pinnedUrl, url }, true) : tab.pinnedUrl || null;
   if (o.adoptId) tab.page = adoptedPage(o.adoptId);
   else if (o.wakeAdoptId) tab.page = { kind: "idle", wake: o.wakeAdoptId };
   const tabs = { ...s.tabs, [tab.id]: tab };
   const tabIds = [...w.tabIds];
-  const at = o.index ?? (tab.pinned ? pinnedInsertionIndex(s, w) : insertionIndex(s, w, tab, !!o.background));
+  const at = o.index ?? (tab.pin ? pinnedInsertionIndex(s, w) : insertionIndex(s, w, tab, !!o.background));
   tabIds.splice(Math.min(at, tabIds.length), 0, tab.id);
   const window: BrowserWindow = {
     ...w,

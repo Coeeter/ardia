@@ -298,13 +298,13 @@ test("an extension's move, pin and activation reach the sidebar", async () => {
   assert.deepEqual(order(win.w), ["d", "a", "b", "c"]);
   chrome.pin(c, true);
   await settle(win);
-  assert.equal(S().tabs[c].pinned, true);
+  assert.equal(!!S().tabs[c].pin, true);
   assert.deepEqual(order(win.w), ["c", "d", "a", "b"]);
   chrome.activate(d);
   await settle(win);
   assert.equal(shown(win.w), "d");
   assert.deepEqual(chromeOrder(win.strip), order(win.w), "Chrome and the sidebar agree");
-  assert.equal(S().tabs[a].pinned, false);
+  assert.equal(!!S().tabs[a].pin, false);
   const id = (u) => S().windows[win.w].tabIds.find((t) => urlOf(t) === u);
   const g = S().groupTabs([id("a"), id("b")], { pinned: false });
   await settle(win);
@@ -440,7 +440,7 @@ test("as in Dia: an extension pinning one pane of a split leaves the split; coll
   await settle(win);
   chrome.pin(b, true);
   await settle(win);
-  assert.equal(S().tabs[b].pinned, false, "the pane isn't pinned");
+  assert.equal(!!S().tabs[b].pin, false, "the pane isn't pinned");
   assert.ok(Object.values(S().splits).some((v) => v.tabIds.includes(a) && v.tabIds.includes(b)), "the split stays");
   assert.equal(chrome.find(b).tab.pinned, false, "Chrome is put back");
   S().activate(c);
@@ -570,7 +570,7 @@ test("Chrome's own pin or move of a group's tab while a rename of the group is o
     if (change === "pin") chrome.pin(id("b"), true);
     else chrome.reorder(win.strip, [id("x"), id("b"), id("a")]);
     await settle(win);
-    if (change === "pin") assert.equal(S().tabs[id("b")].pinned, true, "Chrome's pin stands");
+    if (change === "pin") assert.equal(!!S().tabs[id("b")].pin, true, "Chrome's pin stands");
     else assert.deepEqual(order(win.w), ["x", "b", "a"], "Chrome's move stands");
     assert.deepEqual(chromeOrder(win.strip), order(win.w));
     assert.equal(chrome.strips.get(win.strip).groups.get([...chrome.strips.get(win.strip).groups.keys()].at(-1)).title, "Renamed");

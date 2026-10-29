@@ -32,7 +32,7 @@ const DEFS: ActionDef[] = [
   { command: "reopenClosedTab", keywords: ["undo close", "restore tab"] },
   {
     command: "togglePin",
-    title: ({ tab }) => (isPinnedRow(tab) ? "Unpin Tab" : tab?.pinned ? "Unpin from Top Apps" : "Move to Top Apps"),
+    title: ({ tab }) => (isPinnedRow(tab) ? "Unpin Tab" : tab?.pin ? "Unpin from Top Apps" : "Move to Top Apps"),
     keywords: ["pin", "unpin", "pin tab", "unpin tab", "remove from top apps", "favorites"],
     needs: "tab",
   },

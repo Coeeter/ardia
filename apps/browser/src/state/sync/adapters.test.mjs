@@ -334,7 +334,7 @@ test("pinned tabs sync once however many windows show them; a closed window or a
   });
   b.with(() => S().createWindow({ url: "https://b-home.example/" }));
   await syncAll([a, b]);
-  const pins = (d) => d.with(() => Object.values(S().tabs).filter((t) => t.pinned).map((t) => t.pinnedUrl).sort());
+  const pins = (d) => d.with(() => Object.values(S().tabs).filter((t) => !!t.pin).map((t) => t.pinnedUrl).sort());
   assert.deepEqual(pins(a), ["https://cal.example/", "https://cal.example/", "https://mail.example/", "https://mail.example/"], "a copy in each of A's windows");
   assert.deepEqual(pins(b), ["https://cal.example/", "https://mail.example/"], "one each on B");
 
@@ -349,13 +349,13 @@ test("pinned tabs sync once however many windows show them; a closed window or a
     S().pinTabs([cal], false);
   });
   await syncAll([b, a]);
-  const tiles = (d, w) => d.with(() => model.viewTabIds(S(), w).filter((id) => S().tabs[id].pinned).map((id) => `${S().tabs[id].pinnedUrl} ${S().tabs[id].customTitle}`));
+  const tiles = (d, w) => d.with(() => model.viewTabIds(S(), w).filter((id) => !!S().tabs[id].pin).map((id) => `${S().tabs[id].pinnedUrl} ${S().tabs[id].customTitle}`));
   assert.deepEqual(tiles(a, aWork), ["https://mail.example/ Inbox"]);
   assert.equal((await a.sync()).published, 0, "settled");
 
   a.with(() => S().closeWindow(aWork));
   assert.equal(a.with(() => S().parkedPins.default.tabs.length), 1);
-  b.with(() => S().updateTab(Object.values(S().tabs).find((t) => t.pinned).id, { customTitle: "Mail" }));
+  b.with(() => S().updateTab(Object.values(S().tabs).find((t) => !!t.pin).id, { customTitle: "Mail" }));
   await syncAll([b, a]);
   const n = a.with(() => S().createWindow());
   await syncAll([a]);
@@ -369,8 +369,8 @@ test("pinned tabs sync once however many windows show them; a closed window or a
 const rowsOf = (d) =>
   d.with(() => {
     const w = S().windowOrder.find((id) => !S().windows[id].incognito);
-    const ids = model.viewTabIds(S(), w).filter((id) => S().tabs[id].pinned);
-    const at = (row) => ids.filter((id) => !!S().tabs[id].pinnedAsRow === row).map((id) => `${S().tabs[id].pinnedUrl}${S().tabs[id].customTitle ? ` ${S().tabs[id].customTitle}` : ""}`);
+    const ids = model.viewTabIds(S(), w).filter((id) => !!S().tabs[id].pin);
+    const at = (row) => ids.filter((id) => !!(S().tabs[id].pin?.as === "row") === row).map((id) => `${S().tabs[id].pinnedUrl}${S().tabs[id].customTitle ? ` ${S().tabs[id].customTitle}` : ""}`);
     return { tiles: at(false), rows: at(true) };
   });
 
@@ -485,7 +485,7 @@ test("a tab kept open after an unpin and pinned again as a row elsewhere comes b
   await later();
   a.with(() => S().pinTabs([tabAt("https://docs.example/")], false));
   await syncAll([a, b]);
-  assert.equal(b.with(() => S().tabs[tabAt("https://docs.example/")].pinned), false, "B keeps its open copy as a regular tab");
+  assert.equal(b.with(() => !!S().tabs[tabAt("https://docs.example/")].pin), false, "B keeps its open copy as a regular tab");
   await later();
   a.with(() => S().pinTabs([tabAt("https://docs.example/")], true, true));
   await syncAll([a, b, a, b]);
@@ -522,7 +522,7 @@ test("a mirrored row kept open after a local unpin is the tab another Mac's re-p
   await syncAll([a, b, a, b]);
   const docs = b.with(() => Object.values(S().tabs).filter((t) => t.url === "https://docs.example/" || t.pinnedUrl === "https://docs.example/"));
   assert.equal(docs.length, 1, "one tab for the page on B, not an unloaded row beside it");
-  assert.equal(docs[0].pinned && docs[0].pinnedAsRow, true, "and it is the row again");
+  assert.equal(docs[0].pin?.as, "row", "and it is the row again");
   assert.ok(docs[0].page.nav, "with its page");
 });
 
@@ -557,14 +557,14 @@ for (const row of [true, false]) {
     await syncAll([a, b, a, b]);
     b.with(() => {
       const t = S().tabs[copy];
-      assert.equal(t.pinned, true, "B pins its open page again");
-      assert.equal(!!t.pinnedAsRow, row);
+      assert.equal(!!t.pin, true, "B pins its open page again");
+      assert.equal(!!(t.pin?.as === "row"), row);
       assert.ok(!Object.values(S().groups).some((g) => g.tabIds.includes(copy)), "and takes it out of its regular group");
       assert.deepEqual(S().groups[mates]?.tabIds.map((id) => S().tabs[id].url), ["https://mate.example/"], "which keeps its other tab");
     });
     b.with(() => S().closeGroup(mates));
     await syncAll([b, a, b]);
-    assert.equal(a.with(() => S().tabs[tabAt("https://docs.example/")]?.pinned), true, "closing that group on B leaves A's pin alone");
+    assert.equal(a.with(() => !!S().tabs[tabAt("https://docs.example/")]?.pin), true, "closing that group on B leaves A's pin alone");
   });
 }
 
@@ -587,7 +587,7 @@ for (const fresh of [false, true]) {
       S().placeTabs([z], { pinned: false, groupId: group });
     });
     b.with(() => S().moveGroup(Object.values(S().groups).find((g) => g.name === "Team").id, { pinned: false }));
-    const zPinned = (d) => d.with(() => Object.values(S().tabs).filter((t) => (t.url === "https://z.example/" || t.pinnedUrl === "https://z.example/") && t.pinned).length);
+    const zPinned = (d) => d.with(() => Object.values(S().tabs).filter((t) => (t.url === "https://z.example/" || t.pinnedUrl === "https://z.example/") && !!t.pin).length);
     await a.sync();
     await b.sync();
     assert.equal(zPinned(b), 1, "B, whose group is no longer pinned, keeps the page as a standalone pin at once");
@@ -596,7 +596,7 @@ for (const fresh of [false, true]) {
     await syncAll([a, b]);
     assert.equal(zPinned(b), 1, "B has the page as a pin");
     assert.equal(zPinned(a), 1, "and A keeps its pin");
-    assert.ok(b.with(() => !Object.values(S().groups).some((g) => g.tabIds.some((id) => S().tabs[id].pinned))), "out of B's regular group");
+    assert.ok(b.with(() => !Object.values(S().groups).some((g) => g.tabIds.some((id) => !!S().tabs[id].pin))), "out of B's regular group");
     assert.equal((await b.sync()).published + (await a.sync()).published, 0, "settled");
   });
 }
@@ -799,9 +799,9 @@ const withWork = (d) =>
 const pinsIn = (d, profileId) =>
   d.with(() =>
     [
-      ...Object.values(S().tabs).filter((t) => t.pinned && t.profileId === profileId),
+      ...Object.values(S().tabs).filter((t) => !!t.pin && t.profileId === profileId),
       ...(S().parkedPins[profileId]?.tabs ?? []).filter((t) => !t.groupId),
-    ].map((t) => `${t.pinnedUrl}${t.pinnedAsRow ? " row" : ""}`).sort(),
+    ].map((t) => `${t.pinnedUrl}${(t.pin?.as === "row") ? " row" : ""}`).sort(),
   );
 
 test("a pin moved to another profile keeps its key there without touching the other profile's pin of the same key", async () => {
@@ -969,7 +969,7 @@ for (const split of [false, true]) {
     await syncAll([a, b]);
     b.with(() => {
       const bx = tabAt("https://x.example/");
-      assert.equal(S().tabs[bx].pinned, false, "B keeps its open page as a regular tab");
+      assert.equal(!!S().tabs[bx].pin, false, "B keeps its open page as a regular tab");
       const other = S().windows[b1].tabIds.find((id) => id !== bx);
       if (split) S().createSplit([bx, other]);
       else S().closeTab(other);
@@ -1173,7 +1173,7 @@ const pinnedAreaOf = (d, w) =>
     const win = w ?? Object.values(s.windows).find((x) => x.profileId === "default").id;
     return model.viewTabIds(s, win).filter((id) => model.inPinnedContainer(s, id)).map((id) => {
       const t = s.tabs[id];
-      if (t.pinned) return `${t.pinnedAsRow ? "row" : "tile"}:${pinHost(id)}`;
+      if (!!t.pin) return `${(t.pin?.as === "row") ? "row" : "tile"}:${pinHost(id)}`;
       const g = Object.values(s.groups).filter((x) => x.tabIds.includes(id)).sort((a, z) => depth(z) - depth(a))[0];
       return `${path(g)}:${pinHost(id)}`;
     });
@@ -1481,7 +1481,7 @@ const moveGroupAbove = (d, rowUrl) =>
   d.with(() => {
     const s = S();
     const g = Object.values(s.groups).find((x) => x.name === "Group" && x.pinned);
-    const row = Object.values(s.tabs).find((t) => t.pinned && t.pinnedUrl === rowUrl);
+    const row = Object.values(s.tabs).find((t) => !!t.pin && t.pinnedUrl === rowUrl);
     s.moveGroup(g.id, { pinned: true, beforeId: row.id });
   });
 const moveGroupToEnd = (d) =>
@@ -1605,7 +1605,7 @@ async function freshDelayed({ bFirst = false } = {}) {
   const known = new Set(folder.files.keys());
   a.with(() => {
     const fresh = S().newTab(w, { url: "https://fresh.example/", background: true });
-    const row = Object.values(S().tabs).find((t) => t.pinnedAsRow && t.pinnedUrl === "https://row.example/");
+    const row = Object.values(S().tabs).find((t) => (t.pin?.as === "row") && t.pinnedUrl === "https://row.example/");
     S().placeTabs([fresh], { pinned: true, row: true, beforeId: row.id });
   });
   await a.sync();
@@ -1935,11 +1935,11 @@ test("a pin unpinned and pinned again while its deletion is being pulled stays p
   await syncAll([a, b], 3);
   a.with(() => S().pinTabs([Object.values(S().tabs).find((t) => t.pinnedUrl === "https://x.example/").id], false));
   await a.sync();
-  assert.ok(a.with(() => !Object.values(S().tabs).some((t) => t.pinned && t.pinnedUrl === "https://x.example/")));
+  assert.ok(a.with(() => !Object.values(S().tabs).some((t) => !!t.pin && t.pinnedUrl === "https://x.example/")));
   folder.onRead = () => {
     if (stub.current.device !== "devB") return;
     folder.onRead = undefined;
-    const x = Object.values(S().tabs).find((t) => t.pinned && t.pinnedUrl === "https://x.example/").id;
+    const x = Object.values(S().tabs).find((t) => !!t.pin && t.pinnedUrl === "https://x.example/").id;
     S().placeTabs([x], { pinned: false, beforeId: null });
     S().placeTabs([x], { pinned: true, row: true, beforeId: null });
   };

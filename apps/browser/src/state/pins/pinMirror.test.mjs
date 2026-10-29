@@ -15,7 +15,7 @@ const pinned = (w) =>
   });
 const regular = (w) => model.viewTabIds(S(), w).filter((id) => !model.inPinnedContainer(S(), id)).map((id) => S().tabs[id].url);
 const loaded = (id) => !!S().tabs[id].page.nav || !!S().tabs[id].page.adopt;
-const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === url);
+const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => !!S().tabs[id].pin && S().tabs[id].pinnedUrl === url);
 
 function twoWindows() {
   const a = S().createWindow({ url: "https://mail.com" });
@@ -111,7 +111,7 @@ test("relaunch: every restored window shows the pins; a 0.2.27 session whose win
   assert.deepEqual(pinned(a), PINS);
   assert.deepEqual(pinned(b), PINS);
 
-  const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pinned, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 });
+  const tab = (id, windowId, url, pinned) => ({ id, windowId, profileId: "default", url, title: "", favicon: null, pin: pinned ? { as: "tile" } : null, muted: false, zoom: 1, customTitle: null, customIcon: null, pinnedUrl: pinned ? url : null, page: { kind: "idle" }, openerId: null, createdAt: 0, lastActiveAt: 0 });
   const win = (id, tabIds) => ({ id, profileId: "default", incognito: false, tabIds, activeTabIds: { default: tabIds.at(-1) }, sidebarOpen: true, frame: null, createdAt: 0 });
   S().hydrate({
     windows: { w1: win("w1", ["x1", "m1", "r1"]), w2: win("w2", ["y2", "x2", "r2"]) },
@@ -125,7 +125,7 @@ test("relaunch: every restored window shows the pins; a 0.2.27 session whose win
   const union = ["https://x.com/", "https://mail.com/", "https://y.com/"];
   assert.deepEqual(pinned("w1"), union, "nothing lost: the windows' pins together, x.com once");
   assert.deepEqual(pinned("w2"), union);
-  assert.equal(S().tabs.x2.pinned, true, "w2 keeps its own x.com tile as the copy");
+  assert.equal(!!S().tabs.x2.pin, true, "w2 keeps its own x.com tile as the copy");
 });
 
 test("pinned groups are mirrored too, and unpinning a group unpins it everywhere", () => {
@@ -160,7 +160,7 @@ test("moving a pinned tab's page to another window moves the page, not the pin; 
   assert.deepEqual(Object.keys(S().windows), [c]);
   assert.deepEqual(pinned(c), PINS, "one tile per pin after the merge");
   assert.equal(tileOf(c, "https://mail.com"), mail, "the tile with a page wins");
-  assert.equal(Object.values(S().tabs).filter((t) => t.pinned).length, 2, "no stray copies left");
+  assert.equal(Object.values(S().tabs).filter((t) => !!t.pin).length, 2, "no stray copies left");
 });
 
 test("a tile torn off into its own window keeps its place in the first window", () => {

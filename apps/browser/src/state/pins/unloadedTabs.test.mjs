@@ -6,7 +6,7 @@ const { isPageUnloaded } = await import("./pinShare.ts");
 
 const S = () => useBrowser.getState();
 const unloaded = (id) => isPageUnloaded(S(), id);
-const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => S().tabs[id].pinned && S().tabs[id].pinnedUrl === url);
+const tileOf = (w, url) => model.viewTabIds(S(), w).find((id) => !!S().tabs[id].pin && S().tabs[id].pinnedUrl === url);
 
 test("a tab counts as unloaded only while it has no page anywhere", () => {
   S().hydrate({});

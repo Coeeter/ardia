@@ -1,4 +1,4 @@
-import { canonical, type ScopeState } from "../../platform/sync";
+import { canonical, pullSettled, type ScopeState } from "../../platform/sync";
 import { useBrowser } from "../browser/store";
 import type { Profile } from "../browser/types";
 import { legacyThemeOf, themeAngleKey, themeFromRecord } from "./profileAdapters";
@@ -36,8 +36,7 @@ export function settleAppliedThemes(profiles: Record<string, ProfileLink>, app: 
 
 export function confirmThemes(profiles: Record<string, ProfileLink>, app: ScopeState) {
   settleAppliedThemes(profiles, app);
-  if (app.pending > 0 || Object.keys(app.damaged).length > 0) return;
-  if (Object.values(app.files).some((f) => f.k === "bad")) return;
+  if (!pullSettled(app)) return;
   for (const link of Object.values(profiles)) {
     if (!link.themeAdopting) continue;
     const record = app.records[`${PROFILE_THEME}${link.syncId}`];

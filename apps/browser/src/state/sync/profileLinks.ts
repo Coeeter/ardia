@@ -1,4 +1,4 @@
-import { emptyScope, SyncNative, visible, type ScopeState } from "../../platform/sync";
+import { emptyScope, holdsBack, SyncNative, visible, type ScopeState } from "../../platform/sync";
 import { useBrowser } from "../browser/store";
 import { isIncognitoProfile } from "../browser/model";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
@@ -50,8 +50,7 @@ export function readyToPair(doc: SyncDoc, app: ScopeState, now = Date.now()): bo
   if (!doc.joining || pairingOverdue(doc, now)) return true;
   const synced = [...visible(app, PROFILE).values()].flatMap((v) => profileRecord(v) ?? []);
   if (synced.some((r) => r.d)) return true;
-  const downloading = Object.values(app.pendingSince ?? {}).some((at) => now - at <= PAIRING_WAIT_MS);
-  return synced.length > 0 && !downloading && !Object.keys(app.damaged).length;
+  return synced.length > 0 && !holdsBack(app, now, PAIRING_WAIT_MS);
 }
 
 export function linkProfiles(doc: SyncDoc, app: ScopeState) {

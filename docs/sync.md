@@ -256,10 +256,13 @@ Profiles).
   alike. A profile already here keeps the data it has.
 - A profile's sharing is fixed for its life, so `share:` is written once: a Mac publishes it for a profile that shares a
   synced owner's data only while the scope has no record of that key (one a 0.2.38 Mac kept unapplied counts), and
-  only once this session has pulled the app scope with no download and no damaged file still unresolved
-  (`publishAfterPull`; either stops counting after a day, a download from when the scope first saw it pending, kept as
-  `pendingSince`; a time ahead of the clock counts as now, so a file iCloud never brings down can't hold it back for good), so a Mac back on an older saved
-  state sees what's out there first. A sharing profile's `prof:` goes out with its `share:`, in the same batch, so no
+  only after the cycle's own pull of the app scope, and only when that pull left no download and no damaged file
+  unresolved (`publishAfterPull`, decided in `fileHealth.ts`; a download stops counting a day after the scope first saw
+  it pending, kept as `pendingSince`, and a damaged file is set aside a day after it was first damaged, kept in
+  `damaged`, whatever it did in between; a time ahead of the clock counts as now, so a file iCloud never brings down
+  can't hold it back for good), so a Mac back on an older saved state sees what's out there first. Such an adapter
+  still takes its timestamps in the cycle's first pass, before the pull, so a newer edit from another Mac pulled in
+  the same cycle beats an older one held back here (pinned homes rely on it). A sharing profile's `prof:` goes out with its `share:`, in the same batch, so no
   Mac offers it without its sharing. Never as a tombstone, so a deleted profile offered again by "Add to This Mac"
   shares as before, and never over a value this Mac has. Known residual: a value another Mac published that this Mac
   hasn't pulled yet can lose to this Mac's, when a profile's owner starts syncing here mid-session (the cycle's first
